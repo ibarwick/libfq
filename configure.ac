@@ -17,6 +17,6 @@ AC_CONFIG_FILES([Makefile lib/Makefile])
 AC_CHECK_HEADERS([fcntl.h limits.h string.h stdlib.h math.h sys/time.h unistd.h])
 AC_CHECK_FUNCS([memmove memset strchr strdup strstr strtol atoi atof])
 
-LT_INIT
+#LT_INIT
 
 AC_OUTPUT
