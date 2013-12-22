@@ -97,13 +97,10 @@ am__uninstall_files_from_dir = { \
   }
 am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libfq_la_LIBADD =
+lib_libfq_la_LIBADD =
+lib_libfq_la_SOURCES = lib/libfq.c
 am__dirstamp = $(am__leading_dot)dirstamp
-am_libfq_la_OBJECTS = lib/libfq.lo lib/fqexpbuffer.lo
-libfq_la_OBJECTS = $(am_libfq_la_OBJECTS)
-libfq_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(libfq_la_LDFLAGS) \
-	$(LDFLAGS) -o $@
+lib_libfq_la_OBJECTS = lib/libfq.lo
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -117,8 +114,8 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(libfq_la_SOURCES)
-DIST_SOURCES = $(libfq_la_SOURCES)
+SOURCES = lib/libfq.c
+DIST_SOURCES = lib/libfq.c
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-dvi-recursive install-exec-recursive \
@@ -302,7 +299,7 @@ SUBDIRS = lib
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -I$(top_builddir)/include -I$(ibase)
 include_HEADERS = include/c.h  include/fqexpbuffer.h  include/libfq.h  include/libfq-int.h
-lib_LTLIBRARIES = libfq.la
+lib_LTLIBRARIES = lib/libfq.la
 libfq_la_SOURCES = lib/libfq.c lib/fqexpbuffer.c
 libfq_la_LDFLAGS = -version-info 0:1:0
 all: all-recursive
@@ -384,21 +381,17 @@ lib/$(DEPDIR)/$(am__dirstamp):
 	@$(MKDIR_P) lib/$(DEPDIR)
 	@: > lib/$(DEPDIR)/$(am__dirstamp)
 lib/libfq.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
-lib/fqexpbuffer.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
-libfq.la: $(libfq_la_OBJECTS) $(libfq_la_DEPENDENCIES) $(EXTRA_libfq_la_DEPENDENCIES) 
-	$(libfq_la_LINK) -rpath $(libdir) $(libfq_la_OBJECTS) $(libfq_la_LIBADD) $(LIBS)
+lib/libfq.la: $(lib_libfq_la_OBJECTS) $(lib_libfq_la_DEPENDENCIES) $(EXTRA_lib_libfq_la_DEPENDENCIES) lib/$(am__dirstamp)
+	$(LINK) -rpath $(libdir) $(lib_libfq_la_OBJECTS) $(lib_libfq_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
-	-rm -f lib/fqexpbuffer.$(OBJEXT)
-	-rm -f lib/fqexpbuffer.lo
 	-rm -f lib/libfq.$(OBJEXT)
 	-rm -f lib/libfq.lo
 
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/fqexpbuffer.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/libfq.Plo@am__quote@
 
 .c.o:
