@@ -8,3 +8,4 @@ Makefile
 # Local excludes in root directory
 /config.log
 /config.status
+/autom4te.cache

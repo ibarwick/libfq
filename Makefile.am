@@ -6,7 +6,7 @@ SUBDIRS = lib
 
 ACLOCAL_AMFLAGS = -I m4
 
-AM_CPPFLAGS        = -I $(top_builddir)/include
+AM_CPPFLAGS        = -I$(top_builddir)/include -I$(ibase)
 
 include_HEADERS = include/c.h  include/fqexpbuffer.h  include/libfq.h  include/libfq-int.h
 
