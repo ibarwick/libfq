@@ -5,7 +5,9 @@ Makefile
 *~
 .#*
 *dSYM*
-
+.libs
+.deps
+.dirstamp
 # Local excludes in root directory
 /config.log
 /config.status

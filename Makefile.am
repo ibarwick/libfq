@@ -10,8 +10,8 @@ AM_CPPFLAGS        = -I$(top_builddir)/include -I$(ibase)
 
 include_HEADERS = include/c.h  include/fqexpbuffer.h  include/libfq.h  include/libfq-int.h
 
-lib_LTLIBRARIES = lib/libfq.la
+lib_LTLIBRARIES = libfq.la
 libfq_la_SOURCES = lib/libfq.c lib/fqexpbuffer.c
-libfq_la_LDFLAGS=-version-info 0:1:0
+libfq_la_LDFLAGS = -version-info 0:2:0
 
 

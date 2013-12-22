@@ -2,7 +2,7 @@
 #define LIBFQ_H
 
 
-#include "ibase.h"
+#include <ibase.h>
 
 #include "fqexpbuffer.h"
 
