@@ -1,18 +1,17 @@
 /*-------------------------------------------------------------------------
  *
- * pqexpbuffer.c
+ * fqexpbuffer.c
  *
- * PQExpBuffer provides an indefinitely-extensible string data type.
+ * FQExpBuffer provides an indefinitely-extensible string data type.
  * It can be used to buffer either ordinary C strings (null-terminated text)
  * or arbitrary binary data.  All storage is allocated with malloc().
  *
- * This module is essentially the same as the backend's StringInfo data type,
- * but it is intended for use in frontend libpq and client applications.
- * Thus, it does not rely on palloc() nor elog().
+ * This module is essentially a copy of PostgreSQL's pqexpbuffer.c; see:
  *
- * It does rely on vsnprintf(); if configure finds that libc doesn't provide
- * a usable vsnprintf(), then a copy of our own implementation of it will
- * be linked into libpq.
+ *   http://git.postgresql.org/gitweb/?p=postgresql.git;f=src/interfaces/libpq/pqexpbuffer.c;hb=HEAD
+ *
+ * Note that this library relies on vsnprintf() and will not work if a
+ * suitable implementation is not available.
  *
  * Portions Copyright (c) 1996-2013, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

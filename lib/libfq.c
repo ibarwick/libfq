@@ -26,6 +26,11 @@
  *   -> NUMERIC/DECIMAL: may overflow if more digits than
  *        permitted are supplied
  *
+ * - Character sets, encoding and wide characters
+ *   -> all data is assumed to be UTF8
+ *   -> however there is current no special handling of non-ASCII
+ *      characters
+ *
  *----------------------------------------------------------------------
  */
 
@@ -43,36 +48,6 @@
 #include "libfq-int.h"
 #include "libfq.h"
 
-/*
- * TODO
- *
- * - Handle all data types:
- *   - SQL_D_FLOAT??
- *   - BLOB types
- *   -> useful: http://www.firebirdsql.org/manual/migration-mssql-data-types.html
- * - _FQexecParams():
- *   -> handle all data types
- *   -> fix NASTY HACK with overlength SQL_TEXT values
- * - FQclear():
- *   -> ensure all memory is freed
- *
- *
- *
- * DONE:
- * - make "int           buffer[65536];" dynamic
- * - _FQexecParams():
- *   -> on free sqlda etc., also on error
- *   -> maybe also _FQexec()?
- *   -> handle NULLs
- *   -> handle DECIMAL/NUMERIC
- * - FQgetisnull()
- *   -> implement
- * - Handle all data types:
- *   - DECIMAL (implemented internally as int type + dscale)
- * - FQlog(): use client_min_messages setting
- * - maybe add a RDB$DB_KEY pseudo-type
- */
-
 
 /* Internal utility functions */
 static FQtransactionStatusType
@@ -82,7 +57,7 @@ _FQrollbackTransaction(FQconn *conn, isc_tr_handle *trans);
 static FQtransactionStatusType
 _FQstartTransaction(FQconn *conn, isc_tr_handle *trans);
 
-static FQresTupleAtt *FQformatDatum (FQresTupleAttDesc *att_desc, XSQLVAR *var);
+static FQresTupleAtt *_FQformatDatum (FQresTupleAttDesc *att_desc, XSQLVAR *var);
 static FQresult *_FQinitResult();
 static void _FQexecClearResult(FQresult *result);
 static void _FQexecFillTuplesArray(FQresult *result);
@@ -101,15 +76,13 @@ static FQresult *_FQexecParams(FQconn *conn,
 							   int resultFormat);
 
 
-static char *
-_FQexecSingleItemQuery(FQconn *conn, isc_tr_handle *trans, const char *stmt);
 static void _FQsetResultError(const FQconn *conn, FQresult *res);
 static void _FQsaveMessageField(FQresult *res, FQdiagType code, const char *value, ...);
 static char *_FQdeparseDbKey(const char *db_key);
 static char *_FQparseDbKey(const char *db_key);
 
 
-/*
+/**
  * FQconnect()
  *
  * Create a connection to a Firebird database
@@ -188,7 +161,6 @@ FQfinish(FQconn *conn)
  *
  * Extract the server version code and cache in the connection handle
  */
-
 char *
 FQserverVersion(FQconn *conn)
 {
@@ -196,11 +168,16 @@ FQserverVersion(FQconn *conn)
 
 	if(conn->engine_version == NULL)
 	{
+		FQresult   *res;
+
 		if(_FQstartTransaction(conn, &conn->trans_internal) == TRANS_ERROR)
-		{
 			return NULL;
-		}
-		conn->engine_version = _FQexecSingleItemQuery(conn, &conn->trans_internal, sql);
+
+		res = _FQexec(conn, &conn->trans_internal, sql);
+		if(FQresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
+			conn->engine_version = FQgetvalue(res, 0, 0);
+		else
+			conn->engine_version = "";
 
 		_FQcommitTransaction(conn, &conn->trans_internal);
 	}
@@ -215,7 +192,6 @@ FQserverVersion(FQconn *conn)
  * Initialise an FQresult object with sensible defaults and
  * preallocate in/out SQLDAs.
  */
-
 static FQresult *
 _FQinitResult()
 {
@@ -253,7 +229,6 @@ _FQinitResult()
  * Free temporary memory allocation in a result object not required
  * after query execution has completed
  */
-
 static void
 _FQexecClearResult(FQresult *result)
 {
@@ -283,7 +258,6 @@ _FQexecClearResult(FQresult *result)
  *
  * Initialise an output SQLDA to hold a retrieved row
  */
-
 static void
 _FQexecInitOutputSQLDA(FQresult *result)
 {
@@ -325,13 +299,12 @@ _FQexecInitOutputSQLDA(FQresult *result)
 }
 
 
-	/*
-	 * stmt_info is a 1 byte info request.  info_buffer is a buffer
-	 * large enough to hold the returned info packet
-	 * The info_buffer returned contains a isc_info_sql_stmt_type in the first byte,
-	 * two bytes of length, and a statement_type token.
-		 */
-
+/**
+ * _FQexecParseStatementType
+ *
+ * info_buffer contains a isc_info_sql_stmt_type in the first byte,
+ * two bytes of length, and a statement_type token.
+ */
 static ISC_LONG
 _FQexecParseStatementType(char *info_buffer)
 {
@@ -346,7 +319,6 @@ _FQexecParseStatementType(char *info_buffer)
  * Create an array of tuple pointers to provide fast offset-based
  * access to individual tuples.
  */
-
 static void
 _FQexecFillTuplesArray(FQresult *result)
 {
@@ -373,7 +345,6 @@ _FQexecFillTuplesArray(FQresult *result)
  *
  * To execute parameterized queries, use FQexecParams().
  */
-
 FQresult *
 FQexec(FQconn *conn, const char *stmt)
 {
@@ -710,7 +681,7 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
         for (i = 0; i < result->ncols; i++)
         {
 			XSQLVAR *var = (XSQLVAR *)&result->sqlda_out->sqlvar[i];
-			FQresTupleAtt *tuple_att = FQformatDatum(result->header[i], var);
+			FQresTupleAtt *tuple_att = _FQformatDatum(result->header[i], var);
 
 			if(tuple_att->value == NULL)
 			{
@@ -777,7 +748,6 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
  * resultFormat
  *   - (currently unused)
  */
-
 FQresult *
 FQexecParams(FQconn *conn,
 			 const char *stmt,
@@ -808,7 +778,7 @@ FQexecParams(FQconn *conn,
  * Actually execute the parameterized query. See above for parameter
  * details.
  *
- * Be warned, this was a pain to cludge together (o Firebird C API, how
+ * Be warned, this was a pain to kludge together (oh Firebird C API, how
  * I love your cryptic minimalism) and is in dire need of refactoring.
  * But it works. Mostly.
  */
@@ -1432,12 +1402,9 @@ _FQexecParams(FQconn *conn,
 	/* Expand output sqlda to required number of columns */
     result->ncols = result->sqlda_out->sqld;
 
-	FQlog(conn, DEBUG1, "out ncols: %i",  result->ncols);
-
 	/* No output expected */
 	if(!result->ncols)
 	{
-
 		if (isc_dsql_execute(conn->status, trans, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_in))
 		{
 			FQlog(conn, DEBUG1, "isc_dsql_execute(): error");
@@ -1446,7 +1413,7 @@ _FQexecParams(FQconn *conn,
 
 			_FQsetResultError(conn, result);
 			result->resultStatus = FBRES_FATAL_ERROR;
-			FQlog(conn, DEBUG1, "%s", FQresultErrorMessage(result));
+
 			FQresultDumpErrorFields(conn, result);
 			/* if autocommit, and no explicit transaction set, rollback */
 
@@ -1478,15 +1445,9 @@ _FQexecParams(FQconn *conn,
 
 		result->ncols = result->sqlda_out->sqld;
 		isc_dsql_describe(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out);
-			/* FQlog(conn, DEBUG1, "expanded result->sqlda_out: %i", result->ncols);*/
 	}
 
-	/*
-     * Initialise output SQLDA.
-     */
 	_FQexecInitOutputSQLDA(result);
-
-	FQlog(conn, DEBUG1, "executing...");
 
 	if (isc_dsql_execute2(conn->status, trans, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_in, NULL))
 	{
@@ -1506,15 +1467,13 @@ _FQexecParams(FQconn *conn,
 		return result;
 	}
 
-	/**
-	 * set up tuple holder
-	 */
+	/* set up tuple holder */
 	result->tuple_last = (FQresTuple *)malloc(sizeof(FQresTuple));
 	result->tuple_first = result->tuple_last;
 
 	result->header = malloc(sizeof(FQresTupleAttDesc *) * result->ncols);
 
-	/* don't need this, it seems */
+	/* XXX TODO: verify if this is needed */
 	if(isc_dsql_set_cursor_name(conn->status, &result->stmt_handle, "dyn_cursor", 0))
 	{
 		_FQsetResultError(conn, result);
@@ -1534,7 +1493,7 @@ _FQexecParams(FQconn *conn,
 		result->tuple_last->next = tuple_next;
 		result->tuple_last->values = malloc(sizeof(FQresTupleAtt) * result->ncols);
 
-		// store header information
+		/* store header information */
 		if(num_rows == 0)
 		{
 			for (i = 0; i < result->ncols; i++)
@@ -1560,7 +1519,7 @@ _FQexecParams(FQconn *conn,
 				}
 				desc->att_max_len = 0;
 
-				/* Firebird returns RDB$DB_KEY as "DB_KEY" - set the pseudo-datatype*/
+				/* Firebird returns RDB$DB_KEY as "DB_KEY" - set the pseudo-datatype */
 				if(strncmp(desc->desc, "DB_KEY", 6) == 0)
 					desc->type = SQL_DB_KEY;
 				else
@@ -1571,11 +1530,11 @@ _FQexecParams(FQconn *conn,
 			}
 		}
 
-
+		/* Store tuple data */
         for (i = 0; i < result->ncols; i++)
         {
 			XSQLVAR *var = (XSQLVAR *)&result->sqlda_out->sqlvar[i];
-			FQresTupleAtt *tuple_att = FQformatDatum(result->header[i], var);
+			FQresTupleAtt *tuple_att = _FQformatDatum(result->header[i], var);
 
 			if(tuple_att->value == NULL)
 			{
@@ -1638,6 +1597,12 @@ _FQexecParams(FQconn *conn,
 }
 
 
+/**
+ * FQerrorMessage()
+ *
+ * Returns the most recent error message associated with the result, or an
+ * empty string.
+ */
 char *
 FQerrorMessage(const FQconn *conn)
 {
@@ -1646,16 +1611,22 @@ FQerrorMessage(const FQconn *conn)
 }
 
 
+/**
+ * FQresultErrorMessage()
+ *
+ * Return the error message associated with the result, or an empty string.
+ */
 char *
 FQresultErrorMessage(const FQresult *res)
 {
-	return res->errMsg;
+	return res->errMsg == NULL ? "" : res->errMsg;
 }
+
 
 /**
  * FQresultErrorField()
  *
- * Returns an individual field of an error report.
+ * Returns an individual field of an error report, or NULL.
  */
 char *
 FQresultErrorField(const FQresult *res, FQdiagType fieldcode)
@@ -1717,7 +1688,6 @@ FQresultErrorFieldsAsString(const FQresult *res, char *prefix)
  * order, until we can find a way of assigning appropriate diagnostic
  * codes to each field
  */
-
 void
 FQresultDumpErrorFields(FQconn *conn, const FQresult *res)
 {
@@ -1736,7 +1706,9 @@ FQresultDumpErrorFields(FQconn *conn, const FQresult *res)
 }
 
 
-/*
+/**
+ * _FQsetResultError()
+ *
  * http://ibexpert.net/ibe/index.php?n=Doc.Firebird21ErrorCodes
  * http://www.firebirdsql.org/file/documentation/reference_manuals/reference_material/Firebird-2.1-ErrorCodes.pdf
  * also ibase.h
@@ -1764,8 +1736,10 @@ _FQsetResultError(const FQconn *conn, FQresult *res)
 }
 
 
-/*
- * _FQsaveMessageField - save one field of an error or notice message
+/**
+ * _FQsaveMessageField()
+ *
+ * store one field of an error or notice message
  */
 void
 _FQsaveMessageField(FQresult *res, FQdiagType code, const char *value, ...)
@@ -1803,13 +1777,13 @@ _FQsaveMessageField(FQresult *res, FQdiagType code, const char *value, ...)
 	res->errFields = mfield;
 }
 
+
 /**
  * FQexecTransaction()
  *
  * Convenience function to execute a query using the internal
  * transaction handle.
  */
-
 FQresult *
 FQexecTransaction(FQconn *conn, const char *stmt)
 {
@@ -1854,38 +1828,6 @@ FQexecTransaction(FQconn *conn, const char *stmt)
 }
 
 
-char *
-FQexecSingleItemQuery(FQconn *conn, const char *stmt)
-{
-	return(_FQexecSingleItemQuery(conn, &conn->trans, stmt));
-}
-
-
-static char *
-_FQexecSingleItemQuery(FQconn *conn, isc_tr_handle *trans, const char *stmt)
-{
-	FQresult   *res;
-	char *p = NULL;
-
-	/* TODO: verify that stmt is SELECT ... */
-
-	res = _FQexec(conn, trans, stmt);
-
-	if(!FQntuples(res))
-	{
-		FQclear(res);
-		return NULL;
-	}
-
-	if(!FQgetisnull(res, 0, 0))
-		p = FQgetvalue(res, 0, 0);
-
-	FQclear(res);
-
-	return p;
-}
-
-
 /**
  * FQstatus()
  *
@@ -1903,7 +1845,7 @@ FQstatus(const FQconn *conn)
 
 
 /**
- * FQntupless()
+ * FQntuples()
  *
  * Returns the number of tuples (rows) in the provided result.
  * Defaults to -1 if no query has been executed.
@@ -1946,6 +1888,7 @@ FQfhasNull(const FQresult *res, int column_number)
 	return res->header[column_number]->has_null;
 }
 
+
 /**
  * FQfmaxwidth()
  *
@@ -1983,7 +1926,6 @@ FQfmaxwidth(const FQresult *res, int column_number)
  *
  * Provides the name (or alias, if set) of a particular field (column).
  */
-
 char *
 FQfname(const FQresult *res, int column_number)
 {
@@ -2075,13 +2017,23 @@ FQftype(const FQresult *res, int column_number)
 }
 
 
+/**
+ * FQresultStatus()
+ *
+ * Returns the result status of the previously execute command
+ */
 FQexecStatusType
 FQresultStatus(const FQresult *res)
 {
 	return res->resultStatus;
 }
 
-
+/**
+ * FQisActiveTransaction()
+ *
+ * Indicate whether the provided connection has been marked
+ * as being in a user-initiated transaction
+ */
 bool
 FQisActiveTransaction(FQconn *conn)
 {
@@ -2089,6 +2041,11 @@ FQisActiveTransaction(FQconn *conn)
 }
 
 
+/**
+ * FQsetAutocommit()
+ *
+ * Set connection's autocommit status
+ */
 void
 FQsetAutocommit(FQconn *conn, bool autocommit)
 {
@@ -2096,74 +2053,97 @@ FQsetAutocommit(FQconn *conn, bool autocommit)
 }
 
 
+/**
+ * FQcommitTransaction()
+ *
+ * Commit the connection's default transaction handle
+ */
 FQtransactionStatusType
 FQcommitTransaction(FQconn *conn)
 {
-    if (isc_commit_transaction(conn->status, &conn->trans))
-		return TRANS_ERROR;
-
-	return TRANS_OK;
+	return _FQcommitTransaction(conn, &conn->trans);
 }
 
 
+/**
+ * FQrollbackTransaction()
+ *
+ * Roll back the connection's default transaction handle
+ */
 FQtransactionStatusType
 FQrollbackTransaction(FQconn *conn)
 {
-    if (isc_rollback_transaction(conn->status, &conn->trans))
-		return TRANS_ERROR;
-
-	return TRANS_OK;
+	return _FQrollbackTransaction(conn, &conn->trans);
 }
 
 
+/**
+ * FQstartTransaction()
+ *
+ * Start a transaction using the connection's default transaction handle
+ */
 FQtransactionStatusType
 FQstartTransaction(FQconn *conn)
 {
-    if (isc_start_transaction(conn->status, &conn->trans, 1, &conn->db, 0, NULL))
-		return TRANS_ERROR;
-
-	return TRANS_OK;
+	return _FQstartTransaction(conn, &conn->trans);
 }
 
 
+/**
+ * _FQcommitTransaction()
+ *
+ * Commit the provided transaction handle
+ */
 static FQtransactionStatusType
 _FQcommitTransaction(FQconn *conn, isc_tr_handle *trans)
 {
-    if (isc_commit_transaction(conn->status, trans))
+    if(isc_commit_transaction(conn->status, trans))
 		return TRANS_ERROR;
 
 	*trans = 0L;
 
-	//FQlog(conn, DEBUG1, "_FQcommitTransaction(): %i", *trans);
-
 	return TRANS_OK;
 }
 
 
+/**
+ * _FQrollbackTransaction()
+ *
+ * Roll back the provided transaction handle
+ */
 static FQtransactionStatusType
 _FQrollbackTransaction(FQconn *conn, isc_tr_handle *trans)
 {
-    if (isc_rollback_transaction(conn->status, trans))
-                return TRANS_ERROR;
+    if(isc_rollback_transaction(conn->status, trans))
+		return TRANS_ERROR;
 	*trans = 0L;
-	//FQlog(conn, DEBUG1, "_FQrollbackTransaction(): %i", *trans);
 
 	return TRANS_OK;
 }
 
+
+/**
+ * _FQstartTransaction()
+ *
+ * Start a transaction using the provided transaction handle
+ */
 static FQtransactionStatusType
 _FQstartTransaction(FQconn *conn, isc_tr_handle *trans)
 {
     if (isc_start_transaction(conn->status, trans, 1, &conn->db, 0, NULL))
 		return TRANS_ERROR;
-	//FQlog(conn, DEBUG1, "_FQstartTransaction(): %i", *trans);
 
 	return TRANS_OK;
 }
 
 
+/**
+ * _FQformatDatum()
+ *
+ * Format the provided SQLDA Datum as a FQresTupleAtt
+ */
 static FQresTupleAtt *
-FQformatDatum (FQresTupleAttDesc *att_desc, XSQLVAR *var)
+_FQformatDatum(FQresTupleAttDesc *att_desc, XSQLVAR *var)
 {
 	FQresTupleAtt *tuple_att;
 	short       datatype;
@@ -2283,7 +2263,7 @@ FQformatDatum (FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			{
 				p = (char *)malloc(field_width + 1);
 
-				sprintf (p, "%*lld%",
+				sprintf (p, "%*lld",
 						 field_width,
 						 (ISC_INT64) value);
 			}
@@ -2339,13 +2319,16 @@ FQformatDatum (FQresTupleAttDesc *att_desc, XSQLVAR *var)
 		 * copy byte values individually, don't treat as string
 		 */
 		case SQL_DB_KEY:
-			p = (char *)malloc(var->sqllen + 2);
-			char *p_ptr = p;
+		{
+			char *p_ptr;
 			char *db_key = var->sqldata;
+			p = (char *)malloc(var->sqllen + 2);
+			p_ptr = p;
 
 			for(; db_key < var->sqldata + var->sqllen; db_key++)
 				*p_ptr++ = *db_key;
 			break;
+		}
 
 		default:
 			p = (char *)malloc(64);
@@ -2367,6 +2350,7 @@ FQformatDatum (FQresTupleAttDesc *att_desc, XSQLVAR *var)
 /**
  * FQformatDbKey()
  *
+ * Format an RDB$DB_KEY value for output
  */
 char *
 FQformatDbKey(const FQresult *res,
@@ -2392,13 +2376,13 @@ FQformatDbKey(const FQresult *res,
 	return _FQparseDbKey(value);
 }
 
+
 /**
  * _FQparseDbKey()
  *
  * Given an 8-byte sequence representing an RDB$DB_KEY value,
  * return a pointer to a 16-byte hexadecimal representation in ASCII
  */
-
 char *
 _FQparseDbKey(const char *db_key)
 {
