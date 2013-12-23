@@ -3,7 +3,7 @@
  * libfq - C API wrapper for Firebird
  *
  * libfq provides a number of functions which act as convenience
- * wrappers around the native Firebird API, which is cumbersome to use.
+ * wrappers around the native Firebird C API, which is cumbersome to use.
  *
  * It is loosely based on PostgreSQL's libpq and provides a subset of
  * that API's functions - names beginning with "FQ" rather than "PQ"
@@ -11,15 +11,18 @@
  * It also provides a small number of Firebird-specific functions.
  *
  * While basically functional, libfq is still work-in-progress and
- * the API specifications may change in an incompatible way.
+ * the API definitions may change in an incompatible way.
  * USE AT YOUR OWN RISK.
  *
- * KNOWN ISSUES (hopefully to be resolved at some point)
+ * KNOWN ISSUES (which will be resolved at some point)
  *
  * - Compatiblity:
  *   -> tested on Linux and OS X
  *   -> should work on other reasonably POSIXy systems
  *   -> unlikely to work without modification on Win32 systems
+ *
+ * - Data types
+ *   -> BLOB and ARRAY datatypes are not handled
  *
  * - Parameterized queries (function "FQexecParams()"):
  *   -> TIMESTAMP/TIME: currently sub-second units are truncated
@@ -115,7 +118,6 @@ FQconnect(char *db_path, char *uname, char *upass)
 	conn->dpb_length = dpb - (char*)conn->dpb_buffer;
 	dpb = (char *)conn->dpb_buffer;
 
-
 	if(uname != NULL)
 		isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_user_name, uname, strlen(uname));
 
@@ -153,6 +155,7 @@ FQfinish(FQconn *conn)
 			);
 
 	free(conn);
+	conn = NULL;
 }
 
 
@@ -2483,10 +2486,7 @@ FQclear(FQresult *res)
 	}
 
 	if(res->errMsg)
-	{
 		free(res->errMsg);
-		res->errMsg = NULL;
-	}
 
 	if(res->errFields)
 	{
@@ -2500,6 +2500,7 @@ FQclear(FQresult *res)
 
 	/* TODO - check for any other malloc'd sections */
 	free(res);
+	res = NULL;
 }
 
 
