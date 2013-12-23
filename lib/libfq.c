@@ -2,38 +2,6 @@
  *
  * libfq - C API wrapper for Firebird
  *
- * libfq provides a number of functions which act as convenience
- * wrappers around the native Firebird C API, which is cumbersome to use.
- *
- * It is loosely based on PostgreSQL's libpq and provides a subset of
- * that API's functions - names beginning with "FQ" rather than "PQ"
- * of course - with more-or-less identical function signatures.
- * It also provides a small number of Firebird-specific functions.
- *
- * While basically functional, libfq is still work-in-progress and
- * the API definitions may change in an incompatible way.
- * USE AT YOUR OWN RISK.
- *
- * KNOWN ISSUES (which will be resolved at some point)
- *
- * - Compatiblity:
- *   -> tested on Linux and OS X
- *   -> should work on other reasonably POSIXy systems
- *   -> unlikely to work without modification on Win32 systems
- *
- * - Data types
- *   -> BLOB and ARRAY datatypes are not handled
- *
- * - Parameterized queries (function "FQexecParams()"):
- *   -> TIMESTAMP/TIME: currently sub-second units are truncated
- *   -> NUMERIC/DECIMAL: may overflow if more digits than
- *        permitted are supplied
- *
- * - Character sets, encoding and wide characters
- *   -> all data is assumed to be UTF8
- *   -> however there is current no special handling of non-ASCII
- *      characters
- *
  *----------------------------------------------------------------------
  */
 
@@ -229,8 +197,8 @@ _FQinitResult()
 /**
  * _FQexecClearResult()
  *
- * Free temporary memory allocation in a result object not required
- * after query execution has completed
+ * Free a result object's temporary memory allocations assigned
+ * during query execution
  */
 static void
 _FQexecClearResult(FQresult *result)
@@ -253,7 +221,6 @@ _FQexecClearResult(FQresult *result)
 		result->sqlda_out_buffer = NULL;
 	}
 }
-
 
 
 /**
