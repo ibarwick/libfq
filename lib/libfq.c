@@ -134,6 +134,9 @@ FQfinish(FQconn *conn)
     if(conn == NULL)
         return;
 
+    if(conn->trans != 0L)
+        FQrollbackTransaction(conn);
+
     if(conn->db != 0L)
         isc_detach_database(
             conn->status,
