@@ -751,9 +751,7 @@ FQexecParams(FQconn *conn,
     )
 {
     if(!conn)
-    {
         return NULL;
-    }
 
     return _FQexecParams(conn,
                          &conn->trans,
@@ -1773,6 +1771,7 @@ _FQsetResultError(const FQconn *conn, FQresult *res)
     }
 }
 
+
 /**
  * _FQsetResultNonFatalError()
  *
@@ -2088,6 +2087,18 @@ FQgetisnull(const FQresult *res,
 }
 
 
+/**
+ * FQftype()
+ *
+ * Returns the data type associated with the given column number.
+ *
+ * The data type will be an integer corresponding to one of the SQL_*
+ * constants defined in ibase.h (and repeated in libfq.h), extended with
+ * the following pseudo-types for convenience:
+ *
+ *  - SQL_INVALID_TYPE
+ *  - SQL_DB_KEY
+ */
 short
 FQftype(const FQresult *res, int column_number)
 {
@@ -2142,7 +2153,7 @@ FQisActiveTransaction(FQconn *conn)
 {
     if(!conn)
         return false;
-      
+
     return conn->in_user_transaction;
 }
 
@@ -2256,7 +2267,7 @@ _FQstartTransaction(FQconn *conn, isc_tr_handle *trans)
 /**
  * _FQformatDatum()
  *
- * Format the provided SQLDA Datum as a FQresTupleAtt
+ * Format the provided SQLVAR datum as a FQresTupleAtt
  */
 static FQresTupleAtt *
 _FQformatDatum(FQresTupleAttDesc *att_desc, XSQLVAR *var)
@@ -2266,7 +2277,7 @@ _FQformatDatum(FQresTupleAttDesc *att_desc, XSQLVAR *var)
     char        *p;
     VARY2       *vary2;
     struct tm   times;
-    char        date_buffer[FB_TIMESTAMP_LEN + 1]; /* blob_s[20], */
+    char        date_buffer[FB_TIMESTAMP_LEN + 1];
 
     tuple_att = (FQresTupleAtt *)malloc(sizeof(FQresTupleAtt));
     tuple_att->value = NULL;
