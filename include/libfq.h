@@ -174,6 +174,7 @@ typedef struct FQresult
 	long       fbSQLCODE;       /* Firebird SQL code */
 } FQresult;
 
+extern char *const fbresStatus[];
 
 extern FQconn *
 FQconnect(char *db_path, char *uname, char *upass);

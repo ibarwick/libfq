@@ -54,6 +54,21 @@ static char *_FQdeparseDbKey(const char *db_key);
 static char *_FQparseDbKey(const char *db_key);
 
 
+/* keep this in same order as FQexecStatusType in libfq.h */
+char *const fbresStatus[] = {
+	"FBRES_NO_ACTION",
+	"FBRES_EMPTY_QUERY",
+	"FBRES_COMMAND_OK",
+	"FBRES_TUPLES_OK",
+	"FBRES_TRANSACTION_START",
+	"FBRES_TRANSACTION_COMMIT",
+	"FBRES_TRANSACTION_ROLLBACK",
+	"FBRES_BAD_RESPONSE",
+	"FBRES_NONFATAL_ERROR",
+	"FBRES_FATAL_ERROR"
+};
+
+
 /**
  * FQconnect()
  *
@@ -2107,13 +2122,13 @@ FQresultStatus(const FQresult *res)
  *
  * Converts the enumerated type returned by FQresultStatus into a
  * string constant describing the status code
- *
- * XXX not yet implemented
  */
 char *
 FQresStatus(FQexecStatusType status)
 {
-	return "";
+	if ((unsigned int) status >= sizeof fbresStatus / sizeof fbresStatus[0])
+		return "invalid FQexecStatusType code";
+	return fbresStatus[status];
 }
 
 
