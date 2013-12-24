@@ -48,8 +48,10 @@
 #define SQL_INT64                          580
 #define SQL_NULL                         32766
 
+/* pseudo-type for convenience */
+#define SQL_INVALID_TYPE                    -1
 /* libfq customisation to indicate a column represents an RDB$DB_KEY value */
-#define SQL_DB_KEY                          -1
+#define SQL_DB_KEY                       16384
 #define FB_DB_KEY_LEN                       16
 
 typedef enum

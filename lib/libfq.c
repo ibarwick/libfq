@@ -61,7 +61,7 @@ static char *_FQparseDbKey(const char *db_key);
 FQconn *
 FQconnect(char *db_path, char *uname, char *upass)
 {
- 	size_t db_path_len;
+	size_t db_path_len;
 	char *dpb;
 
 	/* initialise connection struct */
@@ -116,6 +116,9 @@ FQconnect(char *db_path, char *uname, char *upass)
 void
 FQfinish(FQconn *conn)
 {
+	if(conn == NULL)
+		return;
+
 	if(conn->db != 0L)
 		isc_detach_database(
 			conn->status,
@@ -135,6 +138,9 @@ FQfinish(FQconn *conn)
 char *
 FQserverVersion(FQconn *conn)
 {
+	if(conn == NULL)
+		return NULL;
+
 	const char *sql = "SELECT CAST(rdb$get_context('SYSTEM', 'ENGINE_VERSION') AS VARCHAR(10)) FROM rdb$database";
 
 	if(conn->engine_version == NULL)
@@ -308,7 +314,9 @@ _FQexecFillTuplesArray(FQresult *result)
 /**
  * FQexec()
  *
- * Execute the query specified in 'stmt'.x
+ * Execute the query specified in 'stmt'.
+ *
+ * Returns NULL when no server connection available.
  *
  * This function is a wrapper around _FQexec(), and calls it with the
  * connection's default transaction handle.
@@ -318,12 +326,17 @@ _FQexecFillTuplesArray(FQresult *result)
 FQresult *
 FQexec(FQconn *conn, const char *stmt)
 {
+	if(!conn)
+	{
+		return NULL;
+	}
+
 	return(_FQexec(conn, &conn->trans, stmt));
 }
 
 
 /**
- * FQexec()
+ * _FQexec()
  *
  * Execute the query specified in 'stmt' using the transaction handle
  * pointed to by 'trans'
@@ -729,6 +742,11 @@ FQexecParams(FQconn *conn,
 			 int resultFormat
 	)
 {
+	if(!conn)
+	{
+		return NULL;
+	}
+
 	return _FQexecParams(conn,
 						 &conn->trans,
 						 stmt,
@@ -1576,8 +1594,11 @@ _FQexecParams(FQconn *conn,
 char *
 FQerrorMessage(const FQconn *conn)
 {
+	if(conn == NULL)
+		return "";
+
 	/* XXX todo */
-	return NULL;
+	return "";
 }
 
 
@@ -1587,9 +1608,12 @@ FQerrorMessage(const FQconn *conn)
  * Return the error message associated with the result, or an empty string.
  */
 char *
-FQresultErrorMessage(const FQresult *res)
+FQresultErrorMessage(const FQresult *result)
 {
-	return res->errMsg == NULL ? "" : res->errMsg;
+	if(result == NULL)
+		return "";
+
+	return result->errMsg == NULL ? "" : result->errMsg;
 }
 
 
@@ -1619,7 +1643,7 @@ FQresultErrorField(const FQresult *res, FQdiagType fieldcode)
 /**
  * FQresultErrorFieldsAsString()
  *
- * Return all error fields formatted as a single stringx
+ * Return all error fields formatted as a single string
  */
 char *
 FQresultErrorFieldsAsString(const FQresult *res, char *prefix)
@@ -1627,10 +1651,11 @@ FQresultErrorFieldsAsString(const FQresult *res, char *prefix)
 	FQExpBufferData buf;
 	FBMessageField *mfield;
 	char *str;
-	initFQExpBuffer(&buf);
 
 	if (!res || res->errFields == NULL)
 		return NULL;
+
+	initFQExpBuffer(&buf);
 
 	for (mfield = res->errFields; mfield->next != NULL; mfield = mfield->next);
 
@@ -1759,6 +1784,14 @@ FQexecTransaction(FQconn *conn, const char *stmt)
 {
 	FQresult      *result = NULL;
 
+	if(!conn)
+	{
+		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - invalid connection object");
+		_FQsetResultError(conn, result);
+
+		return NULL;
+	}
+
 	if(_FQstartTransaction(conn, &conn->trans_internal) == TRANS_ERROR)
 	{
 		/* XXX todo: set error, return result */
@@ -1807,7 +1840,7 @@ FQexecTransaction(FQconn *conn, const char *stmt)
 FQconnStatusType
 FQstatus(const FQconn *conn)
 {
-	if(conn->db == 0L)
+	if(conn == NULL || conn->db == 0L)
 		return CONNECTION_BAD;
 
 	return CONNECTION_OK;
@@ -1823,6 +1856,9 @@ FQstatus(const FQconn *conn)
 int
 FQntuples(const FQresult *res)
 {
+	if(!res)
+		return -1;
+
 	return res->ntups;
 }
 
@@ -1836,6 +1872,9 @@ FQntuples(const FQresult *res)
 int
 FQnfields(const FQresult *res)
 {
+	if(!res)
+		return -1;
+
 	return res->ncols;
 }
 
@@ -1852,6 +1891,9 @@ FQnfields(const FQresult *res)
 bool
 FQfhasNull(const FQresult *res, int column_number)
 {
+	if(!res)
+		return false;
+
 	if(column_number >= res->ncols)
 		return false;
 
@@ -1899,6 +1941,9 @@ FQfmaxwidth(const FQresult *res, int column_number)
 char *
 FQfname(const FQresult *res, int column_number)
 {
+	if(!res)
+		return NULL;
+
 	if(column_number >= res->ncols)
 		return NULL;
 
@@ -1920,6 +1965,9 @@ FQgetlength(const FQresult *res,
 			int row_number,
 			int column_number)
 {
+	if(!res)
+		return -1;
+
 	if(row_number >= res->ntups)
 		return -1;
 
@@ -1944,6 +1992,9 @@ FQgetvalue(const FQresult *res,
 		   int row_number,
 		   int column_number)
 {
+	if(!res)
+		return NULL;
+
 	if(row_number >= res->ntups)
 		return NULL;
 
@@ -1970,6 +2021,9 @@ FQgetisnull(const FQresult *res,
 			int row_number,
 			int column_number)
 {
+	if(!res)
+		return 0;
+
 	if(res->tuples[row_number]->values[column_number]->has_null == true)
 		return 1;
 
@@ -1980,8 +2034,11 @@ FQgetisnull(const FQresult *res,
 short
 FQftype(const FQresult *res, int column_number)
 {
+	if(!res)
+		return SQL_INVALID_TYPE;
+
 	if(column_number >= res->ncols)
-		return -1;
+		return SQL_INVALID_TYPE;
 
 	return res->header[column_number]->type;
 }
@@ -1995,6 +2052,9 @@ FQftype(const FQresult *res, int column_number)
 FQexecStatusType
 FQresultStatus(const FQresult *res)
 {
+	if (!res)
+		return FBRES_FATAL_ERROR;
+
 	return res->resultStatus;
 }
 
@@ -2007,6 +2067,9 @@ FQresultStatus(const FQresult *res)
 bool
 FQisActiveTransaction(FQconn *conn)
 {
+	if(!conn)
+		return false;
+	  
 	return conn->in_user_transaction;
 }
 
@@ -2019,7 +2082,8 @@ FQisActiveTransaction(FQconn *conn)
 void
 FQsetAutocommit(FQconn *conn, bool autocommit)
 {
-	conn->autocommit = autocommit;
+	if(conn != NULL)
+		conn->autocommit = autocommit;
 }
 
 
@@ -2031,6 +2095,9 @@ FQsetAutocommit(FQconn *conn, bool autocommit)
 FQtransactionStatusType
 FQcommitTransaction(FQconn *conn)
 {
+	if(!conn)
+		return TRANS_ERROR;
+
 	return _FQcommitTransaction(conn, &conn->trans);
 }
 
@@ -2043,6 +2110,9 @@ FQcommitTransaction(FQconn *conn)
 FQtransactionStatusType
 FQrollbackTransaction(FQconn *conn)
 {
+	if(!conn)
+		return TRANS_ERROR;
+
 	return _FQrollbackTransaction(conn, &conn->trans);
 }
 
@@ -2055,6 +2125,9 @@ FQrollbackTransaction(FQconn *conn)
 FQtransactionStatusType
 FQstartTransaction(FQconn *conn)
 {
+	if(!conn)
+		return TRANS_ERROR;
+
 	return _FQstartTransaction(conn, &conn->trans);
 }
 
@@ -2329,6 +2402,9 @@ FQformatDbKey(const FQresult *res,
 {
 	char *value = NULL;
 
+	if(!res)
+		return NULL;
+
 	if(row_number >= res->ntups)
 		return NULL;
 
@@ -2359,7 +2435,7 @@ _FQparseDbKey(const char *db_key)
 	char *formatted_value;
 	unsigned char *t;
 
-	formatted_value = (char *)malloc(17);
+	formatted_value = (char *)malloc(FB_DB_KEY_LEN + 1);
 	formatted_value[0] = '\0';
 	for (t = (unsigned char *) db_key; t < (unsigned char *) db_key + 8; t++)
 	{
@@ -2410,6 +2486,9 @@ void
 FQclear(FQresult *res)
 {
 	int i;
+
+	if(!res)
+		return;
 
 	if(res->ntups > 0)
 	{
@@ -2492,6 +2571,16 @@ FQexplainStatement(FQconn *conn, const char *stmt)
 
 	result = _FQinitResult();
 
+	if(!conn)
+	{
+		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - invalid connection");
+		_FQsetResultError(conn, result);
+
+		FQclear(result);
+		return NULL;
+	}
+
+
 	if (isc_dsql_allocate_statement(conn->status, &conn->db, &result->stmt_handle) != 0)
     {
 		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_allocate_statement");
@@ -2547,6 +2636,9 @@ void
 FQlog(FQconn *conn, short loglevel, const char *msg, ...)
 {
 	va_list argp;
+
+	if(!conn)
+		return;
 
 	/* Do nothing if loglevel is below the specified threshold */
 	if(loglevel < conn->client_min_messages)
