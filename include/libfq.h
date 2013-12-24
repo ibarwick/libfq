@@ -266,6 +266,9 @@ FQformatDbKey(const FQresult *res,
 extern FQexecStatusType
 FQresultStatus(const FQresult *res);
 
+extern char*
+FQresStatus(FQexecStatusType status);
+
 extern bool
 FQisActiveTransaction(FQconn *conn);
 

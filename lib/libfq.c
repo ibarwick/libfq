@@ -46,8 +46,9 @@ static FQresult *_FQexecParams(FQconn *conn,
 							   const int *paramFormats,
 							   int resultFormat);
 
-
+static char *_FQlogLevel(short errlevel);
 static void _FQsetResultError(const FQconn *conn, FQresult *res);
+static void _FQsetResultNonFatalError(const FQconn *conn, FQresult *res, short errlevel, char *msg);
 static void _FQsaveMessageField(FQresult *res, FQdiagType code, const char *value, ...);
 static char *_FQdeparseDbKey(const char *db_key);
 static char *_FQparseDbKey(const char *db_key);
@@ -432,19 +433,15 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
 		{
 			if(*trans != 0L)
 			{
-
-				/* XXX TODO: this results in "unknown ISC error 0" -  change to notice or something */
-				_FQsaveMessageField(result, FB_DIAG_DEBUG, "Currently in transaction - please COMMIT or ROLLBACK");
-				_FQsetResultError(conn, result);
-
-				result->resultStatus = FBRES_NONFATAL_ERROR;
-				_FQexecClearResult(result);
-				return result;
+				_FQsetResultNonFatalError(conn, result, WARNING, "Currently in transaction");
+				result->resultStatus = FBRES_EMPTY_QUERY;
 			}
-
-			_FQstartTransaction(conn, trans);
-			conn->in_user_transaction = true;
-			result->resultStatus = FBRES_TRANSACTION_START;
+			else
+			{
+				_FQstartTransaction(conn, trans);
+				conn->in_user_transaction = true;
+				result->resultStatus = FBRES_TRANSACTION_START;
+			}
 
 			_FQexecClearResult(result);
 			return result;
@@ -456,20 +453,15 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
 			_FQexecClearResult(result);
 			if(*trans == 0L)
 			{
-				/* XXX TODO: this results in "unknown ISC error 0" -  change to notice or something */
-				_FQsaveMessageField(result, FB_DIAG_DEBUG, "Not in transaction - ignoring COMMIT");
-
-				_FQsetResultError(conn, result);
+				_FQsetResultNonFatalError(conn, result, WARNING, "Not currently in transaction");
 				result->resultStatus = FBRES_EMPTY_QUERY;
-
-				_FQexecClearResult(result);
-				return result;
 			}
-
-			_FQcommitTransaction(conn, trans);
-			conn->in_user_transaction = false;
-			result->resultStatus = FBRES_TRANSACTION_COMMIT;
-
+			else
+			{
+				_FQcommitTransaction(conn, trans);
+				conn->in_user_transaction = false;
+				result->resultStatus = FBRES_TRANSACTION_COMMIT;
+			}
 			_FQexecClearResult(result);
 			return result;
 		}
@@ -481,21 +473,15 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
 
 			if(*trans == 0L)
 			{
-				/* XXX TODO: this results in "unknown ISC error 0" -  change to notice or something */
-				_FQsaveMessageField(result, FB_DIAG_DEBUG, "Not in transaction - ignoring ROLLBACK");
-
-				_FQsetResultError(conn, result);
-
+				_FQsetResultNonFatalError(conn, result, WARNING, "Not currently in transaction");
 				result->resultStatus = FBRES_EMPTY_QUERY;
-
-				_FQexecClearResult(result);
-				return result;
 			}
-
-			_FQrollbackTransaction(conn, trans);
-			conn->in_user_transaction = false;
-
-			result->resultStatus = FBRES_TRANSACTION_ROLLBACK;
+			else
+			{
+				_FQrollbackTransaction(conn, trans);
+				conn->in_user_transaction = false;
+				result->resultStatus = FBRES_TRANSACTION_ROLLBACK;
+			}
 
 			_FQexecClearResult(result);
 			return result;
@@ -1703,9 +1689,44 @@ FQresultDumpErrorFields(FQconn *conn, const FQresult *res)
 	for (mfield = res->errFields; mfield->next != NULL; mfield = mfield->next);
 
 	for(; mfield != NULL;  mfield = mfield->prev)
-	{
 		FQlog(conn, DEBUG1, "* %s", mfield->value);
+}
+
+
+/**
+ * _FQlogLevel()
+ *
+ * Return a loglevel value as a string
+ */
+char *_FQlogLevel(short errlevel)
+{
+	switch(errlevel)
+	{
+		case INFO:
+			return "INFO";
+		case NOTICE:
+			return "NOTICE";
+		case WARNING:
+			return "WARNING";
+		case ERROR:
+			return "ERROR";
+		case FATAL:
+			return "FATAL";
+		case PANIC:
+			return "PANIC";
+		case DEBUG1:
+			return "DEBUG1";
+		case DEBUG2:
+			return "DEBUG2";
+		case DEBUG3:
+			return "DEBUG3";
+		case DEBUG4:
+			return "DEBUG4";
+		case DEBUG5:
+			return "DEBUG5";
 	}
+
+	return "Unknown log level";
 }
 
 
@@ -1738,6 +1759,20 @@ _FQsetResultError(const FQconn *conn, FQresult *res)
 	}
 }
 
+/**
+ * _FQsetResultNonFatalError()
+ *
+ * Handle non-fatal error.
+ *
+ * This function's behaviour mimics libpq, where a non-fatal error
+ * is dumped to STDOUT by default. libpq also allows the client to nominate
+ * or handled by a client-specified handler; this functionality is not
+ * yet implemented.
+ */
+void _FQsetResultNonFatalError(const FQconn *conn, FQresult *res, short errlevel, char *msg)
+{
+	fprintf(stderr, "%s: %s", _FQlogLevel(errlevel), msg);
+}
 
 /**
  * _FQsaveMessageField()
@@ -1760,7 +1795,7 @@ _FQsaveMessageField(FQresult *res, FQdiagType code, const char *value, ...)
 		malloc(sizeof(FBMessageField));
 
 	if (!mfield)
-		return;					/* out of memory? */
+		return;
 
 	mfield->code = code;
 	mfield->prev = NULL;
@@ -2065,6 +2100,22 @@ FQresultStatus(const FQresult *res)
 
 	return res->resultStatus;
 }
+
+
+/**
+ * FQresStatus()
+ *
+ * Converts the enumerated type returned by FQresultStatus into a
+ * string constant describing the status code
+ *
+ * XXX not yet implemented
+ */
+char *
+FQresStatus(FQexecStatusType status)
+{
+	return "";
+}
+
 
 /**
  * FQisActiveTransaction()
