@@ -298,7 +298,7 @@ _FQexecInitOutputSQLDA(FQresult *result)
 
 
 /**
- * _FQexecParseStatementType
+ * _FQexecParseStatementType()
  *
  * info_buffer contains a isc_info_sql_stmt_type in the first byte,
  * two bytes of length, and a statement_type token.
@@ -806,7 +806,6 @@ _FQexecParams(FQconn *conn,
     if(*trans == 0L)
     {
         _FQstartTransaction(conn, trans);
-
         temp_trans = true;
     }
 
@@ -1056,7 +1055,6 @@ _FQexecParams(FQconn *conn,
                             if (!sscanf(svalue, format, &q, &r) )
                                 FQlog(conn, DEBUG1, "problem parsing SQL_SHORT/SQL_LONG type");
                         }
-                        FQlog(conn, DEBUG1, "1> SQL_SHORT/LONG: p %lu q %lu r %lu", p, q, r);
 
                         /* Round up if r is 5 or greater */
                         if (r >= 5)
@@ -1066,8 +1064,6 @@ _FQexecParams(FQconn *conn,
                             q %= scale;     /* modulus if q overflows */
                         }
 
-                        FQlog(conn, DEBUG1, "2> SQL_SHORT/LONG: p %lu q %lu r %lu", p, q, r);
-
                         /* decimal scaling */
                         tmp    = strchr(svalue, '.');
                         dscale = (tmp)
@@ -1075,7 +1071,6 @@ _FQexecParams(FQconn *conn,
                             : 0;
 
                         if (dscale < 0) dscale = 0;
-                        FQlog(conn, DEBUG1, "3> SQL_SHORT/LONG: dscale now %i", dscale);
 
                         /* final result */
                         result = (long) (p * scale + q * (int) (pow(10.0, (double) dscale))) * (neg ? -1 : 1);
@@ -1103,7 +1098,6 @@ _FQexecParams(FQconn *conn,
                         result = (long) p;
                     }
 
-                    FQlog(conn, DEBUG1, "insert value: %li", result);
                     if (dtype == SQL_SHORT)
                     {
                         var->sqldata = (char *)malloc(sizeof(ISC_SHORT));
@@ -1180,8 +1174,6 @@ _FQexecParams(FQconn *conn,
 
                         *(ISC_INT64 *) (var->sqldata) = (ISC_INT64) (p * scale + q * (int) (pow(10.0, (double) dscale))) * (neg? -1: 1);
                         var->sqllen = sizeof(ISC_INT64);
-
-                        FQlog(conn, DEBUG1, "INT64: %li", *(ISC_INT64 *) (var->sqldata));
                     }
                     else
                     {
@@ -1204,7 +1196,6 @@ _FQexecParams(FQconn *conn,
 
                         *(ISC_INT64 *) (var->sqldata) = (ISC_INT64) p;
                         var->sqllen = sizeof(ISC_INT64);
-                        FQlog(conn, DEBUG1, "INT64: %li", *(ISC_INT64 *) (var->sqldata));
                     }
 
                     break;
@@ -1215,32 +1206,21 @@ _FQexecParams(FQconn *conn,
                     var->sqldata = (char *)malloc(sizeof(float));
                     var->sqllen = sizeof(float);
                     *(float *)(var->sqldata) = (float)atof(paramValues[i]);
-
-                    //FQlog(conn, DEBUG1, "SQL_FLOAT %g %g",atof(paramValues[i]) , *(float *)(var->sqldata));
                     break;
 
                 case SQL_DOUBLE:
                     var->sqldata = (char *)malloc(sizeof(double));
                     var->sqllen = sizeof(double);
                     *(double *) (var->sqldata) = atof(paramValues[i]);
-
-                    //FQlog(conn, DEBUG1, "SQL_DOUBLE %f %f",atof(paramValues[i]) , *(double *)(var->sqldata));
-
                     break;
 
                 case SQL_VARYING:
-                    FQlog(conn, DEBUG1, "SQL_VARYING");
-
-                    FQlog(conn, DEBUG1, "%i %i", var->sqltype,  var->sqllen);
                     var->sqltype = SQL_TEXT; /* need this */
                     len = strlen(paramValues[i]);
 
                     var->sqllen = len; /* need this */
                     var->sqldata = (char *)malloc(sizeof(char)*var->sqllen);
                     memcpy(var->sqldata, paramValues[i], len);
-
-                    FQlog(conn, DEBUG1, "value: %s %i", paramValues[i], len);
-
                     break;
 
                 case SQL_TEXT:
@@ -1265,8 +1245,6 @@ _FQexecParams(FQconn *conn,
                     }
                     else {
                         len = strlen(paramValues[i]);
-
-                        FQlog(conn, DEBUG1, "SQL_TEXT '%s' %i %i", paramValues[i], len, var->sqllen);
 
                         if(len > var->sqllen)
                         {
@@ -1340,7 +1318,6 @@ _FQexecParams(FQconn *conn,
                     else
                     {
                         isc_encode_sql_date(&tm, (ISC_DATE *)var->sqldata);
-                        FQlog(conn, DEBUG1, "SQL_TYPE_DATE: %s", paramValues[i]);
                     }
                     break;
 
@@ -1356,7 +1333,6 @@ _FQexecParams(FQconn *conn,
                     else
                     {
                         isc_encode_sql_time(&tm, (ISC_TIME *)var->sqldata);
-                        FQlog(conn, DEBUG1, "SQL_TYPE_DATE: %s", paramValues[i]);
                     }
                     break;
 
@@ -1378,8 +1354,6 @@ _FQexecParams(FQconn *conn,
 
             var->sqlind = (short *)malloc(sizeof(short));
             *(short *)var->sqlind = (paramValues[i] == NULL) ? -1 : 0;
-
-            FQlog(conn, DEBUG1, "NULLABLE COLUMN; set to: %i", *(short *)var->sqlind);
         }
     }
 
@@ -1409,8 +1383,8 @@ _FQexecParams(FQconn *conn,
             result->resultStatus = FBRES_FATAL_ERROR;
 
             FQresultDumpErrorFields(conn, result);
-            /* if autocommit, and no explicit transaction set, rollback */
 
+            /* if autocommit, and no explicit transaction set, rollback */
             if(conn->autocommit == true && conn->in_user_transaction == false)
             {
                 _FQrollbackTransaction(conn, trans);
@@ -1451,7 +1425,6 @@ _FQexecParams(FQconn *conn,
         _FQsetResultError(conn, result);
 
         /* if autocommit, and no explicit transaction set, rollback */
-
         if(conn->autocommit == true && conn->in_user_transaction == false)
         {
             _FQrollbackTransaction(conn, trans);
@@ -1583,9 +1556,7 @@ _FQexecParams(FQconn *conn,
 
     /* if autocommit, and no explicit transaction set, commit */
     if(conn->autocommit == true && conn->in_user_transaction == false)
-    {
         _FQcommitTransaction(conn, trans);
-    }
 
     return result;
 }
@@ -2138,6 +2109,7 @@ FQresStatus(FQexecStatusType status)
 {
     if ((unsigned int) status >= sizeof fbresStatus / sizeof fbresStatus[0])
         return "invalid FQexecStatusType code";
+
     return fbresStatus[status];
 }
 
