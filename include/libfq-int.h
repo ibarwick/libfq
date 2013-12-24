@@ -9,6 +9,13 @@ typedef PARAMVARY VARY2;
 #define FB_TIME_LEN 13
 #define FB_TIMESTAMP_LEN 24
 
+/* Initial number of XSQLVARs to allocate for an XSQLDA.
+ * There is a small memory overhead associated with each XSQLVAR record,
+ * but it's probably better to pre-allocated a reasonable number than
+ * dynamically reallocate.
+ */
+#define FB_XSQLDA_INITLEN 15
+
 /*
  * INT64 sscanf formats for various platforms
  */

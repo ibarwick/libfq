@@ -29,7 +29,7 @@ static FQtransactionStatusType
 _FQstartTransaction(FQconn *conn, isc_tr_handle *trans);
 
 static FQresTupleAtt *_FQformatDatum (FQresTupleAttDesc *att_desc, XSQLVAR *var);
-static FQresult *_FQinitResult();
+static FQresult *_FQinitResult(bool init_sqlda_in);
 static void _FQexecClearResult(FQresult *result);
 static void _FQexecFillTuplesArray(FQresult *result);
 static void _FQexecInitOutputSQLDA(FQresult *result);
@@ -133,7 +133,7 @@ FQfinish(FQconn *conn)
 /**
  * FQserverVersion()
  *
- * Extract the server version code and cache in the connection handle
+ * Extract the server version code and cache it in the connection handle
  */
 char *
 FQserverVersion(FQconn *conn)
@@ -170,20 +170,27 @@ FQserverVersion(FQconn *conn)
  * preallocate in/out SQLDAs.
  */
 static FQresult *
-_FQinitResult()
+_FQinitResult(bool init_sqlda_in)
 {
-	FQresult      *result;
+	FQresult *result;
 
 	result = malloc(sizeof(FQresult));
 
-	result->sqlda_in = (XSQLDA *) malloc(XSQLDA_LENGTH(1));
-	memset(result->sqlda_in, 0, XSQLDA_LENGTH(1));
-	result->sqlda_in->sqln = 1;
-	result->sqlda_in->version = SQLDA_VERSION1;
+	if(init_sqlda_in == true)
+	{
+		result->sqlda_in = (XSQLDA *) malloc(XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
+		memset(result->sqlda_in, 0, XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
+		result->sqlda_in->sqln = FB_XSQLDA_INITLEN;
+		result->sqlda_in->version = SQLDA_VERSION1;
+	}
+	else
+	{
+		result->sqlda_in = NULL;
+	}
 
-	result->sqlda_out = (XSQLDA *) malloc(XSQLDA_LENGTH(1));
-	memset(result->sqlda_out, 0, XSQLDA_LENGTH(1));
-	result->sqlda_out->sqln = 1;
+	result->sqlda_out = (XSQLDA *) malloc(XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
+	memset(result->sqlda_out, 0, XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
+	result->sqlda_out->sqln = FB_XSQLDA_INITLEN;
 	result->sqlda_out->version = SQLDA_VERSION1;
 
 	result->sqlda_out_buffer = NULL;
@@ -314,7 +321,8 @@ _FQexecFillTuplesArray(FQresult *result)
 /**
  * FQexec()
  *
- * Execute the query specified in 'stmt'.
+ * Execute the query specified in 'stmt'. Note that only one query
+ * can be provided.
  *
  * Returns NULL when no server connection available.
  *
@@ -356,7 +364,7 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
 
 	bool          temp_trans = false;
 
-	result = _FQinitResult();
+	result = _FQinitResult(false);
 
     /* Allocate a statement. */
     if (isc_dsql_allocate_statement(conn->status, &conn->db, &result->stmt_handle))
@@ -795,7 +803,7 @@ _FQexecParams(FQconn *conn,
 	char          error_message[1024];
 	bool          output_tuple_expected;
 
-	result = _FQinitResult();
+	result = _FQinitResult(true);
 
 	if(*trans == 0L)
 	{
@@ -2569,7 +2577,7 @@ FQexplainStatement(FQconn *conn, const char *stmt)
 	char *plan_out = NULL;
 	short plan_length;
 
-	result = _FQinitResult();
+	result = _FQinitResult(false);
 
 	if(!conn)
 	{
