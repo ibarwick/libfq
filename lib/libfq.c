@@ -2011,9 +2011,12 @@ FQgetlength(const FQresult *res,
  *
  * Returns a single field of an FQresult.
  *
+ * Row and column numbers start at 0.
+ *
  * NOTE: this function will return NULL if invalid row/column parameters
  *   are provided, as well as when the tuple value is actually NULL.
  *   To determine if a tuple value is null, use FQgetisnull().
+ *
  */
 char *
 FQgetvalue(const FQresult *res,
@@ -2060,6 +2063,36 @@ FQgetisnull(const FQresult *res,
 
 
 /**
+ * FQfformat()
+ *
+ * Returns the format code indicating the format of the given column:
+ *
+ *  0 - text
+ *  1 - binary
+ * -1 - invalid column specification
+ *
+ * Column numbers start at 0.
+ */
+short
+FQfformat(const FQresult *res, int column_number)
+{
+    if(!res)
+        return -1;
+
+    if(column_number >= res->ncols)
+        return -1;
+
+    switch(FQftype(res, column_number))
+    {
+        case SQL_BLOB:
+            return 1;
+    }
+
+    return 0;
+}
+
+
+/**
  * FQftype()
  *
  * Returns the data type associated with the given column number.
@@ -2070,6 +2103,8 @@ FQgetisnull(const FQresult *res,
  *
  *  - SQL_INVALID_TYPE
  *  - SQL_DB_KEY
+ *
+ * Column numbers start at 0.
  */
 short
 FQftype(const FQresult *res, int column_number)

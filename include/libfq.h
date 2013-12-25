@@ -241,6 +241,9 @@ extern char *
 FQfname(const FQresult *res, int column_number);
 
 extern short
+FQfformat(const FQresult *res, int column_number);
+
+extern short
 FQftype(const FQresult *res, int column_number);
 
 
