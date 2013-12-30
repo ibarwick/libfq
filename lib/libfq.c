@@ -1522,7 +1522,16 @@ _FQexecParams(FQconn *conn,
         num_rows++;
     }
 
-    if (fetch_stat != 100L)
+
+    /*
+     * HACK: INSERT/UPDATE/DELETE ... RETURNING ... sometimes results in a
+     * "request synchronization error" - ignoring this doesn't seem to
+     * cause any problems. Potentially this is related to issues with cursor
+     * usage.
+     *
+     * See maybe: http://support.codegear.com/article/35153
+     */
+    if (fetch_stat != 100L && fetch_stat != isc_req_sync)
     {
         _FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_fetch reported %lu", fetch_stat);
 
