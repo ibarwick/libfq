@@ -28,20 +28,20 @@ versions.
 KNOWN ISSUES
 ------------
 
-- Compatiblity:
-  -> tested on Linux and OS X
-  -> should work on other reasonably UNIX-like systems
-  -> unlikely to work without modification on Win32 systems
+* Compatiblity:
+  - tested on Linux and OS X
+  - should work on other reasonably UNIX-like systems
+  - unlikely to work without modification on Win32 systems
 
-- Data types
-  -> BLOB and ARRAY datatypes are not handled
+* Data types
+  - BLOB and ARRAY datatypes are not handled
 
-- Parameterized queries (function "FQexecParams()"):
-  -> TIMESTAMP/TIME: currently sub-second units are truncated
-  -> NUMERIC/DECIMAL: may overflow if more digits than
+* Parameterized queries (function "FQexecParams()"):
+  - TIMESTAMP/TIME: currently sub-second units are truncated
+  - NUMERIC/DECIMAL: may overflow if more digits than
        permitted are supplied
 
-- Character sets, encoding and wide characters
-  -> all data is assumed to be UTF8
-  -> however there is currently no special handling of non-ASCII
+* Character sets, encoding and wide characters
+  - all data is assumed to be UTF8
+  - however there is currently no special handling of non-ASCII
      characters
