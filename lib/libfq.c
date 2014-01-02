@@ -800,7 +800,6 @@ _FQexecParams(FQconn *conn,
     int           statement_type;
 
     char          error_message[1024];
-    bool          output_tuple_expected;
 
     result = _FQinitResult(true);
 
@@ -865,16 +864,9 @@ _FQexecParams(FQconn *conn,
         case isc_info_sql_stmt_insert:
         case isc_info_sql_stmt_update:
         case isc_info_sql_stmt_delete:
-            output_tuple_expected = false;
-            break;
-
         case isc_info_sql_stmt_select:
-            output_tuple_expected = true;
-            break;
-
         case isc_info_sql_stmt_exec_procedure:
             /* INSERT ... RETURNING ... */
-            output_tuple_expected = true;
             break;
 
         default:
@@ -940,8 +932,6 @@ _FQexecParams(FQconn *conn,
         struct tm tm;
 
         int len = 0;
-
-        FQlog(conn, DEBUG1, "COUNT: %i", i);
 
         var->sqldata = NULL;
         var->sqllen = 0;
@@ -1396,6 +1386,7 @@ _FQexecParams(FQconn *conn,
         }
 
         FQlog(conn, DEBUG1, "finished non-select");
+        result->resultStatus = FBRES_COMMAND_OK;
         if(conn->autocommit == true && conn->in_user_transaction == false)
         {
             FQlog(conn, DEBUG1, "committing...");
