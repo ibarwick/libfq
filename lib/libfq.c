@@ -2374,8 +2374,7 @@ _FQformatDatum(FQresTupleAttDesc *att_desc, XSQLVAR *var)
                 if (value >= 0)
                 {
                     p = (char *)malloc(field_width - 1 + dscale + 1);
-                    sprintf (p, "%*lld.%0*lld",
-                             field_width - 1 + dscale,
+                    sprintf (p, "%lld.%0*lld",
                              (ISC_INT64) value / tens,
                              -dscale,
                              (ISC_INT64) value % tens
@@ -2385,8 +2384,7 @@ _FQformatDatum(FQresTupleAttDesc *att_desc, XSQLVAR *var)
                 {
                     p = (char *)malloc(field_width - 1 + dscale + 1);
 
-                    sprintf (p, "%*lld.%0*lld",
-                             field_width - 1 + dscale,
+                    sprintf (p, "%lld.%0*lld",
                              (ISC_INT64) (value / tens),
                              -dscale,
                              (ISC_INT64) - (value % tens)
@@ -2396,8 +2394,7 @@ _FQformatDatum(FQresTupleAttDesc *att_desc, XSQLVAR *var)
                 {
                     p = (char *)malloc(field_width - 1 + dscale + 1);
 
-                    sprintf (p, "%*s.%0*lld",
-                             field_width - 1 + dscale,
+                    sprintf (p, "%s.%0*lld",
                              "-0",
                              -dscale,
                              (ISC_INT64) - (value % tens)
@@ -2408,8 +2405,7 @@ _FQformatDatum(FQresTupleAttDesc *att_desc, XSQLVAR *var)
             {
                 p = (char *)malloc(field_width + 1);
 
-                sprintf (p, "%*lld%0*d",
-                         field_width,
+                sprintf (p, "%lld%0*d",
                          (ISC_INT64) value,
                          dscale, 0);
             }
@@ -2417,8 +2413,7 @@ _FQformatDatum(FQresTupleAttDesc *att_desc, XSQLVAR *var)
             {
                 p = (char *)malloc(field_width + 1);
 
-                sprintf (p, "%*lld",
-                         field_width,
+                sprintf (p, "%lld",
                          (ISC_INT64) value);
             }
         }
