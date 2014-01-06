@@ -99,7 +99,8 @@ typedef struct FQconn {
     char          *dpb_buffer;
     short          dpb_length;
     ISC_STATUS    *status;
-    char          *engine_version;
+    char          *engine_version;        /* Firebird version as reported by rdb$get_context() */
+    int            engine_version_number; /* integer representation of Firebird version */
     short          client_min_messages;
 } FQconn;
 
@@ -200,8 +201,11 @@ FQresultErrorFieldsAsString(const FQresult *res, char *prefix);
 extern void
 FQresultDumpErrorFields(FQconn *conn, const FQresult *res);
 
-extern char *
+extern int
 FQserverVersion(FQconn *conn);
+
+extern char *
+FQserverVersionString(FQconn *conn);
 
 extern FQresult *
 FQexec(FQconn *conn, const char *stmt);

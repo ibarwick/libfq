@@ -20,6 +20,10 @@
 #include "libfq.h"
 
 /* Internal utility functions */
+
+static void
+_FQserverVersionInit(FQconn *conn);
+
 static FQtransactionStatusType
 _FQcommitTransaction(FQconn *conn, isc_tr_handle *trans);
 static FQtransactionStatusType
@@ -149,33 +153,74 @@ FQfinish(FQconn *conn)
 
 
 /**
- * FQserverVersion()
- *
- * Extract the server version code and cache it in the connection handle
+ * _FQserverVersionInit()
  */
-char *
-FQserverVersion(FQconn *conn)
+void
+_FQserverVersionInit(FQconn *conn)
 {
-    if(conn == NULL)
-        return NULL;
-
     const char *sql = "SELECT CAST(rdb$get_context('SYSTEM', 'ENGINE_VERSION') AS VARCHAR(10)) FROM rdb$database";
 
     if(conn->engine_version == NULL)
     {
+        /* Extract the server version code and cache it in the connection handle */
+
         FQresult   *res;
 
         if(_FQstartTransaction(conn, &conn->trans_internal) == TRANS_ERROR)
-            return NULL;
+            return;
 
         res = _FQexec(conn, &conn->trans_internal, sql);
         if(FQresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
+        {
+            int major, minor, revision;
+            char buf[6];
             conn->engine_version = FQgetvalue(res, 0, 0);
+            sscanf(conn->engine_version, "%i.%i.%i", &major, &minor, &revision);
+            sprintf(buf, "%d%02d%02d", major, minor, revision);
+            conn->engine_version_number = atoi(buf);
+        }
         else
+        {
             conn->engine_version = "";
+            conn->engine_version_number = -1;
+        }
 
         _FQcommitTransaction(conn, &conn->trans_internal);
     }
+}
+
+
+/**
+ * FQserverVersion()
+ *
+ * Return the reported server version number as an integer suitable for
+ * comparision, e.g. 2.5.2 = 20502
+ */
+int
+FQserverVersion(FQconn *conn)
+{
+    if(conn == NULL)
+        return -1;
+
+    _FQserverVersionInit(conn);
+
+    return conn->engine_version_number;
+}
+
+
+/**
+ * FQserverVersionString()
+ *
+ * Return the reported server version as a string (e.g. "2.5.2")
+ */
+char *
+FQserverVersionString(FQconn *conn)
+{
+    if(conn == NULL)
+        return NULL;
+
+
+    _FQserverVersionInit(conn);
 
     return conn->engine_version;
 }
