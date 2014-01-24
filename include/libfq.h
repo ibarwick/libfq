@@ -32,6 +32,7 @@
 
 
 /* From ibase.h */
+#ifndef SQL_TEXT
 #define SQL_TEXT                           452
 #define SQL_VARYING                        448
 #define SQL_SHORT                          500
@@ -47,6 +48,7 @@
 #define SQL_TYPE_DATE                      570
 #define SQL_INT64                          580
 #define SQL_NULL                         32766
+#endif
 
 /* pseudo-type for convenience */
 #define SQL_INVALID_TYPE                    -1
@@ -93,9 +95,9 @@ typedef enum {
 typedef struct FQconn {
     isc_db_handle  db;
     isc_tr_handle  trans;
-    isc_tr_handle  trans_internal; /* transaction handle for atomic internal operations */
+    isc_tr_handle  trans_internal;        /* transaction handle for atomic internal operations */
     bool           autocommit;
-    bool           in_user_transaction; /* set when explicit SET TRANSACTION executed */
+    bool           in_user_transaction;   /* set when explicit SET TRANSACTION was executed */
     char          *dpb_buffer;
     short          dpb_length;
     ISC_STATUS    *status;
