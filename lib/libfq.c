@@ -178,6 +178,7 @@ _FQserverVersionInit(FQconn *conn)
             sscanf(conn->engine_version, "%i.%i.%i", &major, &minor, &revision);
             sprintf(buf, "%d%02d%02d", major, minor, revision);
             conn->engine_version_number = atoi(buf);
+            FQclear(res);
         }
         else
         {
@@ -512,8 +513,7 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
         /* Handle explicit COMMIT */
         if(statement_type == isc_info_sql_stmt_commit)
         {
-            _FQexecClearResult(result);
-            if(*trans == 0L)
+             if(*trans == 0L)
             {
                 _FQsetResultNonFatalError(conn, result, WARNING, "Not currently in transaction");
                 result->resultStatus = FBRES_EMPTY_QUERY;
@@ -523,6 +523,12 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
                 _FQcommitTransaction(conn, trans);
                 result->resultStatus = FBRES_TRANSACTION_COMMIT;
             }
+
+             /* conn->in_user_transaction is only set if an explicit SET TRANSACTION
+              * command is passed to _FQexec */
+             if(conn->in_user_transaction == true)
+                 conn->in_user_transaction = false;
+
             _FQexecClearResult(result);
             return result;
         }
@@ -530,8 +536,6 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
         /* Handle explit ROLLBACK */
         if(statement_type == isc_info_sql_stmt_rollback)
         {
-            _FQexecClearResult(result);
-
             if(*trans == 0L)
             {
                 _FQsetResultNonFatalError(conn, result, WARNING, "Not currently in transaction");
@@ -543,6 +547,10 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
                 result->resultStatus = FBRES_TRANSACTION_ROLLBACK;
             }
 
+            /* conn->in_user_transaction is only set if an explicit SET TRANSACTION
+             * command is passed to _FQexec */
+            if(conn->in_user_transaction == true)
+                conn->in_user_transaction = false;
             _FQexecClearResult(result);
             return result;
         }
@@ -2282,10 +2290,6 @@ _FQcommitTransaction(FQconn *conn, isc_tr_handle *trans)
 
     *trans = 0L;
 
-    /* conn->in_user_transaction is only set if an explicit SET TRANSACTION
-     * command is passed to _FQexec */
-    if(conn->in_user_transaction == true)
-        conn->in_user_transaction = false;
 
     return TRANS_OK;
 }
@@ -2303,10 +2307,6 @@ _FQrollbackTransaction(FQconn *conn, isc_tr_handle *trans)
         return TRANS_ERROR;
     *trans = 0L;
 
-    /* conn->in_user_transaction is only set if an explicit SET TRANSACTION
-     * command is passed to _FQexec */
-    if(conn->in_user_transaction == true)
-        conn->in_user_transaction = false;
 
     return TRANS_OK;
 }
