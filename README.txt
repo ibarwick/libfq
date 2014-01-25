@@ -25,6 +25,12 @@ any 2.5-series servers. It has not been tested against other Firebird
 versions.
 
 
+Installation
+------------
+
+See file "INSTALL".
+
+
 KNOWN ISSUES
 ------------
 

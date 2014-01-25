@@ -1289,45 +1289,6 @@ _FQexecParams(FQconn *conn,
                     }
                     else {
                         len = strlen(paramValues[i]);
-
-                        if(len > var->sqllen)
-                        {
-                            /* XXX NASTY HACK - will result in incorrect results
-                             *
-                             * otherwise we end up with:
-                             * - SQL error code = -303
-                             * - arithmetic exception, numeric overflow, or string truncation
-                             * -  string right truncation
-                             *
-                             * if we try to artificially set the sqllen to len.
-                             *
-                             * Potentially we can coerce SQL_TEXT to SQL_VARYING,
-                             * if string length is longer than column field length,
-                             * however can't get that to work
-                             *
-                             * this: CAST(? AS VARCHAR(%s)) does actually work
-                             * so how to fake this cast??
-                             * format length with isc_vax_integer() ??
-                             *
-                             * see also DBI::Firebird's dbdimp.c, which implies that "len > var->sqllen"
-                             * is an error
-                             */
-                            FQlog(conn, DEBUG1, "WARNING: truncating '%s' from %i to %i bytes",
-                                  paramValues[i],
-                                  len, var->sqllen
-                                );
-
-                            len = var->sqllen;
-
-                            /*var->sqltype = SQL_VARYING;
-                              var->sqldata = (char *)malloc(len) + 2;
-                              memcpy(var->sqldata + 2, paramValues[i], len);
-                              *var->sqldata = (short)len;
-                              FQlog(conn, DEBUG1, "xx %i %c", (short)*var->sqldata, var->sqldata[2]);
-                              var->sqllen = len;
-                            */
-                        }
-
                         var->sqldata = (char *)malloc(sizeof(char) * len);
 
                         memcpy(var->sqldata, paramValues[i], len);
@@ -1351,7 +1312,7 @@ _FQexecParams(FQconn *conn,
 
                     break;
 
-                 default:
+                default:
                     sprintf(error_message, "Unhandled sqlda_in type: %i", dtype);
 
                     _FQsetResultError(conn, result);
