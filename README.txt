@@ -37,7 +37,6 @@ KNOWN ISSUES
   - BLOB and ARRAY datatypes are not handled
 
 * Parameterized queries (function "FQexecParams()"):
-  - TIMESTAMP/TIME: currently sub-second units are truncated
   - NUMERIC/DECIMAL: may overflow if more digits than
        permitted are supplied
 

@@ -1336,51 +1336,22 @@ _FQexecParams(FQconn *conn,
                     break;
 
                 case SQL_TIMESTAMP:
-                    var->sqldata = (char *)malloc(sizeof(ISC_TIMESTAMP));
-                    var->sqllen = sizeof(ISC_TIMESTAMP);
-
-                    /* XXX TODO: use PostgreSQL's ParseDateTime()? */
-                    if(!strptime(paramValues[i], "%Y-%m-%d %H:%M:%S", &tm))
-                    {
-                        FQlog(conn, DEBUG1, "Timestamp '%s' does not match expected format", paramValues[i]);
-                    }
-                    else
-                    {
-                        isc_encode_timestamp(&tm, (ISC_TIMESTAMP *)var->sqldata);
-                        FQlog(conn, DEBUG1, "SQL_TIMESTAMP: %s", paramValues[i]);
-                    }
-                    break;
-
                 case SQL_TYPE_DATE:
-                    var->sqldata = (char *)malloc(sizeof(ISC_DATE));
-                    var->sqllen = sizeof(ISC_DATE);
-                    /* XXX TODO: use PostgreSQL's ParseDateTime()? */
-                    if(!strptime(paramValues[i], "%Y-%m-%d", &tm))
-                    {
-                        FQlog(conn, DEBUG1, "Date '%s' does not match expected format", paramValues[i]);
-                    }
-                    else
-                    {
-                        isc_encode_sql_date(&tm, (ISC_DATE *)var->sqldata);
-                    }
-                    break;
-
                 case SQL_TYPE_TIME:
-                    var->sqldata = (char *)malloc(sizeof(ISC_TIME));
-                    var->sqllen = sizeof(ISC_TIME);
-                    /* XXX TODO: use PostgreSQL's ParseDateTime()? */
-                    if(!strptime(paramValues[i], "%H:%M:%S", &tm))
-                    {
-                        /* XXX return error */
-                        FQlog(conn, DEBUG1, "Date '%s' does not match expected format", paramValues[i]);
-                    }
-                    else
-                    {
-                        isc_encode_sql_time(&tm, (ISC_TIME *)var->sqldata);
-                    }
+                    /* Here we coerce the time-related column types to CHAR,
+                     * causing Firebird to use its internal parsing mechanisms
+                     * to interpret the supplied literal */
+                    len = strlen(paramValues[i]);
+                    /* From dbimp.c: "workaround for date problem (bug #429820)" */
+                    var->sqltype = SQL_TEXT;
+                    var->sqlsubtype = 0x77;
+                    var->sqllen = len;
+                    var->sqldata = (char *)malloc(sizeof(char)*len);
+                    memcpy(var->sqldata, paramValues[i], len);
+
                     break;
 
-                default:
+                 default:
                     sprintf(error_message, "Unhandled sqlda_in type: %i", dtype);
 
                     _FQsetResultError(conn, result);
