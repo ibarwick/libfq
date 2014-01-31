@@ -1290,7 +1290,7 @@ _FQexecParams(FQconn *conn,
                     else {
                         len = strlen(paramValues[i]);
                         var->sqldata = (char *)malloc(sizeof(char) * len);
-
+                        var->sqllen = len;
                         memcpy(var->sqldata, paramValues[i], len);
                     }
 
