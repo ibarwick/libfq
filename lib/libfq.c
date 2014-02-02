@@ -1614,27 +1614,33 @@ FQresultErrorFieldsAsString(const FQresult *res, char *prefix)
     FQExpBufferData buf;
     FBMessageField *mfield;
     char *str;
+    bool is_first = true;
 
     if (!res || res->errFields == NULL)
-        return NULL;
+        return "";
 
     initFQExpBuffer(&buf);
 
     for (mfield = res->errFields; mfield->next != NULL; mfield = mfield->next);
 
-    for(; mfield != NULL;  mfield = mfield->prev)
-    {
+    do {
+        if(is_first == true)
+            is_first = false;
+        else
+            appendFQExpBufferChar(&buf, '\n');
+
         if(prefix != NULL)
             appendFQExpBuffer(&buf, prefix);
 
         appendFQExpBuffer(&buf, mfield->value);
-        appendFQExpBufferChar(&buf, '\n');
-    }
 
-    str = (char *)malloc(strlen(buf.data));
-    memcpy(str, buf.data, strlen(buf.data));
+        mfield = mfield->prev;
+    } while( mfield != NULL);
+
+    str = (char *)malloc(strlen(buf.data) + 1);
+    snprintf(str, strlen(buf.data) + 1, "%s", buf.data);
+    memcpy(str, buf.data, strlen(buf.data) + 1);
     termFQExpBuffer(&buf);
-
     return str;
 }
 
@@ -1777,8 +1783,7 @@ _FQsaveMessageField(FQresult *res, FQdiagType code, const char *value, ...)
         return;
     }
 
-    strcpy(mfield->value, buffer);
-
+    memcpy(mfield->value, buffer, strlen(buffer) + 1);
     mfield->next = res->errFields;
     if(mfield->next)
         mfield->next->prev = mfield;
