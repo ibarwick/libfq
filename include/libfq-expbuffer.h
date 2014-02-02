@@ -19,8 +19,8 @@
  * Portions Copyright (c) 1994, Regents of the University of California
  *-------------------------------------------------------------------------
  */
-#ifndef FQEXPBUFFER_H
-#define FQEXPBUFFER_H
+#ifndef LIBFQFQEXPBUFFER_H
+#define LIBFQFQEXPBUFFER_H
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -183,4 +183,4 @@ extern void appendFQExpBufferChar(FQExpBuffer str, char ch);
 extern void appendBinaryFQExpBuffer(FQExpBuffer str,
 						const char *data, size_t datalen);
 
-#endif   /* FQEXPBUFFER_H */
+#endif   /* LIBFQEXPBUFFER_H */
