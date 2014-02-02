@@ -695,7 +695,7 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
 
                 desc->desc_len = var->sqlname_length;
                 desc->desc = (char *)malloc(desc->desc_len + 1);
-                snprintf(desc->desc, desc->desc_len + 1, "%s", var->sqlname);
+                memcpy(desc->desc, var->sqlname, desc->desc_len + 1);
 
                 /* Alias is identical to column name - don't duplicate */
                 if(var->aliasname_length == var->sqlname_length
@@ -708,7 +708,7 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
                 {
                     desc->alias_len = var->aliasname_length;
                     desc->alias = (char *)malloc(desc->alias_len + 1);
-                    snprintf(desc->alias, desc->alias_len + 1, "%s", var->aliasname);
+                    memcpy(desc->alias, var->aliasname, desc->alias_len + 1);
                 }
                 desc->att_max_len = 0;
 
@@ -1447,7 +1447,7 @@ _FQexecParams(FQconn *conn,
 
                 desc->desc_len = var1->sqlname_length;
                 desc->desc = (char *)malloc(desc->desc_len + 1);
-                snprintf(desc->desc, desc->desc_len + 1, "%s", var1->sqlname);
+                memcpy(desc->desc, var1->sqlname, desc->desc_len + 1);
 
                 if(var1->aliasname_length == var1->sqlname_length
                    && strncmp(var1->aliasname, var1->sqlname, var1->aliasname_length ) == 0)
@@ -1459,7 +1459,7 @@ _FQexecParams(FQconn *conn,
                 {
                     desc->alias_len = var1->aliasname_length;
                     desc->alias = (char *)malloc(desc->alias_len + 1);
-                    snprintf(desc->alias, desc->alias_len + 1, "%s", var1->aliasname);
+                    memcpy(desc->alias, var1->aliasname, desc->alias_len + 1);
                 }
                 desc->att_max_len = 0;
 
@@ -1638,7 +1638,6 @@ FQresultErrorFieldsAsString(const FQresult *res, char *prefix)
     } while( mfield != NULL);
 
     str = (char *)malloc(strlen(buf.data) + 1);
-    snprintf(str, strlen(buf.data) + 1, "%s", buf.data);
     memcpy(str, buf.data, strlen(buf.data) + 1);
     termFQExpBuffer(&buf);
     return str;
@@ -1725,7 +1724,7 @@ _FQsetResultError(const FQconn *conn, FQresult *res)
     fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector);
 
     res->errMsg = (char *)malloc(strlen(msg) + 1);
-    snprintf(res->errMsg, strlen(msg) + 1, "%s", msg);
+    memcpy(res->errMsg, msg, strlen(msg) + 1);
 
     while(fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector))
     {
@@ -2296,17 +2295,17 @@ _FQformatDatum(FQresTupleAttDesc *att_desc, XSQLVAR *var)
     switch (datatype)
     {
         case SQL_TEXT:
-            /* XXX not sure why for SQL_TEXT, var->sqllen *seems* to be actual len - 1 */
-            p = (char *)malloc(var->sqllen + 2);
+            p = (char *)malloc(var->sqllen + 1);
 
-            snprintf(p, var->sqllen + 1, "%s",  var->sqldata);
+            memcpy(p, var->sqldata, var->sqllen);
+            p[var->sqllen] = '\0';
             break;
 
         case SQL_VARYING:
             vary2 = (VARY2*)var->sqldata;
             p = (char *)malloc(vary2->vary_length + 1);
             vary2->vary_string[vary2->vary_length] = '\0';
-            sprintf(p, "%s", vary2->vary_string);
+            memcpy(p, vary2->vary_string, strlen(vary2->vary_string) + 1);
             break;
 
         case SQL_SHORT:
@@ -2695,7 +2694,7 @@ FQexplainStatement(FQconn *conn, const char *stmt)
     if(plan_length)
     {
         plan_out = (char *)malloc(plan_length + 1);
-        snprintf(plan_out, plan_length, "%s", plan_buffer + 3);
+        memcpy(plan_out, plan_buffer + 3, plan_length);
     }
 
     FQclear(result);
