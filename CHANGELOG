@@ -1,0 +1,10 @@
+Revision history for firebird_fdw
+
+0.1.1   2014-02-02
+        - Fix TIMESTAMP/DATE/TIME parsing in FQexecParams()
+	- add FQserverVersionString()
+	- various bugfixes and tweaks
+	- move source files to src/ directory
+
+0.1.0   2014-01-01
+        - Initial public release

@@ -1221,7 +1221,7 @@ _FQexecParams(FQconn *conn,
                     }
                     else
                     {
-                        /* numeric(?,0): scan for one decimal and do rounding*/
+                        /* numeric(?,0): scan for one decimal and do rounding */
 
                         sprintf(format, S_INT64_NOSCALE);
 
@@ -1246,7 +1246,6 @@ _FQexecParams(FQconn *conn,
                 }
 
                 case SQL_FLOAT:
-
                     var->sqldata = (char *)malloc(sizeof(float));
                     var->sqllen = sizeof(float);
                     *(float *)(var->sqldata) = (float)atof(paramValues[i]);

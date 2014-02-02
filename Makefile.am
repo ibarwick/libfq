@@ -2,7 +2,7 @@
 
 AUTOMAKE_OPTIONS = subdir-objects
 
-SUBDIRS = lib
+SUBDIRS = src
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -11,7 +11,7 @@ AM_CPPFLAGS        = -I$(top_builddir)/include -I$(ibase)
 include_HEADERS = include/c.h  include/fqexpbuffer.h  include/libfq.h  include/libfq-int.h
 
 lib_LTLIBRARIES = libfq.la
-libfq_la_SOURCES = lib/libfq.c lib/fqexpbuffer.c
-libfq_la_LDFLAGS = -version-info 1:0:1
+libfq_la_SOURCES = src/libfq.c src/fqexpbuffer.c
+libfq_la_LDFLAGS = -version-info 1:1:1
 
 

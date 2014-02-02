@@ -57,11 +57,10 @@ DIST_COMMON = $(am__configure_deps) $(include_HEADERS) \
 	$(top_srcdir)/config/ar-lib $(top_srcdir)/config/config.guess \
 	$(top_srcdir)/config/config.sub $(top_srcdir)/config/depcomp \
 	$(top_srcdir)/config/install-sh $(top_srcdir)/config/ltmain.sh \
-	$(top_srcdir)/config/missing $(top_srcdir)/configure ar-lib \
-	config.guess config.sub config/ar-lib config/config.guess \
-	config/config.sub config/depcomp config/install-sh \
-	config/ltmain.sh config/missing depcomp install-sh ltmain.sh \
-	missing
+	$(top_srcdir)/config/missing $(top_srcdir)/configure INSTALL \
+	config/ar-lib config/config.guess config/config.sub \
+	config/depcomp config/install-sh config/ltmain.sh \
+	config/missing
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
 	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
@@ -105,7 +104,7 @@ am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libfq_la_LIBADD =
 am__dirstamp = $(am__leading_dot)dirstamp
-am_libfq_la_OBJECTS = lib/libfq.lo lib/fqexpbuffer.lo
+am_libfq_la_OBJECTS = src/libfq.lo src/fqexpbuffer.lo
 libfq_la_OBJECTS = $(am_libfq_la_OBJECTS)
 libfq_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(libfq_la_LDFLAGS) \
@@ -304,13 +303,13 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = subdir-objects
-SUBDIRS = lib
+SUBDIRS = src
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -I$(top_builddir)/include -I$(ibase)
 include_HEADERS = include/c.h  include/fqexpbuffer.h  include/libfq.h  include/libfq-int.h
 lib_LTLIBRARIES = libfq.la
-libfq_la_SOURCES = lib/libfq.c lib/fqexpbuffer.c
-libfq_la_LDFLAGS = -version-info 1:0:1
+libfq_la_SOURCES = src/libfq.c src/fqexpbuffer.c
+libfq_la_LDFLAGS = -version-info 1:1:1
 all: all-recursive
 
 .SUFFIXES:
@@ -383,29 +382,29 @@ clean-libLTLIBRARIES:
 	  echo rm -f $${locs}; \
 	  rm -f $${locs}; \
 	}
-lib/$(am__dirstamp):
-	@$(MKDIR_P) lib
-	@: > lib/$(am__dirstamp)
-lib/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) lib/$(DEPDIR)
-	@: > lib/$(DEPDIR)/$(am__dirstamp)
-lib/libfq.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
-lib/fqexpbuffer.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
+src/$(am__dirstamp):
+	@$(MKDIR_P) src
+	@: > src/$(am__dirstamp)
+src/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) src/$(DEPDIR)
+	@: > src/$(DEPDIR)/$(am__dirstamp)
+src/libfq.lo: src/$(am__dirstamp) src/$(DEPDIR)/$(am__dirstamp)
+src/fqexpbuffer.lo: src/$(am__dirstamp) src/$(DEPDIR)/$(am__dirstamp)
 libfq.la: $(libfq_la_OBJECTS) $(libfq_la_DEPENDENCIES) $(EXTRA_libfq_la_DEPENDENCIES) 
 	$(libfq_la_LINK) -rpath $(libdir) $(libfq_la_OBJECTS) $(libfq_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
-	-rm -f lib/fqexpbuffer.$(OBJEXT)
-	-rm -f lib/fqexpbuffer.lo
-	-rm -f lib/libfq.$(OBJEXT)
-	-rm -f lib/libfq.lo
+	-rm -f src/fqexpbuffer.$(OBJEXT)
+	-rm -f src/fqexpbuffer.lo
+	-rm -f src/libfq.$(OBJEXT)
+	-rm -f src/libfq.lo
 
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/fqexpbuffer.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/libfq.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/fqexpbuffer.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@src/$(DEPDIR)/libfq.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -436,7 +435,7 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
-	-rm -rf lib/.libs lib/_libs
+	-rm -rf src/.libs src/_libs
 
 distclean-libtool:
 	-rm -f libtool config.lt
@@ -840,8 +839,8 @@ clean-generic:
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
-	-rm -f lib/$(DEPDIR)/$(am__dirstamp)
-	-rm -f lib/$(am__dirstamp)
+	-rm -f src/$(DEPDIR)/$(am__dirstamp)
+	-rm -f src/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -853,7 +852,7 @@ clean-am: clean-generic clean-libLTLIBRARIES clean-libtool \
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf lib/$(DEPDIR)
+	-rm -rf src/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-libtool distclean-tags
@@ -901,7 +900,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf lib/$(DEPDIR)
+	-rm -rf src/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

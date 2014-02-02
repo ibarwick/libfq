@@ -17,8 +17,8 @@ USE AT YOUR OWN RISK.
 Requirements and compatibility
 ------------------------------
 
-libfq should work on any UNIX-like system; see the INSTALL file for
-details.
+libfq should work on any reasonably POSIX-like system; see the INSTALL
+file for details.
 
 It has been developed against Firebird 2.5.2, and should work with
 any 2.5-series servers. It has not been tested against other Firebird
@@ -40,7 +40,7 @@ KNOWN ISSUES
   - unlikely to work without modification on Win32 systems
 
 * Data types
-  - BLOB and ARRAY datatypes are not handled
+  - BLOB and ARRAY datatypes are currently not handled
 
 * Parameterized queries (function "FQexecParams()"):
   - NUMERIC/DECIMAL: may overflow if more digits than
