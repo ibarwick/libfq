@@ -34,7 +34,7 @@ See file "INSTALL".
 KNOWN ISSUES
 ------------
 
-* Compatiblity:
+* Compatibility:
   - tested on Linux and OS X
   - should work on other reasonably UNIX-like systems
   - unlikely to work without modification on Win32 systems
@@ -45,8 +45,3 @@ KNOWN ISSUES
 * Parameterized queries (function "FQexecParams()"):
   - NUMERIC/DECIMAL: may overflow if more digits than
        permitted are supplied
-
-* Character sets, encoding and wide characters
-  - all data is assumed to be UTF8
-  - however there is currently no special handling of non-ASCII
-     characters
