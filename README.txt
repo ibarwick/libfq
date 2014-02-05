@@ -36,8 +36,8 @@ KNOWN ISSUES
 
 * Compatibility:
   - tested on Linux and OS X
-  - should work on other reasonably UNIX-like systems
-  - unlikely to work without modification on Win32 systems
+  - should work on other reasonably POSIX-compatible systems
+  - untested on Windows
 
 * Data types
   - BLOB and ARRAY datatypes are currently not handled
