@@ -75,16 +75,82 @@ char *const fbresStatus[] = {
 /**
  * FQconnect()
  *
- * Create a connection to a Firebird database
+ * Simple function to create a connection to a Firebird database
+ * providing only the database path, username and password.
+ *
+ * FQconnectdbParams() is an alternative function providing more
+ * connection options.
  */
 FQconn *
 FQconnect(char *db_path, char *uname, char *upass)
 {
+    const char *kw[4];
+    const char *val[4];
+
+    kw[0] = "db_path";
+    val[0] = db_path;
+
+    kw[1] = "user";
+    val[1] = uname;
+
+    kw[2] = "password";
+    val[2] = upass;
+
+    kw[3] = val[3] = NULL;
+
+    return FQconnectdbParams(kw, val);
+}
+
+
+/**
+ * FQconnectdbParams()
+ *
+ * Establish a new server connection using parameters provided as
+ * a pair of NULL-terminated arrays.
+ *
+ * Parameters currently recognized are:
+ *
+ *  db_path
+ *  user
+ *  password
+ *  client_encoding
+ *
+ * This list may change in the future.
+ */
+FQconn *
+FQconnectdbParams(const char * const *keywords,
+                  const char * const *values)
+{
+    FQconn *conn;
+
     size_t db_path_len;
     char *dpb;
 
+    const char *db_path = NULL;
+
+    /* XXX: make options into a nice struct */
+    const char *uname = NULL;
+    const char *upass = NULL;
+    const char *client_encoding = NULL;
+
+    int i = 0;
+
+    while(keywords[i])
+    {
+        if(strcmp(keywords[i], "db_path") == 0)
+            db_path = values[i];
+        else if(strcmp(keywords[i], "user") == 0)
+            uname = values[i];
+        else if(strcmp(keywords[i], "password") == 0)
+            upass = values[i];
+        else if(strcmp(keywords[i], "client_encoding") == 0)
+            client_encoding = values[i];
+
+        i++;
+    }
+
     /* initialise connection struct */
-    FQconn *conn = (FQconn *)malloc(sizeof(FQconn));
+    conn = (FQconn *)malloc(sizeof(FQconn));
 
     conn->db = 0L;
     conn->trans = 0L;
@@ -111,6 +177,9 @@ FQconnect(char *db_path, char *uname, char *upass)
     if(upass != NULL)
         isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_password, upass, strlen(upass));
 
+    if(client_encoding != NULL)
+        isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_lc_ctype, client_encoding, strlen(client_encoding));
+
     db_path_len = strlen(db_path);
 
     isc_attach_database(
@@ -124,6 +193,7 @@ FQconnect(char *db_path, char *uname, char *upass)
 
     return conn;
 }
+
 
 
 /**

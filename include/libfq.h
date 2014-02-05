@@ -182,6 +182,10 @@ extern char *const fbresStatus[];
 extern FQconn *
 FQconnect(char *db_path, char *uname, char *upass);
 
+extern FQconn *
+FQconnectdbParams(const char * const *keywords,
+                  const char * const *values);
+
 extern void
 FQfinish(FQconn *conn);
 

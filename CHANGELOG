@@ -1,5 +1,11 @@
 Revision history for firebird_fdw
 
+0.1.2   2014-02-05
+        - new connection function FQconnectdbParams(),
+	  initially to enable explicit setting of the client encoding
+	  (isc_dpb_lc_ctype), but which will hopefully be expanded with
+	  further options
+
 0.1.1   2014-02-02
         - Fix TIMESTAMP/DATE/TIME parsing in FQexecParams()
 	- add FQserverVersionString()
