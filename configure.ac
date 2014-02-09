@@ -1,7 +1,7 @@
 # libfq - configure.ac
 
 AC_PREREQ([2.59])
-AC_INIT([libfq], [0.1.2], [barwick@sql-info.de])
+AC_INIT([libfq], [0.1.3], [barwick@sql-info.de])
 
 AC_CONFIG_AUX_DIR([config])
 AM_INIT_AUTOMAKE([-Wall foreign])

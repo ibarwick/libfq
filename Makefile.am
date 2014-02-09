@@ -12,6 +12,6 @@ include_HEADERS = include/libfq-expbuffer.h  include/libfq.h  include/libfq-int.
 
 lib_LTLIBRARIES = libfq.la
 libfq_la_SOURCES = src/libfq.c src/fqexpbuffer.c
-libfq_la_LDFLAGS = -version-info 1:2:1
+libfq_la_LDFLAGS = -version-info 1:3:1
 
 
