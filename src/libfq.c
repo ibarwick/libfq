@@ -159,6 +159,7 @@ FQconnectdbParams(const char * const *keywords,
     conn->status =  (ISC_STATUS *) malloc(sizeof(ISC_STATUS) * ISC_STATUS_LENGTH);
     conn->engine_version = NULL;
     conn->client_min_messages = DEBUG1;
+    conn->client_encoding = "UTF8";
 
     /* Initialise the Firebird parameter buffer */
 
@@ -178,7 +179,10 @@ FQconnectdbParams(const char * const *keywords,
         isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_password, upass, strlen(upass));
 
     if(client_encoding != NULL)
+    {
         isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_lc_ctype, client_encoding, strlen(client_encoding));
+        conn->client_encoding = (const char *)client_encoding;
+    }
 
     db_path_len = strlen(db_path);
 
@@ -294,6 +298,24 @@ FQserverVersionString(FQconn *conn)
     _FQserverVersionInit(conn);
 
     return conn->engine_version;
+}
+
+
+/**
+ * FQparameterStatus()
+ *
+ */
+
+extern const char *
+FQparameterStatus(FQconn *conn, const char *paramName)
+{
+    if(conn == NULL)
+        return NULL;
+
+    if(strcmp(paramName, "client_encoding") == 0)
+        return conn->client_encoding;
+
+    return NULL;
 }
 
 
@@ -799,16 +821,15 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
             FQresTupleAtt *tuple_att = _FQformatDatum(result->header[i], var);
 
             if(tuple_att->value == NULL)
-            {
                 result->header[i]->has_null = true;
-            }
             else
             {
-                if(tuple_att->len > result->header[i]->att_max_len)
-                    result->header[i]->att_max_len = tuple_att->len;
+                int dsplen = FQdsplen(tuple_att->value, FQparameterStatus(conn, "client_encoding"));
+                if(dsplen > result->header[i]->att_max_len)
+                       result->header[i]->att_max_len = dsplen;
             }
 
-            result->tuple_last->values[i]  = tuple_att;
+            result->tuple_last->values[i] = tuple_att;
         }
 
         result->tuple_last = tuple_next;
@@ -1555,8 +1576,9 @@ _FQexecParams(FQconn *conn,
             }
             else
             {
-                if(tuple_att->len > result->header[i]->att_max_len)
-                    result->header[i]->att_max_len = tuple_att->len;
+                int dsplen = FQdsplen(tuple_att->value, FQparameterStatus(conn, "client_encoding"));
+                if(dsplen > result->header[i]->att_max_len)
+                       result->header[i]->att_max_len = dsplen;
             }
 
             result->tuple_last->values[i]  = tuple_att;
@@ -2004,16 +2026,13 @@ FQfmaxwidth(const FQresult *res, int column_number)
         return 0;
 
     if(res->header[column_number]->alias_len)
-    {
         max_width = res->header[column_number]->att_max_len > res->header[column_number]->alias_len
             ? res->header[column_number]->att_max_len
             : res->header[column_number]->alias_len;
-    }
-    else {
+    else
         max_width = res->header[column_number]->att_max_len > res->header[column_number]->desc_len
             ? res->header[column_number]->att_max_len
             : res->header[column_number]->desc_len;
-    }
 
     return max_width;
 }
@@ -2807,7 +2826,19 @@ FQlog(FQconn *conn, short loglevel, const char *msg, ...)
  * TODO: actually handle different encodings
  */
 int
-FQmblen(const char *s, int encoding)
+FQmblen(const char *s, const char *encoding)
+{
+    return strlen(s);
+}
+
+
+/**
+ * FQdsplen()
+ *
+ * TODO: actually handle different encodings
+ */
+int
+FQdsplen(const char *s, const char *encoding)
 {
     return strlen(s);
 }

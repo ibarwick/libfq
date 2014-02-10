@@ -159,6 +159,7 @@ typedef struct FQconn {
     char          *engine_version;        /* Firebird version as reported by rdb$get_context() */
     int            engine_version_number; /* integer representation of Firebird version */
     short          client_min_messages;
+    const char          *client_encoding;       /* client encoding, default UTF8 */
 } FQconn;
 
 
@@ -168,7 +169,7 @@ typedef struct FQresTupleAtt
     char *value;
     int len;
     bool has_null;
-    char *value_sanitized;
+    char *value_sanitized;  /* XXX TODO not used */
 } FQresTupleAtt;
 
 
@@ -268,6 +269,9 @@ FQserverVersion(FQconn *conn);
 extern char *
 FQserverVersionString(FQconn *conn);
 
+extern const char *
+FQparameterStatus(FQconn *conn, const char *paramName);
+
 extern FQresult *
 FQexec(FQconn *conn, const char *stmt);
 
@@ -366,6 +370,9 @@ FQlog(FQconn *conn, short loglevel, const char *msg, ...);
 /* handling for character/encoding */
 
 extern int
-FQmblen(const char *s, int encoding);
+FQmblen(const char *s, const char *encoding);
+
+extern int
+FQdsplen(const char *s, const char *encoding);
 
 #endif   /* LIBFQ_H */
