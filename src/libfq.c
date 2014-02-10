@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <time.h>
 #include <math.h>
 #include <unistd.h>
@@ -31,7 +32,7 @@ _FQrollbackTransaction(FQconn *conn, isc_tr_handle *trans);
 static FQtransactionStatusType
 _FQstartTransaction(FQconn *conn, isc_tr_handle *trans);
 
-static FQresTupleAtt *_FQformatDatum (FQresTupleAttDesc *att_desc, XSQLVAR *var);
+static FQresTupleAtt *_FQformatDatum (FQconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var);
 static FQresult *_FQinitResult(bool init_sqlda_in);
 static void _FQexecClearResult(FQresult *result);
 static void _FQexecFillTuplesArray(FQresult *result);
@@ -56,6 +57,9 @@ static void _FQsaveMessageField(FQresult *res, FQdiagType code, const char *valu
 static char *_FQdeparseDbKey(const char *db_key);
 static char *_FQparseDbKey(const char *db_key);
 
+static void _FQinitClientEncoding(FQconn *conn);
+static const char *_FQclientEncoding(FQconn *conn);
+
 
 /* keep this in same order as FQexecStatusType in libfq.h */
 char *const fbresStatus[] = {
@@ -70,6 +74,7 @@ char *const fbresStatus[] = {
     "FBRES_NONFATAL_ERROR",
     "FBRES_FATAL_ERROR"
 };
+
 
 
 /**
@@ -149,7 +154,7 @@ FQconnectdbParams(const char * const *keywords,
         i++;
     }
 
-    /* initialise connection struct */
+    /* initialise libfq's connection struct */
     conn = (FQconn *)malloc(sizeof(FQconn));
 
     conn->db = 0L;
@@ -159,10 +164,11 @@ FQconnectdbParams(const char * const *keywords,
     conn->status =  (ISC_STATUS *) malloc(sizeof(ISC_STATUS) * ISC_STATUS_LENGTH);
     conn->engine_version = NULL;
     conn->client_min_messages = DEBUG1;
-    conn->client_encoding = "UTF8";
+    conn->client_encoding = "UTF8"; /* reasonably sensible default - but maybe "NONE" better? */
+    conn->client_encoding_id = -1;  /* indicate the server-parsed value has not yet been retrieved */
+    conn->get_dsp_len = false;
 
     /* Initialise the Firebird parameter buffer */
-
     conn->dpb_buffer = (char *) malloc((size_t)256);
 
     dpb = (char *)conn->dpb_buffer;
@@ -294,10 +300,23 @@ FQserverVersionString(FQconn *conn)
     if(conn == NULL)
         return NULL;
 
-
     _FQserverVersionInit(conn);
 
     return conn->engine_version;
+}
+
+
+/**
+ * FQsetGetdsplen()
+ *
+ * Determine whether the display width for each datum is calculated.
+ * This is convenient for applications (e.g. fbsql) which format tabular
+ * output, but adds some overhead so is off by default.
+ */
+void
+FQsetGetdsplen(FQconn *conn, bool get_dsp_len)
+{
+    conn->get_dsp_len = get_dsp_len;
 }
 
 
@@ -313,10 +332,12 @@ FQparameterStatus(FQconn *conn, const char *paramName)
         return NULL;
 
     if(strcmp(paramName, "client_encoding") == 0)
-        return conn->client_encoding;
+        return _FQclientEncoding(conn);
 
     return NULL;
 }
+
+
 
 
 /**
@@ -788,6 +809,7 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
                 desc->desc_len = var->sqlname_length;
                 desc->desc = (char *)malloc(desc->desc_len + 1);
                 memcpy(desc->desc, var->sqlname, desc->desc_len + 1);
+                desc->desc_dsplen = FQdspstrlen(desc->desc, FQclientEncodingId(conn));
 
                 /* Alias is identical to column name - don't duplicate */
                 if(var->aliasname_length == var->sqlname_length
@@ -801,6 +823,7 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
                     desc->alias_len = var->aliasname_length;
                     desc->alias = (char *)malloc(desc->alias_len + 1);
                     memcpy(desc->alias, var->aliasname, desc->alias_len + 1);
+                    desc->alias_dsplen = FQdspstrlen(desc->alias, FQclientEncodingId(conn));
                 }
                 desc->att_max_len = 0;
 
@@ -818,16 +841,13 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
         for (i = 0; i < result->ncols; i++)
         {
             XSQLVAR *var = (XSQLVAR *)&result->sqlda_out->sqlvar[i];
-            FQresTupleAtt *tuple_att = _FQformatDatum(result->header[i], var);
+            FQresTupleAtt *tuple_att = _FQformatDatum(conn, result->header[i], var);
 
             if(tuple_att->value == NULL)
                 result->header[i]->has_null = true;
             else
-            {
-                int dsplen = FQdsplen(tuple_att->value, FQparameterStatus(conn, "client_encoding"));
-                if(dsplen > result->header[i]->att_max_len)
-                       result->header[i]->att_max_len = dsplen;
-            }
+                if(tuple_att->dsplen > result->header[i]->att_max_len)
+                    result->header[i]->att_max_len = tuple_att->dsplen;
 
             result->tuple_last->values[i] = tuple_att;
         }
@@ -1391,7 +1411,8 @@ _FQexecParams(FQconn *conn,
                 case SQL_TYPE_TIME:
                     /* Here we coerce the time-related column types to CHAR,
                      * causing Firebird to use its internal parsing mechanisms
-                     * to interpret the supplied literal */
+                     * to interpret the supplied literal
+                     */
                     len = strlen(paramValues[i]);
                     /* From dbimp.c: "workaround for date problem (bug #429820)" */
                     var->sqltype = SQL_TEXT;
@@ -1538,6 +1559,7 @@ _FQexecParams(FQconn *conn,
                 desc->desc_len = var1->sqlname_length;
                 desc->desc = (char *)malloc(desc->desc_len + 1);
                 memcpy(desc->desc, var1->sqlname, desc->desc_len + 1);
+                desc->desc_dsplen = FQdspstrlen(desc->desc, FQclientEncodingId(conn));
 
                 if(var1->aliasname_length == var1->sqlname_length
                    && strncmp(var1->aliasname, var1->sqlname, var1->aliasname_length ) == 0)
@@ -1550,6 +1572,7 @@ _FQexecParams(FQconn *conn,
                     desc->alias_len = var1->aliasname_length;
                     desc->alias = (char *)malloc(desc->alias_len + 1);
                     memcpy(desc->alias, var1->aliasname, desc->alias_len + 1);
+                    desc->alias_dsplen = FQdspstrlen(desc->alias, FQclientEncodingId(conn));
                 }
                 desc->att_max_len = 0;
 
@@ -1568,18 +1591,13 @@ _FQexecParams(FQconn *conn,
         for (i = 0; i < result->ncols; i++)
         {
             XSQLVAR *var = (XSQLVAR *)&result->sqlda_out->sqlvar[i];
-            FQresTupleAtt *tuple_att = _FQformatDatum(result->header[i], var);
+            FQresTupleAtt *tuple_att = _FQformatDatum(conn, result->header[i], var);
 
             if(tuple_att->value == NULL)
-            {
                 result->header[i]->has_null = true;
-            }
             else
-            {
-                int dsplen = FQdsplen(tuple_att->value, FQparameterStatus(conn, "client_encoding"));
-                if(dsplen > result->header[i]->att_max_len)
-                       result->header[i]->att_max_len = dsplen;
-            }
+                if(tuple_att->dsplen > result->header[i]->att_max_len)
+                    result->header[i]->att_max_len = tuple_att->dsplen;
 
             result->tuple_last->values[i]  = tuple_att;
         }
@@ -2012,7 +2030,8 @@ FQfhasNull(const FQresult *res, int column_number)
 /**
  * FQfmaxwidth()
  *
- * Provides the maximum width of a column.
+ * Provides the maximum width of a column in single character units
+ *
  */
 int
 FQfmaxwidth(const FQresult *res, int column_number)
@@ -2026,13 +2045,13 @@ FQfmaxwidth(const FQresult *res, int column_number)
         return 0;
 
     if(res->header[column_number]->alias_len)
-        max_width = res->header[column_number]->att_max_len > res->header[column_number]->alias_len
+        max_width = res->header[column_number]->att_max_len > res->header[column_number]->alias_dsplen
             ? res->header[column_number]->att_max_len
-            : res->header[column_number]->alias_len;
+            : res->header[column_number]->alias_dsplen;
     else
-        max_width = res->header[column_number]->att_max_len > res->header[column_number]->desc_len
+        max_width = res->header[column_number]->att_max_len > res->header[column_number]->desc_dsplen
             ? res->header[column_number]->att_max_len
-            : res->header[column_number]->desc_len;
+            : res->header[column_number]->desc_dsplen;
 
     return max_width;
 }
@@ -2110,6 +2129,23 @@ FQgetvalue(const FQresult *res,
         return NULL;
 
     return res->tuples[row_number]->values[column_number]->value;
+}
+
+int
+FQgetdsplen(const FQresult *res,
+            int row_number,
+            int column_number)
+{
+    if(!res)
+        return -1;
+
+    if(row_number >= res->ntups)
+        return -1;
+
+    if(column_number >= res->ncols)
+        return -1;
+
+    return res->tuples[row_number]->values[column_number]->dsplen;
 }
 
 
@@ -2357,7 +2393,7 @@ _FQstartTransaction(FQconn *conn, isc_tr_handle *trans)
  * Format the provided SQLVAR datum as a FQresTupleAtt
  */
 static FQresTupleAtt *
-_FQformatDatum(FQresTupleAttDesc *att_desc, XSQLVAR *var)
+_FQformatDatum(FQconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 {
     FQresTupleAtt *tuple_att;
     short       datatype;
@@ -2369,6 +2405,7 @@ _FQformatDatum(FQresTupleAttDesc *att_desc, XSQLVAR *var)
     tuple_att = (FQresTupleAtt *)malloc(sizeof(FQresTupleAtt));
     tuple_att->value = NULL;
     tuple_att->len = 0;
+    tuple_att->dsplen = 0;
     tuple_att->has_null = false;
 
     datatype = att_desc->type;
@@ -2548,9 +2585,19 @@ _FQformatDatum(FQresTupleAttDesc *att_desc, XSQLVAR *var)
 
     /* Special case for RDB$DB_KEY */
     if(datatype == SQL_DB_KEY)
+    {
         tuple_att->len = var->sqllen;
+        tuple_att->dsplen = FB_DB_KEY_LEN;
+    }
     else
+    {
         tuple_att->len = strlen(p);
+
+        if(conn->get_dsp_len == true)
+            tuple_att->dsplen = FQdspstrlen(tuple_att->value, FQclientEncodingId(conn));
+        else
+            tuple_att->dsplen = tuple_att->len;
+    }
 
     return tuple_att;
 }
@@ -2823,22 +2870,143 @@ FQlog(FQconn *conn, short loglevel, const char *msg, ...)
 /**
  * FQmblen()
  *
- * TODO: actually handle different encodings
+ * Return the byte length of the provided character
  */
 int
-FQmblen(const char *s, const char *encoding)
+FQmblen(const char *s, short encoding_id)
 {
-    return strlen(s);
+    int len = 1;
+
+    switch(encoding_id)
+    {
+        case FBENC_UTF8:
+            len = pg_utf_mblen(s);
+            break;
+    }
+
+    return len;
 }
 
 
 /**
  * FQdsplen()
  *
- * TODO: actually handle different encodings
+ * Return the display length of the provided character
  */
 int
-FQdsplen(const char *s, const char *encoding)
+FQdsplen(const unsigned char *s, short encoding_id)
 {
-    return strlen(s);
+    int len = 1;
+    switch(encoding_id)
+    {
+        case FBENC_UTF8:
+            len = pg_utf_dsplen(s);
+            break;
+    }
+
+    return len;
 }
+
+/**
+ * FQdspstrlen()
+ *
+ * Returns the single-character-equivalent display length of the string in
+ * the provided encoding
+ */
+int
+FQdspstrlen(const char *s, short encoding_id)
+{
+    int len = strlen(s);
+    int chlen = 0;
+    int dsplen = 0;
+    int w;
+
+	for (; *s && len > 0; s += chlen)
+	{
+        chlen = FQmblen(s, encoding_id);
+
+		if (len < (size_t) chlen)
+			break;
+
+        w = FQdsplen(s, encoding_id);
+        dsplen += w;
+        len -= chlen;
+    }
+
+    return dsplen;
+}
+
+
+/**
+ * _FQclientEncoding()
+ *
+ */
+
+static const char *
+_FQclientEncoding(FQconn *conn)
+{
+    if(conn->client_encoding_id == -1)
+        _FQinitClientEncoding(conn);
+
+    return conn->client_encoding;
+}
+
+/**
+ * FQclientEncodingId()
+ *
+ */
+
+int
+FQclientEncodingId(FQconn *conn)
+{
+    if(conn == NULL)
+        return -1;
+
+    if(conn->client_encoding_id == -1)
+        _FQinitClientEncoding(conn);
+
+    /* in case we still couldn't get a valid encoding */
+    if(conn->client_encoding_id == -1)
+        return -1;
+
+    return conn->client_encoding_id;
+}
+
+
+/**
+ * _FQinitClientEncoding(
+ *
+ */
+static void
+_FQinitClientEncoding(FQconn *conn)
+{
+    const char *sql = \
+"    SELECT TRIM(rdb$character_set_name) AS client_encoding, " \
+"           mon$character_set_id As client_encoding_id " \
+"      FROM mon$attachments " \
+"INNER JOIN rdb$character_sets " \
+"        ON mon$character_set_id = rdb$character_set_id "\
+"     WHERE mon$remote_pid = %i";
+
+    char query[1024];
+    FQresult   *res;
+
+    if(_FQstartTransaction(conn, &conn->trans_internal) == TRANS_ERROR)
+        return;
+
+    sprintf(query, sql, getpid());
+    res = _FQexec(conn, &conn->trans_internal, query);
+
+    if(FQresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
+    {
+        conn->client_encoding = FQgetvalue(res, 0, 0);
+        conn->client_encoding_id = (short)atoi(FQgetvalue(res, 0, 1));
+    }
+
+    FQclear(res);
+
+    _FQcommitTransaction(conn, &conn->trans_internal);
+
+    return;
+}
+

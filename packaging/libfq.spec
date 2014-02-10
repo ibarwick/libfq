@@ -17,7 +17,7 @@ libpq for PostgreSQL.
 
 %prep
 %setup
-./configure --prefix=%{_prefix} --with-ibase=/usr/include/firebird
+./configure --prefix=%{_prefix} --with-ibase=/usr/include/firebird --libdir=/usr/lib64/
 %build
 
 make

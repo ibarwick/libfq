@@ -1,5 +1,5 @@
 typedef PARAMVARY VARY2;
-
+typedef unsigned int fb_wchar;
 
 #define ERROR_BUFFER_LEN 512
 
@@ -37,3 +37,6 @@ typedef PARAMVARY VARY2;
 #  define S_INT64_DEC_NOSCALE ".%%1lld"
 #endif
 
+extern int pg_utf_dsplen(const unsigned char *s);
+
+extern int pg_utf_mblen(const unsigned char *s);

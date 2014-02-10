@@ -107,9 +107,65 @@ typedef uint32 bits32;                  /* >= 32 bits */
 
 /* pseudo-type for convenience */
 #define SQL_INVALID_TYPE                    -1
+
 /* libfq customisation to indicate a column represents an RDB$DB_KEY value */
 #define SQL_DB_KEY                       16384
 #define FB_DB_KEY_LEN                       16
+
+
+#define FBENC_ASCII                           2
+#define FBENC_BIG_5                           56
+#define FBENC_CP943C                          68
+#define FBENC_CYRL                            50
+#define FBENC_DOS437                          10
+#define FBENC_DOS737                          9
+#define FBENC_DOS775                          15
+#define FBENC_DOS850                          11
+#define FBENC_DOS852                          45
+#define FBENC_DOS857                          46
+#define FBENC_DOS858                          16
+#define FBENC_DOS860                          13
+#define FBENC_DOS861                          47
+#define FBENC_DOS862                          17
+#define FBENC_DOS863                          14
+#define FBENC_DOS864                          18
+#define FBENC_DOS865                          12
+#define FBENC_DOS866                          48
+#define FBENC_DOS869                          49
+#define FBENC_EUCJ_0208                       6
+#define FBENC_GB18030                         69
+#define FBENC_GBK                             67
+#define FBENC_GB_2312                         57
+#define FBENC_ISO8859_1                       21
+#define FBENC_ISO8859_13                      40
+#define FBENC_ISO8859_2                       22
+#define FBENC_ISO8859_3                       23
+#define FBENC_ISO8859_4                       34
+#define FBENC_ISO8859_5                       35
+#define FBENC_ISO8859_6                       36
+#define FBENC_ISO8859_7                       37
+#define FBENC_ISO8859_8                       38
+#define FBENC_ISO8859_9                       39
+#define FBENC_KOI8R                           63
+#define FBENC_KOI8U                           64
+#define FBENC_KSC_5601                        44
+#define FBENC_NEXT                            19
+#define FBENC_NONE                            0
+#define FBENC_OCTETS                          1
+#define FBENC_SJIS_0208                       5
+#define FBENC_TIS620                          66
+#define FBENC_UNICODE_FSS                     3
+#define FBENC_UTF8                            4
+#define FBENC_WIN1250                         51
+#define FBENC_WIN1251                         52
+#define FBENC_WIN1252                         53
+#define FBENC_WIN1253                         54
+#define FBENC_WIN1254                         55
+#define FBENC_WIN1255                         58
+#define FBENC_WIN1256                         59
+#define FBENC_WIN1257                         60
+#define FBENC_WIN1258                         65
+
 
 typedef enum
 {
@@ -156,10 +212,12 @@ typedef struct FQconn {
     char          *dpb_buffer;
     short          dpb_length;
     ISC_STATUS    *status;
-    char          *engine_version;        /* Firebird version as reported by rdb$get_context() */
+    char          *engine_version;        /* Firebird version as reported by RDB$GET_CONTEXT() */
     int            engine_version_number; /* integer representation of Firebird version */
     short          client_min_messages;
-    const char          *client_encoding;       /* client encoding, default UTF8 */
+    short          client_encoding_id;    /* corresponds to MON$ATTACHMENTS.MON$CHARACTER_SET_ID */
+    char          *client_encoding;       /* client encoding, default UTF8 */
+    bool           get_dsp_len;           /* calculate display length in single characters of each datum */
 } FQconn;
 
 
@@ -168,6 +226,7 @@ typedef struct FQresTupleAtt
 {
     char *value;
     int len;
+    int dsplen;
     bool has_null;
 } FQresTupleAtt;
 
@@ -182,13 +241,15 @@ typedef struct FQresTuple
 
 typedef struct FQresTupleAttDesc
 {
-    char  *desc;        /* column name */
-    short  desc_len;    /* length of column name */
-    char  *alias;       /* column alias, if provided */
-    short  alias_len;
-    int    att_max_len; /* max length of value in column */
-    short  type;        /* datatype */
-    bool   has_null;    /* indicates if resultset contains at least one NULL */
+    char  *desc;         /* column name */
+    short  desc_len;     /* length of column name */
+    short  desc_dsplen;  /* display length of column name in single characters */
+    char  *alias;        /* column alias, if provided */
+    short  alias_len;    /* length of column alias */
+    short  alias_dsplen; /* display length of alias name in single characters */
+    int    att_max_len;  /* max length of value in column */
+    short  type;         /* datatype */
+    bool   has_null;     /* indicates if resultset contains at least one NULL */
 } FQresTupleAttDesc;
 
 /* Typedef for message-field list entries */
@@ -233,6 +294,9 @@ typedef struct FQresult
 } FQresult;
 
 extern char *const fbresStatus[];
+
+
+
 
 extern FQconn *
 FQconnect(char *db_path, char *uname, char *upass);
@@ -314,6 +378,9 @@ FQfformat(const FQresult *res, int column_number);
 extern short
 FQftype(const FQresult *res, int column_number);
 
+extern void
+FQsetGetdsplen(FQconn *conn, bool get_dsp_len);
+
 
 extern int
 FQgetlength(const FQresult *res,
@@ -324,6 +391,12 @@ extern char *
 FQgetvalue(const FQresult *res,
            int row_number,
            int column_number);
+
+extern int
+FQgetdsplen(const FQresult *res,
+            int row_number,
+            int column_number);
+
 
 extern int
 FQgetisnull(const FQresult *res,
@@ -368,10 +441,12 @@ FQlog(FQconn *conn, short loglevel, const char *msg, ...);
 
 /* handling for character/encoding */
 
-extern int
-FQmblen(const char *s, const char *encoding);
+extern int FQmblen(const char *s, short encoding_id);
 
-extern int
-FQdsplen(const char *s, const char *encoding);
+extern int FQdsplen(const unsigned char *s, short encoding_id);
+
+extern int FQdspstrlen(const char *s, short encoding_id);
+
+extern int FQclientEncodingId(FQconn *conn);
 
 #endif   /* LIBFQ_H */
