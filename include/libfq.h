@@ -169,7 +169,6 @@ typedef struct FQresTupleAtt
     char *value;
     int len;
     bool has_null;
-    char *value_sanitized;  /* XXX TODO not used */
 } FQresTupleAtt;
 
 
