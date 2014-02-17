@@ -8,6 +8,6 @@ version:
 	find . -name "*.spec" -print -exec perl -i -n -e 's/^Version: (\d+\.\d+\.\d+)/Version: $(VERSION)/; print;' {} \;
 
 rpm_source: version_check
-	cd .. && git archive --prefix=libfq-$(VERSION)/ $(VERSION) \
-	-o ~/rpmbuild/SOURCES/libfq-$(VERSION).tar.gz
+	cd .. && git archive --format=tar --prefix=libfq-$(VERSION)/ $(VERSION) | \
+	gzip > ~/rpmbuild/SOURCES/libfq-$(VERSION).tar.gz
 
