@@ -828,7 +828,7 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
                 desc->att_max_len = 0;
 
                 /* Firebird returns RDB$DB_KEY as "DB_KEY" - set the pseudo-datatype*/
-                if(strncmp(desc->desc, "DB_KEY", 6) == 0)
+                if(strncmp(desc->desc, "DB_KEY", 6) == 0 && strlen(desc->desc) == 6)
                     desc->type = SQL_DB_KEY;
                 else
                     desc->type = var->sqltype & ~1;
@@ -1577,7 +1577,7 @@ _FQexecParams(FQconn *conn,
                 desc->att_max_len = 0;
 
                 /* Firebird returns RDB$DB_KEY as "DB_KEY" - set the pseudo-datatype */
-                if(strncmp(desc->desc, "DB_KEY", 6) == 0)
+                if(strncmp(desc->desc, "DB_KEY", 6) == 0 && strlen(desc->desc) == 6)
                     desc->type = SQL_DB_KEY;
                 else
                     desc->type = var1->sqltype & ~1;
