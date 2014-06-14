@@ -19,8 +19,8 @@
  * Portions Copyright (c) 1994, Regents of the University of California
  *-------------------------------------------------------------------------
  */
-#ifndef LIBFQFQEXPBUFFER_H
-#define LIBFQFQEXPBUFFER_H
+#ifndef LIBFQEXPBUFFER_H
+#define LIBFQEXPBUFFER_H
 
 #include <stdarg.h>
 #include <stdio.h>

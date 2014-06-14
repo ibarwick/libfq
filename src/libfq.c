@@ -2131,6 +2131,15 @@ FQgetvalue(const FQresult *res,
     return res->tuples[row_number]->values[column_number]->value;
 }
 
+
+/**
+ * FQgetdsplen()
+ *
+ * Returns the display length in single characters of the specified FQresult
+ * field.
+ *
+ * Row and column numbers start at 0.
+ */
 int
 FQgetdsplen(const FQresult *res,
             int row_number,
