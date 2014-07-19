@@ -43,7 +43,7 @@ typedef bool *BoolPtr;
  */
 #define endof(array)    (&(array)[lengthof(array)])
 
-#define HIGHBIT                                 (0x80)
+#define HIGHBIT                         (0x80)
 #define IS_HIGHBIT_SET(ch)              ((unsigned char)(ch) & HIGHBIT)
 
 

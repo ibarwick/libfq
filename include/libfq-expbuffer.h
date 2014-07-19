@@ -139,7 +139,7 @@ extern void resetFQExpBuffer(FQExpBuffer str);
  * Returns 1 if OK, 0 if failed to enlarge buffer.	(In the latter case
  * the buffer is left in "broken" state.)
  */
-extern int	enlargeFQExpBuffer(FQExpBuffer str, size_t needed);
+extern int enlargeFQExpBuffer(FQExpBuffer str, size_t needed);
 
 /*------------------------
  * printfFQExpBuffer
