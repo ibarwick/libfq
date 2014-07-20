@@ -35,8 +35,9 @@ _FQstartTransaction(FQconn *conn, isc_tr_handle *trans);
 static FQresTupleAtt *_FQformatDatum (FQconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var);
 static FQresult *_FQinitResult(bool init_sqlda_in);
 static void _FQexecClearResult(FQresult *result);
+static void _FQexecClearSQLDA(FQresult *result, XSQLDA *sqlda);
 static void _FQexecFillTuplesArray(FQresult *result);
-static void _FQexecInitOutputSQLDA(FQresult *result);
+static void _FQexecInitOutputSQLDA(FQconn *conn, FQresult *result);
 static ISC_LONG _FQexecParseStatementType(char *info_buffer);
 
 static FQresult *_FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt);
@@ -356,7 +357,7 @@ _FQinitResult(bool init_sqlda_in)
     if(init_sqlda_in == true)
     {
         result->sqlda_in = (XSQLDA *) malloc(XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
-        memset(result->sqlda_in, 0, XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
+        memset(result->sqlda_in, '\0', XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
         result->sqlda_in->sqln = FB_XSQLDA_INITLEN;
         result->sqlda_in->version = SQLDA_VERSION1;
     }
@@ -366,11 +367,9 @@ _FQinitResult(bool init_sqlda_in)
     }
 
     result->sqlda_out = (XSQLDA *) malloc(XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
-    memset(result->sqlda_out, 0, XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
+    memset(result->sqlda_out, '\0', XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
     result->sqlda_out->sqln = FB_XSQLDA_INITLEN;
     result->sqlda_out->version = SQLDA_VERSION1;
-
-    result->sqlda_out_buffer = NULL;
 
     result->stmt_handle = 0L;
     result->ntups = -1;
@@ -395,20 +394,43 @@ _FQexecClearResult(FQresult *result)
 {
     if(result->sqlda_in != NULL)
     {
+        _FQexecClearSQLDA(result, result->sqlda_in);
         free(result->sqlda_in);
         result->sqlda_in = NULL;
     }
 
     if(result->sqlda_out != NULL)
     {
+        _FQexecClearSQLDA(result, result->sqlda_out);
         free(result->sqlda_out);
         result->sqlda_out = NULL;
     }
+}
 
-    if(result->sqlda_out_buffer != NULL)
+
+/**
+ * _FQexecClearSQLDA()
+ *
+ *
+ */
+static
+void _FQexecClearSQLDA(FQresult *result, XSQLDA *sqlda)
+{
+    XSQLVAR *var;
+    short    i;
+
+    for (i = 0, var = result->sqlda_out->sqlvar; i < result->ncols; var++, i++)
     {
-        free(result->sqlda_out_buffer);
-        result->sqlda_out_buffer = NULL;
+        if(var->sqldata != NULL)
+        {
+            free(var->sqldata);
+        }
+
+        if (var->sqltype & 1 && var->sqlind != NULL)
+        {
+            /* deallocate NULL status indicator */
+            var->sqlind = (short *)malloc(sizeof(short));
+        }
     }
 }
 
@@ -417,45 +439,85 @@ _FQexecClearResult(FQresult *result)
  * _FQexecInitOutputSQLDA()
  *
  * Initialise an output SQLDA to hold a retrieved row
+ *
+ * This initialises a storage location for each column and additionally
+ * a flag to indicate NULL status if required.
+ *
+ * It might be slightly more efficient to calculate the total size of
+ * required storage and allocate a single buffer, pointing each SQLVAR
+ * and NULL status indicator to a location in that buffer, but that is
+ * somewhat tricky to get right.
  */
 static void
-_FQexecInitOutputSQLDA(FQresult *result)
+_FQexecInitOutputSQLDA(FQconn *conn, FQresult *result)
 {
-    XSQLVAR       *var;
-    short offset, type, i, length;
-    char *buffer;
-
-    int buffer_len = 0;
+    XSQLVAR *var;
+    short    sqltype, i;
+    char     error_message[1024];
 
     for (i = 0, var = result->sqlda_out->sqlvar; i < result->ncols; var++, i++)
     {
-        length = var->sqllen;
-        type = var->sqltype & ~1;
+        sqltype = (var->sqltype & ~1); /* drop flag bit for now */
+        switch(sqltype)
+        {
+            case SQL_VARYING:
+                var->sqldata = (char *)malloc(sizeof(char)*var->sqllen + 2);
+                break;
+            case SQL_TEXT:
+                var->sqldata = (char *)malloc(sizeof(char)*var->sqllen);
+                break;
 
-        if (type == SQL_VARYING)
-            length += sizeof (short) + 1;
+            case SQL_SHORT:
+                var->sqldata = (char *)malloc(sizeof(ISC_SHORT));
+                break;
+            case SQL_LONG:
+                var->sqldata = (char *)malloc(sizeof(ISC_LONG));
+                break;
+            case SQL_INT64:
+                var->sqldata = (char *)malloc(sizeof(ISC_INT64));
+                break;
 
-        buffer_len += length + sizeof(short);
+            case SQL_FLOAT:
+                var->sqldata = (char *)malloc(sizeof(float));
+                break;
+            case SQL_DOUBLE:
+                var->sqldata = (char *)malloc(sizeof(double));
+                break;
+
+            case SQL_TIMESTAMP:
+                var->sqldata = (char *)malloc(sizeof(ISC_TIMESTAMP));
+                break;
+            case SQL_TYPE_DATE:
+                var->sqldata = (char *)malloc(sizeof(ISC_DATE));
+                break;
+            case SQL_TYPE_TIME:
+                var->sqldata = (char *)malloc(sizeof(ISC_TIME));
+                break;
+
+            case SQL_BLOB:
+                var->sqldata = (char *)malloc(sizeof(ISC_QUAD));
+                break;
+
+            default:
+                sprintf(error_message, "Unhandled sqlda_out type: %i", sqltype);
+
+                _FQsetResultError(conn, result);
+                _FQsaveMessageField(result, FB_DIAG_DEBUG, error_message);
+
+                result->resultStatus = FBRES_FATAL_ERROR;
+
+                _FQexecClearResult(result);
+
+                return;
+
+        }
+        if (var->sqltype & 1)
+        {
+            /* allocate variable to hold NULL status */
+            var->sqlind = (short *)malloc(sizeof(short));
+        }
     }
 
-    buffer = (char *)malloc(buffer_len);
-
-    for (i = 0, offset = 0, var = result->sqlda_out->sqlvar; i < result->ncols; var++, i++)
-    {
-        length = var->sqllen;
-        type = var->sqltype & ~1;
-
-        if (type == SQL_VARYING)
-            length += sizeof (short) + 1;
-
-        var->sqldata = (char *) buffer + offset;
-        offset += length;
-
-        var->sqlind = (short*) ((char *) buffer + offset);
-        offset += sizeof  (short);
-    }
-
-    result->sqlda_out_buffer = buffer;
 }
 
 
@@ -747,13 +809,13 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
 
         free(result->sqlda_out);
         result->sqlda_out = (XSQLDA *) malloc(XSQLDA_LENGTH (result->ncols));
-        memset(result->sqlda_out, 0, XSQLDA_LENGTH (result->ncols));
+        memset(result->sqlda_out, '\0', XSQLDA_LENGTH (result->ncols));
 
+        result->sqlda_out->version = SQLDA_VERSION1;
         result->sqlda_out->sqln = result->ncols;
 
         if (isc_dsql_describe(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out))
         {
-
             _FQsetResultError(conn, result);
             _FQsaveMessageField(result, FB_DIAG_DEBUG, "isc_dsql_describe");
 
@@ -766,7 +828,7 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
         result->ncols = result->sqlda_out->sqld;
     }
 
-    _FQexecInitOutputSQLDA(result);
+    _FQexecInitOutputSQLDA(conn, result);
 
     if (isc_dsql_execute(conn->status, trans, &result->stmt_handle, SQL_DIALECT_V6, NULL))
     {
@@ -786,6 +848,8 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
     }
 
 
+
+
     /* set up tuple holder */
 
     result->tuple_last = (FQresTuple *)malloc(sizeof(FQresTuple));
@@ -796,6 +860,7 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
     while ((fetch_stat = isc_dsql_fetch(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out)) == 0)
     {
         FQresTuple *tuple_next = (FQresTuple *)malloc(sizeof(FQresTuple));
+
 
         result->tuple_last->position = num_rows+1;
         result->tuple_last->next = tuple_next;
@@ -859,7 +924,6 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
 
         num_rows++;
     }
-
     result->resultStatus = FBRES_TUPLES_OK;
     result->ntups = num_rows;
 
@@ -1280,7 +1344,7 @@ _FQexecParams(FQconn *conn,
 
                     FQlog(conn, DEBUG1, "INT64");
                     var->sqldata = (char *)malloc(sizeof(ISC_INT64));
-                    memset(var->sqldata, 0, sizeof(ISC_INT64));
+                    memset(var->sqldata, '\0', sizeof(ISC_INT64));
 
                     p = q = r = (ISC_INT64) 0;
                     svalue = paramValues[i];
@@ -1499,15 +1563,16 @@ _FQexecParams(FQconn *conn,
     if (result->sqlda_out->sqln < result->ncols) {
         free(result->sqlda_out);
         result->sqlda_out = (XSQLDA *) malloc(XSQLDA_LENGTH (result->ncols));
-        memset(result->sqlda_out, 0, XSQLDA_LENGTH (result->ncols));
+        memset(result->sqlda_out, '\0', XSQLDA_LENGTH (result->ncols));
 
+        result->sqlda_out->version = SQLDA_VERSION1;
         result->sqlda_out->sqln = result->ncols;
 
         result->ncols = result->sqlda_out->sqld;
         isc_dsql_describe(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out);
     }
 
-    _FQexecInitOutputSQLDA(result);
+    _FQexecInitOutputSQLDA(conn, result);
 
     if (isc_dsql_execute2(conn->status, trans, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_in, NULL))
     {
@@ -2530,12 +2595,12 @@ _FQformatDatum(FQconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
         break;
 
         case SQL_FLOAT:
-            p = (char *)malloc(FB_FLOAT_LEN);
+            p = (char *)malloc(FB_FLOAT_LEN + 1);
             sprintf(p, "%g", *(float *) (var->sqldata));
             break;
 
         case SQL_DOUBLE:
-            p = (char *)malloc(FB_DOUBLE_LEN);
+            p = (char *)malloc(FB_DOUBLE_LEN + 1);
             sprintf(p, "%f", *(double *) (var->sqldata));
             break;
 

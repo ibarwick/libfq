@@ -269,7 +269,6 @@ typedef struct FQresult
     XSQLDA *sqlda_in;               /* Pointer to a Firebird XSQLDA structure used to hold data for prepared statements */
                                     /* NOTE: the XSQLDA pointers are only used during query execution and will be
                                      * freed once execution has completed; see _FQexecClearResult() */
-    char *sqlda_out_buffer;         /* Temporary buffer to hold output tuple data */
     isc_stmt_handle stmt_handle;
     FQexecStatusType resultStatus;
     int ntups;                      /* The number of rows (tuples) returned by a query.
