@@ -742,11 +742,14 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
 
     /* Expand sqlda to required number of columns */
     result->ncols = result->sqlda_out->sqld;
+
     if (result->sqlda_out->sqln < result->ncols) {
-        result->sqlda_out = (XSQLDA *) realloc(result->sqlda_out,
-                                   XSQLDA_LENGTH (result->ncols));
+
+        free(result->sqlda_out);
+        result->sqlda_out = (XSQLDA *) malloc(XSQLDA_LENGTH (result->ncols));
+        memset(result->sqlda_out, 0, XSQLDA_LENGTH (result->ncols));
+
         result->sqlda_out->sqln = result->ncols;
-        result->sqlda_out->version = 1;
 
         if (isc_dsql_describe(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out))
         {
@@ -1494,10 +1497,11 @@ _FQexecParams(FQconn *conn,
     }
 
     if (result->sqlda_out->sqln < result->ncols) {
-        result->sqlda_out = (XSQLDA *) realloc(result->sqlda_out,
-                                                   XSQLDA_LENGTH (result->ncols));
+        free(result->sqlda_out);
+        result->sqlda_out = (XSQLDA *) malloc(XSQLDA_LENGTH (result->ncols));
+        memset(result->sqlda_out, 0, XSQLDA_LENGTH (result->ncols));
+
         result->sqlda_out->sqln = result->ncols;
-        result->sqlda_out->version = SQLDA_VERSION1;
 
         result->ncols = result->sqlda_out->sqld;
         isc_dsql_describe(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out);
