@@ -188,7 +188,7 @@ FQconnectdbParams(const char * const *keywords,
     if(client_encoding != NULL)
     {
         isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_lc_ctype, client_encoding, strlen(client_encoding));
-        conn->client_encoding = (const char *)client_encoding;
+        conn->client_encoding = (char *)client_encoding;
     }
 
     db_path_len = strlen(db_path);
