@@ -169,127 +169,127 @@ typedef uint32 bits32;                  /* >= 32 bits */
 
 typedef enum
 {
-    CONNECTION_OK = 0,
-    CONNECTION_BAD
+	CONNECTION_OK = 0,
+	CONNECTION_BAD
 } FQconnStatusType;
 
 
 typedef enum {
     FBRES_NO_ACTION = 0,
-    FBRES_EMPTY_QUERY,
-    FBRES_COMMAND_OK,
-    FBRES_TUPLES_OK,
-    FBRES_TRANSACTION_START,
-    FBRES_TRANSACTION_COMMIT,
-    FBRES_TRANSACTION_ROLLBACK,
-    FBRES_BAD_RESPONSE,
-    FBRES_NONFATAL_ERROR,
-    FBRES_FATAL_ERROR
+	FBRES_EMPTY_QUERY,
+	FBRES_COMMAND_OK,
+	FBRES_TUPLES_OK,
+	FBRES_TRANSACTION_START,
+	FBRES_TRANSACTION_COMMIT,
+	FBRES_TRANSACTION_ROLLBACK,
+	FBRES_BAD_RESPONSE,
+	FBRES_NONFATAL_ERROR,
+	FBRES_FATAL_ERROR
 } FQexecStatusType;
 
 typedef enum {
-    FB_DIAG_OTHER = 0,
-    FB_DIAG_MESSAGE_PRIMARY,
-    FB_DIAG_MESSAGE_DETAIL,
-    FB_DIAG_MESSAGE_LINE,
-    FB_DIAG_MESSAGE_COLUMN,
-    FB_DIAG_DEBUG  /* debugging info, not usually displayed */
+	FB_DIAG_OTHER = 0,
+	FB_DIAG_MESSAGE_PRIMARY,
+	FB_DIAG_MESSAGE_DETAIL,
+	FB_DIAG_MESSAGE_LINE,
+	FB_DIAG_MESSAGE_COLUMN,
+	FB_DIAG_DEBUG  /* debugging info, not usually displayed */
 } FQdiagType;
 
 
 typedef enum {
-    TRANS_OK,
-    TRANS_ERROR
+	TRANS_OK,
+	TRANS_ERROR
 } FQtransactionStatusType;
 
 
 typedef struct FQconn {
-    isc_db_handle  db;
-    isc_tr_handle  trans;
-    isc_tr_handle  trans_internal;        /* transaction handle for atomic internal operations */
-    bool           autocommit;
-    bool           in_user_transaction;   /* set when explicit SET TRANSACTION was executed */
-    char          *dpb_buffer;
-    short          dpb_length;
-    ISC_STATUS    *status;
-    char          *engine_version;        /* Firebird version as reported by RDB$GET_CONTEXT() */
-    int            engine_version_number; /* integer representation of Firebird version */
-    short          client_min_messages;
-    short          client_encoding_id;    /* corresponds to MON$ATTACHMENTS.MON$CHARACTER_SET_ID */
-    char          *client_encoding;       /* client encoding, default UTF8 */
-    bool           get_dsp_len;           /* calculate display length in single characters of each datum */
+	isc_db_handle  db;
+	isc_tr_handle  trans;
+	isc_tr_handle  trans_internal;		  /* transaction handle for atomic internal operations */
+	bool		   autocommit;
+	bool		   in_user_transaction;	  /* set when explicit SET TRANSACTION was executed */
+	char		  *dpb_buffer;
+	short		   dpb_length;
+	ISC_STATUS	  *status;
+	char		  *engine_version;		  /* Firebird version as reported by RDB$GET_CONTEXT() */
+	int			   engine_version_number; /* integer representation of Firebird version */
+	short		   client_min_messages;
+	short		   client_encoding_id;	  /* corresponds to MON$ATTACHMENTS.MON$CHARACTER_SET_ID */
+	char		  *client_encoding;		  /* client encoding, default UTF8 */
+	bool		   get_dsp_len;			  /* calculate display length in single characters of each datum */
 } FQconn;
 
 
 
 typedef struct FQresTupleAtt
 {
-    char *value;
-    int len;
-    int dsplen;
-    bool has_null;
+	char *value;
+	int len;
+	int dsplen;
+	bool has_null;
 } FQresTupleAtt;
 
 
 typedef struct FQresTuple
 {
-    FQresTupleAtt     **values;
-    int                 position;
-    struct FQresTuple  *next;
+	FQresTupleAtt	  **values;
+	int					position;
+	struct FQresTuple  *next;
 } FQresTuple;
 
 
 typedef struct FQresTupleAttDesc
 {
-    char  *desc;         /* column name */
-    short  desc_len;     /* length of column name */
-    short  desc_dsplen;  /* display length of column name in single characters */
-    char  *alias;        /* column alias, if provided */
-    short  alias_len;    /* length of column alias */
-    short  alias_dsplen; /* display length of alias name in single characters */
-    int    att_max_len;  /* max length of value in column */
-    short  type;         /* datatype */
-    bool   has_null;     /* indicates if resultset contains at least one NULL */
+	char  *desc;		 /* column name */
+	short  desc_len;	 /* length of column name */
+	short  desc_dsplen;	 /* display length of column name in single characters */
+	char  *alias;		 /* column alias, if provided */
+	short  alias_len;	 /* length of column alias */
+	short  alias_dsplen; /* display length of alias name in single characters */
+	int	   att_max_len;	 /* max length of value in column */
+	short  type;		 /* datatype */
+	bool   has_null;	 /* indicates if resultset contains at least one NULL */
 } FQresTupleAttDesc;
 
 /* Typedef for message-field list entries */
 typedef struct fbMessageField
 {
-    struct fbMessageField *prev;    /* list link */
-    struct fbMessageField *next;    /* list link */
-    FQdiagType             code;    /* field code */
-    char                  *value;   /* field value */
+	struct fbMessageField *prev;	/* list link */
+	struct fbMessageField *next;	/* list link */
+	FQdiagType			   code;	/* field code */
+	char				  *value;	/* field value */
 } FBMessageField;
 
 
 /* Initialised with _FQinitResult() */
 typedef struct FQresult
 {
-    XSQLDA *sqlda_out;              /* Pointer to a Firebird XSQLDA structure used to hold output tuple information */
-    XSQLDA *sqlda_in;               /* Pointer to a Firebird XSQLDA structure used to hold data for prepared statements */
-                                    /* NOTE: the XSQLDA pointers are only used during query execution and will be
-                                     * freed once execution has completed; see _FQexecClearResult() */
-    isc_stmt_handle stmt_handle;
-    FQexecStatusType resultStatus;
-    int ntups;                      /* The number of rows (tuples) returned by a query.
-                                     * Will be -1 until a valid query is executed. */
-    int ncols;                      /* The number of columns in the result tuples.
-                                     * Will be -1 until a valid query is executed. */
+	XSQLDA *sqlda_out;				/* Pointer to a Firebird XSQLDA structure used to hold output tuple information */
+	XSQLDA *sqlda_in;				/* Pointer to a Firebird XSQLDA structure used to hold data for prepared statements */
+									/* NOTE: the XSQLDA pointers are only used during query execution and will be
+									 * freed once execution has completed; see _FQexecClearResult() */
+	isc_stmt_handle stmt_handle;
+	FQexecStatusType resultStatus;
+	int ntups;						/* The number of rows (tuples) returned by a query.
+									 * Will be -1 until a valid query is executed. */
+	int ncols;						/* The number of columns in the result tuples.
+									 * Will be -1 until a valid query is executed. */
 
-    struct FQresTupleAttDesc **header;
-    struct FQresTuple **tuples;     /* Array of pointers to returned tuples */
+	struct FQresTupleAttDesc **header;
+	struct FQresTuple **tuples;		/* Array of pointers to returned tuples */
 
-    struct FQresTuple *tuple_first; /* Pointer to first returned tuple */
-    struct FQresTuple *tuple_last;  /* Pointer to last returned tuple */
+	struct FQresTuple *tuple_first; /* Pointer to first returned tuple */
+	struct FQresTuple *tuple_last;	/* Pointer to last returned tuple */
 
-    /*
-     * Error information (all NULL if not an error result).  errMsg is the
-     * "overall" error message returned by FQresultErrorMessage.  If we have
-     * per-field info then it is stored in a linked list.
-     */
-    char       *errMsg;         /* error message, or NULL if no error */
-    FBMessageField *errFields;  /* message broken into fields */
-    long       fbSQLCODE;       /* Firebird SQL code */
+	/*
+	 * Error information (all NULL if not an error result).	 errMsg is the
+	 * "overall" error message returned by FQresultErrorMessage.  If we have
+	 * per-field info then it is stored in a linked list.
+	 */
+	char	   *errMsg;			/* error message, or NULL if no error */
+	FBMessageField *errFields;	/* message broken into fields */
+	long	   fbSQLCODE;		/* Firebird SQL code */
 } FQresult;
 
 extern char *const fbresStatus[];
@@ -339,14 +339,13 @@ FQexec(FQconn *conn, const char *stmt);
 
 extern FQresult *
 FQexecParams(FQconn *conn,
-             const char *stmt,
-             int nParams,
-             const int *paramTypes,
-             const char * const *paramValues,
-             const int *paramLengths,
-             const int *paramFormats,
-             int resultFormat
-    );
+			 const char *stmt,
+			 int nParams,
+			 const int *paramTypes,
+			 const char * const *paramValues,
+			 const int *paramLengths,
+			 const int *paramFormats,
+			 int resultFormat);
 
 
 extern FQresult *
