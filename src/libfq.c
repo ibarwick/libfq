@@ -19,6 +19,7 @@
 
 #include "libfq-int.h"
 #include "libfq.h"
+#include "libfq-version.h"
 
 /* Internal utility functions */
 
@@ -3044,7 +3045,7 @@ FQclientEncodingId(FQconn *conn)
 
 
 /**
- * _FQinitClientEncoding(
+ * _FQinitClientEncoding()
  *
  */
 static void
@@ -3080,3 +3081,22 @@ _FQinitClientEncoding(FQconn *conn)
 	return;
 }
 
+/**
+ * FQlibVersion()
+ */
+int
+FQlibVersion(void)
+{
+	return LIBFQ_VERSION_NUMBER;
+}
+
+
+/**
+ * FQlibVersionString()
+ */
+
+char *
+FQlibVersionString(void)
+{
+	return LIBFQ_VERSION_STRING;
+}

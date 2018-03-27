@@ -447,4 +447,7 @@ extern int FQdspstrlen(const char *s, short encoding_id);
 
 extern int FQclientEncodingId(FQconn *conn);
 
+extern int FQlibVersion(void);
+extern char *FQlibVersionString(void);
+
 #endif   /* LIBFQ_H */

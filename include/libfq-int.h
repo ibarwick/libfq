@@ -1,3 +1,6 @@
+#ifndef LIBFQ_INT_H
+#define LIBFQ_INT_H
+
 typedef PARAMVARY VARY2;
 typedef unsigned int fb_wchar;
 
@@ -40,3 +43,5 @@ typedef unsigned int fb_wchar;
 extern int pg_utf_dsplen(const unsigned char *s);
 
 extern int pg_utf_mblen(const unsigned char *s);
+
+#endif   /* LIBFQ_INT_H */
