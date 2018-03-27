@@ -28,8 +28,6 @@
 #include "libfq-expbuffer.h"
 
 
-
-
 /* All "broken" FQExpBuffers point to this string. */
 static const char oom_buffer[1] = "";
 
@@ -42,18 +40,18 @@ static const char oom_buffer[1] = "";
 static void
 markFQExpBufferBroken(FQExpBuffer str)
 {
-    if (str->data != oom_buffer)
-        free(str->data);
+	if (str->data != oom_buffer)
+		free(str->data);
 
-    /*
-     * Casting away const here is a bit ugly, but it seems preferable to not
-     * marking oom_buffer const.  We want to do that to encourage the compiler
-     * to put oom_buffer in read-only storage, so that anyone who tries to
-     * scribble on a broken FQExpBuffer will get a failure.
-     */
-    str->data = (char *) oom_buffer;
-    str->len = 0;
-    str->maxlen = 0;
+	/*
+	 * Casting away const here is a bit ugly, but it seems preferable to not
+	 * marking oom_buffer const.  We want to do that to encourage the compiler
+	 * to put oom_buffer in read-only storage, so that anyone who tries to
+	 * scribble on a broken FQExpBuffer will get a failure.
+	 */
+	str->data = (char *) oom_buffer;
+	str->len = 0;
+	str->maxlen = 0;
 }
 
 /*
@@ -64,13 +62,13 @@ markFQExpBufferBroken(FQExpBuffer str)
 FQExpBuffer
 createFQExpBuffer(void)
 {
-    FQExpBuffer res;
+	FQExpBuffer res;
 
-    res = (FQExpBuffer) malloc(sizeof(FQExpBufferData));
-    if (res != NULL)
-        initFQExpBuffer(res);
+	res = (FQExpBuffer) malloc(sizeof(FQExpBufferData));
+	if (res != NULL)
+		initFQExpBuffer(res);
 
-    return res;
+	return res;
 }
 
 /*
@@ -82,19 +80,19 @@ createFQExpBuffer(void)
 void
 initFQExpBuffer(FQExpBuffer str)
 {
-    str->data = (char *) malloc(INITIAL_EXPBUFFER_SIZE);
-    if (str->data == NULL)
-    {
-        str->data = (char *) oom_buffer;        /* see comment above */
-        str->maxlen = 0;
-        str->len = 0;
-    }
-    else
-    {
-        str->maxlen = INITIAL_EXPBUFFER_SIZE;
-        str->len = 0;
-        str->data[0] = '\0';
-    }
+	str->data = (char *) malloc(INITIAL_EXPBUFFER_SIZE);
+	if (str->data == NULL)
+	{
+		str->data = (char *) oom_buffer;		/* see comment above */
+		str->maxlen = 0;
+		str->len = 0;
+	}
+	else
+	{
+		str->maxlen = INITIAL_EXPBUFFER_SIZE;
+		str->len = 0;
+		str->data[0] = '\0';
+	}
 }
 
 /*
@@ -106,11 +104,11 @@ initFQExpBuffer(FQExpBuffer str)
 void
 destroyFQExpBuffer(FQExpBuffer str)
 {
-    if (str)
-    {
-        termFQExpBuffer(str);
-        free(str);
-    }
+	if (str)
+	{
+		termFQExpBuffer(str);
+		free(str);
+	}
 }
 
 /*
@@ -121,12 +119,12 @@ destroyFQExpBuffer(FQExpBuffer str)
 void
 termFQExpBuffer(FQExpBuffer str)
 {
-    if (str->data != oom_buffer)
-        free(str->data);
-    /* just for luck, make the buffer validly empty. */
-    str->data = (char *) oom_buffer;    /* see comment above */
-    str->maxlen = 0;
-    str->len = 0;
+	if (str->data != oom_buffer)
+		free(str->data);
+	/* just for luck, make the buffer validly empty. */
+	str->data = (char *) oom_buffer;	/* see comment above */
+	str->maxlen = 0;
+	str->len = 0;
 }
 
 /*
@@ -138,19 +136,19 @@ termFQExpBuffer(FQExpBuffer str)
 void
 resetFQExpBuffer(FQExpBuffer str)
 {
-    if (str)
-    {
-        if (str->data != oom_buffer)
-        {
-            str->len = 0;
-            str->data[0] = '\0';
-        }
-        else
-        {
-            /* try to reinitialize to valid state */
-            initFQExpBuffer(str);
-        }
-    }
+	if (str)
+	{
+		if (str->data != oom_buffer)
+		{
+			str->len = 0;
+			str->data[0] = '\0';
+		}
+		else
+		{
+			/* try to reinitialize to valid state */
+			initFQExpBuffer(str);
+		}
+	}
 }
 
 /*
@@ -164,57 +162,57 @@ resetFQExpBuffer(FQExpBuffer str)
 int
 enlargeFQExpBuffer(FQExpBuffer str, size_t needed)
 {
-    size_t      newlen;
-    char       *newdata;
+	size_t		newlen;
+	char	   *newdata;
 
-    if (FQExpBufferBroken(str))
-        return 0;               /* already failed */
+	if (FQExpBufferBroken(str))
+		return 0;				/* already failed */
 
-    /*
-     * Guard against ridiculous "needed" values, which can occur if we're fed
-     * bogus data.  Without this, we can get an overflow or infinite loop in
-     * the following.
-     */
-    if (needed >= ((size_t) INT_MAX - str->len))
-    {
-        markFQExpBufferBroken(str);
-        return 0;
-    }
+	/*
+	 * Guard against ridiculous "needed" values, which can occur if we're fed
+	 * bogus data.	Without this, we can get an overflow or infinite loop in
+	 * the following.
+	 */
+	if (needed >= ((size_t) INT_MAX - str->len))
+	{
+		markFQExpBufferBroken(str);
+		return 0;
+	}
 
-    needed += str->len + 1;     /* total space required now */
+	needed += str->len + 1;		/* total space required now */
 
-    /* Because of the above test, we now have needed <= INT_MAX */
+	/* Because of the above test, we now have needed <= INT_MAX */
 
-    if (needed <= str->maxlen)
-        return 1;               /* got enough space already */
+	if (needed <= str->maxlen)
+		return 1;				/* got enough space already */
 
-    /*
-     * We don't want to allocate just a little more space with each append;
-     * for efficiency, double the buffer size each time it overflows.
-     * Actually, we might need to more than double it if 'needed' is big...
-     */
-    newlen = (str->maxlen > 0) ? (2 * str->maxlen) : 64;
-    while (needed > newlen)
-        newlen = 2 * newlen;
+	/*
+	 * We don't want to allocate just a little more space with each append;
+	 * for efficiency, double the buffer size each time it overflows.
+	 * Actually, we might need to more than double it if 'needed' is big...
+	 */
+	newlen = (str->maxlen > 0) ? (2 * str->maxlen) : 64;
+	while (needed > newlen)
+		newlen = 2 * newlen;
 
-    /*
-     * Clamp to INT_MAX in case we went past it.  Note we are assuming here
-     * that INT_MAX <= UINT_MAX/2, else the above loop could overflow.  We
-     * will still have newlen >= needed.
-     */
-    if (newlen > (size_t) INT_MAX)
-        newlen = (size_t) INT_MAX;
+	/*
+	 * Clamp to INT_MAX in case we went past it.  Note we are assuming here
+	 * that INT_MAX <= UINT_MAX/2, else the above loop could overflow.	We
+	 * will still have newlen >= needed.
+	 */
+	if (newlen > (size_t) INT_MAX)
+		newlen = (size_t) INT_MAX;
 
-    newdata = (char *) realloc(str->data, newlen);
-    if (newdata != NULL)
-    {
-        str->data = newdata;
-        str->maxlen = newlen;
-        return 1;
-    }
+	newdata = (char *) realloc(str->data, newlen);
+	if (newdata != NULL)
+	{
+		str->data = newdata;
+		str->maxlen = newlen;
+		return 1;
+	}
 
-    markFQExpBufferBroken(str);
-    return 0;
+	markFQExpBufferBroken(str);
+	return 0;
 }
 
 /*
@@ -227,46 +225,46 @@ enlargeFQExpBuffer(FQExpBuffer str, size_t needed)
 void
 printfFQExpBuffer(FQExpBuffer str, const char *fmt,...)
 {
-    va_list     args;
-    size_t      avail;
-    int         nprinted;
+	va_list		args;
+	size_t		avail;
+	int			nprinted;
 
-    resetFQExpBuffer(str);
+	resetFQExpBuffer(str);
 
-    if (FQExpBufferBroken(str))
-        return;                 /* already failed */
+	if (FQExpBufferBroken(str))
+		return;					/* already failed */
 
-    for (;;)
-    {
-        /*
-         * Try to format the given string into the available space; but if
-         * there's hardly any space, don't bother trying, just fall through to
-         * enlarge the buffer first.
-         */
-        if (str->maxlen > str->len + 16)
-        {
-            avail = str->maxlen - str->len - 1;
-            va_start(args, fmt);
-            nprinted = vsnprintf(str->data + str->len, avail,
-                                 fmt, args);
-            va_end(args);
+	for (;;)
+	{
+		/*
+		 * Try to format the given string into the available space; but if
+		 * there's hardly any space, don't bother trying, just fall through to
+		 * enlarge the buffer first.
+		 */
+		if (str->maxlen > str->len + 16)
+		{
+			avail = str->maxlen - str->len - 1;
+			va_start(args, fmt);
+			nprinted = vsnprintf(str->data + str->len, avail,
+								 fmt, args);
+			va_end(args);
 
-            /*
-             * Note: some versions of vsnprintf return the number of chars
-             * actually stored, but at least one returns -1 on failure. Be
-             * conservative about believing whether the print worked.
-             */
-            if (nprinted >= 0 && nprinted < (int) avail - 1)
-            {
-                /* Success.  Note nprinted does not include trailing null. */
-                str->len += nprinted;
-                break;
-            }
-        }
-        /* Double the buffer size and try again. */
-        if (!enlargeFQExpBuffer(str, str->maxlen))
-            return;             /* oops, out of memory */
-    }
+			/*
+			 * Note: some versions of vsnprintf return the number of chars
+			 * actually stored, but at least one returns -1 on failure. Be
+			 * conservative about believing whether the print worked.
+			 */
+			if (nprinted >= 0 && nprinted < (int) avail - 1)
+			{
+				/* Success.	 Note nprinted does not include trailing null. */
+				str->len += nprinted;
+				break;
+			}
+		}
+		/* Double the buffer size and try again. */
+		if (!enlargeFQExpBuffer(str, str->maxlen))
+			return;				/* oops, out of memory */
+	}
 }
 
 /*
@@ -280,45 +278,46 @@ printfFQExpBuffer(FQExpBuffer str, const char *fmt,...)
 void
 appendFQExpBuffer(FQExpBuffer str, const char *fmt,...)
 {
-    va_list     args;
-    size_t      avail;
-    int         nprinted;
+	va_list		args;
+	size_t		avail;
+	int			nprinted;
 
-    if (FQExpBufferBroken(str))
-        return;                 /* already failed */
+	if (FQExpBufferBroken(str))
+		return;					/* already failed */
 
-    for (;;)
-    {
-        /*
-         * Try to format the given string into the available space; but if
-         * there's hardly any space, don't bother trying, just fall through to
-         * enlarge the buffer first.
-         */
-        if (str->maxlen > str->len + 16)
-        {
-            avail = str->maxlen - str->len - 1;
-            va_start(args, fmt);
-            nprinted = vsnprintf(str->data + str->len, avail,
-                                 fmt, args);
-            va_end(args);
+	for (;;)
+	{
+		/*
+		 * Try to format the given string into the available space; but if
+		 * there's hardly any space, don't bother trying, just fall through to
+		 * enlarge the buffer first.
+		 */
+		if (str->maxlen > str->len + 16)
+		{
+			avail = str->maxlen - str->len - 1;
+			va_start(args, fmt);
+			nprinted = vsnprintf(str->data + str->len, avail,
+								 fmt, args);
+			va_end(args);
 
-            /*
-             * Note: some versions of vsnprintf return the number of chars
-             * actually stored, but at least one returns -1 on failure. Be
-             * conservative about believing whether the print worked.
-             */
-            if (nprinted >= 0 && nprinted < (int) avail - 1)
-            {
-                /* Success.  Note nprinted does not include trailing null. */
-                str->len += nprinted;
-                break;
-            }
-        }
-        /* Double the buffer size and try again. */
-        if (!enlargeFQExpBuffer(str, str->maxlen))
-            return;             /* oops, out of memory */
-    }
+			/*
+			 * Note: some versions of vsnprintf return the number of chars
+			 * actually stored, but at least one returns -1 on failure. Be
+			 * conservative about believing whether the print worked.
+			 */
+			if (nprinted >= 0 && nprinted < (int) avail - 1)
+			{
+				/* Success.	 Note nprinted does not include trailing null. */
+				str->len += nprinted;
+				break;
+			}
+		}
+		/* Double the buffer size and try again. */
+		if (!enlargeFQExpBuffer(str, str->maxlen))
+			return;				/* oops, out of memory */
+	}
 }
+
 
 /*
  * appendFQExpBufferStr
@@ -328,7 +327,7 @@ appendFQExpBuffer(FQExpBuffer str, const char *fmt,...)
 void
 appendFQExpBufferStr(FQExpBuffer str, const char *data)
 {
-    appendBinaryFQExpBuffer(str, data, strlen(data));
+	appendBinaryFQExpBuffer(str, data, strlen(data));
 }
 
 /*
@@ -339,14 +338,14 @@ appendFQExpBufferStr(FQExpBuffer str, const char *data)
 void
 appendFQExpBufferChar(FQExpBuffer str, char ch)
 {
-    /* Make more room if needed */
-    if (!enlargeFQExpBuffer(str, 1))
-        return;
+	/* Make more room if needed */
+	if (!enlargeFQExpBuffer(str, 1))
+		return;
 
-    /* OK, append the character */
-    str->data[str->len] = ch;
-    str->len++;
-    str->data[str->len] = '\0';
+	/* OK, append the character */
+	str->data[str->len] = ch;
+	str->len++;
+	str->data[str->len] = '\0';
 }
 
 /*
@@ -358,17 +357,17 @@ appendFQExpBufferChar(FQExpBuffer str, char ch)
 void
 appendBinaryFQExpBuffer(FQExpBuffer str, const char *data, size_t datalen)
 {
-    /* Make more room if needed */
-    if (!enlargeFQExpBuffer(str, datalen))
-        return;
+	/* Make more room if needed */
+	if (!enlargeFQExpBuffer(str, datalen))
+		return;
 
-    /* OK, append the data */
-    memcpy(str->data + str->len, data, datalen);
-    str->len += datalen;
+	/* OK, append the data */
+	memcpy(str->data + str->len, data, datalen);
+	str->len += datalen;
 
-    /*
-     * Keep a trailing null in place, even though it's probably useless for
-     * binary data...
-     */
-    str->data[str->len] = '\0';
+	/*
+	 * Keep a trailing null in place, even though it's probably useless for
+	 * binary data...
+	 */
+	str->data[str->len] = '\0';
 }
