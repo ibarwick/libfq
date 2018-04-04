@@ -19,17 +19,23 @@
 
     <abstract>
       <para>
-        This is the official documentation of libfq for
-        use with Firebird 2.x.
+        This is the official documentation of libfq for use with Firebird 2.x.
         It describes the functionality supported by the current version of &libfq;.
       </para>
     </abstract>
   </bookinfo>
 
- <part id="getting-started">
-  <title>Getting started</title>
-  &overview;
+ <part id="overview">
+  <title>Overview</title>
+  &background;
+  &installation;
  </part>
+
+ <part id="functions">
+  <title>Functions</title>
+  &functions;
+ </part>
+
  <![%include-index;[&bookindex;]]>
  <![%include-xslt-index;[<index id="bookindex"></index>]]>
 </book>

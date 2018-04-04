@@ -1,0 +1,41 @@
+<chapter id="libfq-functions">
+  <title>libfq functions</title>
+  <para>
+    This chapter describes &libfq; functions.
+  </para>
+
+  <sect1 id="libfq-connect">
+    <title>Database Connection Control Functions</title>
+
+    <para>
+      The following functions handle connection initiation and
+      termination to/from a <productname>Firebird</productname> backend server.
+    </para>
+
+   <variablelist>
+    <varlistentry id="libfq-fqconnectdbparams">
+     <term><function>FQconnectdbParams</function><indexterm><primary>FQconnectdbParams</primary></indexterm></term>
+     <listitem>
+      <para>
+       Makes a new connection to the database server.
+<synopsis>
+FQconn *FQconnectdbParams(const char * const *keywords,
+                          const char * const *values);
+</synopsis>
+      </para>
+
+      <para>
+        This function opens a new database connection using the parameters taken
+        from two <symbol>NULL</symbol>-terminated arrays. The first,
+        <literal>keywords</literal>, is defined as an array of strings, each one
+        being a key word. The second, <literal>values</literal>, gives the value
+       for each key word.
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+
+  </sect1>
+</chapter>
+
+
