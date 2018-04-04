@@ -1,0 +1,19 @@
+<!-- doc/filelist.sgml -->
+
+<!ENTITY legal      SYSTEM "legal.sgml">
+
+<!ENTITY bookindex  SYSTEM "bookindex.sgml">
+<!--
+ By default, no index is included.  Use -i include-index on the command line
+ to include it.
+ -->
+<!ENTITY % include-index "IGNORE">
+
+<!--
+ Create empty index element for processing by XSLT stylesheet.
+ -->
+<!ENTITY % include-xslt-index "IGNORE">
+
+<!ENTITY overview      SYSTEM "overview.sgml">
+
+<!ENTITY bookindex  SYSTEM "bookindex.sgml">

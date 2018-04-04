@@ -1,0 +1,35 @@
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook V4.2//EN" [
+
+          <!ENTITY % version SYSTEM "version.sgml">
+          %version;
+
+          <!ENTITY % filelist SYSTEM "filelist.sgml">
+          %filelist;
+
+          <!ENTITY libfq "<productname>libfq</productname>">
+]>
+
+<book id="libfq">
+  <title>libfq &libfqversion; Documentation</title>
+
+  <bookinfo>
+    <corpauthor>Ian Barwick</corpauthor>
+    <productname>libfq</productname>
+    <productnumber>0.1.5</productnumber>
+
+    <abstract>
+      <para>
+        This is the official documentation of libfq for
+        use with Firebird 2.x.
+        It describes the functionality supported by the current version of &libfq;.
+      </para>
+    </abstract>
+  </bookinfo>
+
+ <part id="getting-started">
+  <title>Getting started</title>
+  &overview;
+ </part>
+ <![%include-index;[&bookindex;]]>
+ <![%include-xslt-index;[<index id="bookindex"></index>]]>
+</book>
