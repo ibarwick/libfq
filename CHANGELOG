@@ -1,4 +1,4 @@
-Revision history for firebird_fdw
+Revision history for libfq
 
 0.1.4   2014-02-11
         - improve non-ASCII character handling (mainly for the
