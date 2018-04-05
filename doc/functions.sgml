@@ -19,7 +19,7 @@
       <para>
        Makes a new connection to the database server.
 <synopsis>
-FQconn *FQconnectdbParams(const char * const *keywords,
+FBconn *FQconnectdbParams(const char * const *keywords,
                           const char * const *values);
 </synopsis>
       </para>

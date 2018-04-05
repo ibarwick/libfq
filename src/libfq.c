@@ -24,25 +24,25 @@
 /* Internal utility functions */
 
 static void
-_FQserverVersionInit(FQconn *conn);
+_FQserverVersionInit(FBconn *conn);
 
 static FQtransactionStatusType
-_FQcommitTransaction(FQconn *conn, isc_tr_handle *trans);
+_FQcommitTransaction(FBconn *conn, isc_tr_handle *trans);
 static FQtransactionStatusType
-_FQrollbackTransaction(FQconn *conn, isc_tr_handle *trans);
+_FQrollbackTransaction(FBconn *conn, isc_tr_handle *trans);
 static FQtransactionStatusType
-_FQstartTransaction(FQconn *conn, isc_tr_handle *trans);
+_FQstartTransaction(FBconn *conn, isc_tr_handle *trans);
 
-static FQresTupleAtt *_FQformatDatum (FQconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var);
+static FQresTupleAtt *_FQformatDatum (FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var);
 static FQresult *_FQinitResult(bool init_sqlda_in);
 static void _FQexecClearResult(FQresult *result);
 static void _FQexecClearSQLDA(FQresult *result, XSQLDA *sqlda);
 static void _FQexecFillTuplesArray(FQresult *result);
-static void _FQexecInitOutputSQLDA(FQconn *conn, FQresult *result);
+static void _FQexecInitOutputSQLDA(FBconn *conn, FQresult *result);
 static ISC_LONG _FQexecParseStatementType(char *info_buffer);
 
-static FQresult *_FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt);
-static FQresult *_FQexecParams(FQconn *conn,
+static FQresult *_FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt);
+static FQresult *_FQexecParams(FBconn *conn,
 							   isc_tr_handle *trans,
 							   const char *stmt,
 							   int nParams,
@@ -53,14 +53,14 @@ static FQresult *_FQexecParams(FQconn *conn,
 							   int resultFormat);
 
 static char *_FQlogLevel(short errlevel);
-static void _FQsetResultError(const FQconn *conn, FQresult *res);
-static void _FQsetResultNonFatalError(const FQconn *conn, FQresult *res, short errlevel, char *msg);
+static void _FQsetResultError(const FBconn *conn, FQresult *res);
+static void _FQsetResultNonFatalError(const FBconn *conn, FQresult *res, short errlevel, char *msg);
 static void _FQsaveMessageField(FQresult *res, FQdiagType code, const char *value, ...);
 static char *_FQdeparseDbKey(const char *db_key);
 static char *_FQparseDbKey(const char *db_key);
 
-static void _FQinitClientEncoding(FQconn *conn);
-static const char *_FQclientEncoding(FQconn *conn);
+static void _FQinitClientEncoding(FBconn *conn);
+static const char *_FQclientEncoding(FBconn *conn);
 
 
 /* keep this in same order as FQexecStatusType in libfq.h */
@@ -88,7 +88,7 @@ char *const fbresStatus[] = {
  * FQconnectdbParams() is an alternative function providing more
  * connection options.
  */
-FQconn *
+FBconn *
 FQconnect(char *db_path, char *uname, char *upass)
 {
 	const char *kw[4];
@@ -124,11 +124,11 @@ FQconnect(char *db_path, char *uname, char *upass)
  *
  * This list may change in the future.
  */
-FQconn *
+FBconn *
 FQconnectdbParams(const char * const *keywords,
                   const char * const *values)
 {
-	FQconn *conn;
+	FBconn *conn;
 
 	size_t db_path_len;
 	char *dpb;
@@ -157,7 +157,7 @@ FQconnectdbParams(const char * const *keywords,
 	}
 
 	/* initialise libfq's connection struct */
-	conn = (FQconn *)malloc(sizeof(FQconn));
+	conn = (FBconn *)malloc(sizeof(FBconn));
 
 	conn->db = 0L;
 	conn->trans = 0L;
@@ -215,7 +215,7 @@ FQconnectdbParams(const char * const *keywords,
  * handle
  */
 void
-FQfinish(FQconn *conn)
+FQfinish(FBconn *conn)
 {
 	if (conn == NULL)
 		return;
@@ -235,7 +235,7 @@ FQfinish(FQconn *conn)
  * _FQserverVersionInit()
  */
 void
-_FQserverVersionInit(FQconn *conn)
+_FQserverVersionInit(FBconn *conn)
 {
 	const char *sql = "SELECT CAST(rdb$get_context('SYSTEM', 'ENGINE_VERSION') AS VARCHAR(10)) FROM rdb$database";
 
@@ -277,7 +277,7 @@ _FQserverVersionInit(FQconn *conn)
  * comparision, e.g. 2.5.2 = 20502
  */
 int
-FQserverVersion(FQconn *conn)
+FQserverVersion(FBconn *conn)
 {
 	if (conn == NULL)
 		return -1;
@@ -294,7 +294,7 @@ FQserverVersion(FQconn *conn)
  * Return the reported server version as a string (e.g. "2.5.2")
  */
 char *
-FQserverVersionString(FQconn *conn)
+FQserverVersionString(FBconn *conn)
 {
 	if (conn == NULL)
 		return NULL;
@@ -313,7 +313,7 @@ FQserverVersionString(FQconn *conn)
  * output, but adds some overhead so is off by default.
  */
 void
-FQsetGetdsplen(FQconn *conn, bool get_dsp_len)
+FQsetGetdsplen(FBconn *conn, bool get_dsp_len)
 {
 	conn->get_dsp_len = get_dsp_len;
 }
@@ -325,7 +325,7 @@ FQsetGetdsplen(FQconn *conn, bool get_dsp_len)
  */
 
 extern const char *
-FQparameterStatus(FQconn *conn, const char *paramName)
+FQparameterStatus(FBconn *conn, const char *paramName)
 {
 	if (conn == NULL)
 		return NULL;
@@ -447,7 +447,7 @@ void _FQexecClearSQLDA(FQresult *result, XSQLDA *sqlda)
  * somewhat tricky to get right.
  */
 static void
-_FQexecInitOutputSQLDA(FQconn *conn, FQresult *result)
+_FQexecInitOutputSQLDA(FBconn *conn, FQresult *result)
 {
 	XSQLVAR *var;
 	short	 sqltype, i;
@@ -569,7 +569,7 @@ _FQexecFillTuplesArray(FQresult *result)
  * To execute parameterized queries, use FQexecParams().
  */
 FQresult *
-FQexec(FQconn *conn, const char *stmt)
+FQexec(FBconn *conn, const char *stmt)
 {
 	if (!conn)
 	{
@@ -587,7 +587,7 @@ FQexec(FQconn *conn, const char *stmt)
  * pointed to by 'trans'
  */
 static FQresult *
-_FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
+_FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 {
 	FQresult	  *result;
 
@@ -967,7 +967,7 @@ _FQexec(FQconn *conn, isc_tr_handle *trans, const char *stmt)
  *   - (currently unused)
  */
 FQresult *
-FQexecParams(FQconn *conn,
+FQexecParams(FBconn *conn,
 			 const char *stmt,
 			 int nParams,
 			 const int *paramTypes,
@@ -1004,7 +1004,7 @@ FQexecParams(FQconn *conn,
  * But it works. Mostly.
  */
 FQresult *
-_FQexecParams(FQconn *conn,
+_FQexecParams(FBconn *conn,
 			  isc_tr_handle *trans,
 			  const char *stmt,
 			  int nParams,
@@ -1728,7 +1728,7 @@ _FQexecParams(FQconn *conn,
  * empty string.
  */
 char *
-FQerrorMessage(const FQconn *conn)
+FQerrorMessage(const FBconn *conn)
 {
 	if (conn == NULL)
 		return "";
@@ -1825,7 +1825,7 @@ FQresultErrorFieldsAsString(const FQresult *res, char *prefix)
  * codes to each field
  */
 void
-FQresultDumpErrorFields(FQconn *conn, const FQresult *res)
+FQresultDumpErrorFields(FBconn *conn, const FQresult *res)
 {
 	FBMessageField *mfield;
 
@@ -1885,7 +1885,7 @@ char *_FQlogLevel(short errlevel)
  * also ibase.h
  */
 void
-_FQsetResultError(const FQconn *conn, FQresult *res)
+_FQsetResultError(const FBconn *conn, FQresult *res)
 {
 	long *pvector;
 	char msg[ERROR_BUFFER_LEN];
@@ -1917,7 +1917,7 @@ _FQsetResultError(const FQconn *conn, FQresult *res)
  * or handled by a client-specified handler; this functionality is not
  * yet implemented.
  */
-void _FQsetResultNonFatalError(const FQconn *conn, FQresult *res, short errlevel, char *msg)
+void _FQsetResultNonFatalError(const FBconn *conn, FQresult *res, short errlevel, char *msg)
 {
 	fprintf(stderr, "%s: %s", _FQlogLevel(errlevel), msg);
 }
@@ -1970,7 +1970,7 @@ _FQsaveMessageField(FQresult *res, FQdiagType code, const char *value, ...)
  * transaction handle.
  */
 FQresult *
-FQexecTransaction(FQconn *conn, const char *stmt)
+FQexecTransaction(FBconn *conn, const char *stmt)
 {
 	FQresult	  *result = NULL;
 
@@ -2027,8 +2027,8 @@ FQexecTransaction(FQconn *conn, const char *stmt)
  * Determines whether the provided connection object
  * has an active connection.
  */
-FQconnStatusType
-FQstatus(const FQconn *conn)
+FBconnStatusType
+FQstatus(const FBconn *conn)
 {
 	if (conn == NULL || conn->db == 0L)
 		return CONNECTION_BAD;
@@ -2343,7 +2343,7 @@ FQresStatus(FQexecStatusType status)
  * as being in a user-initiated transaction
  */
 bool
-FQisActiveTransaction(FQconn *conn)
+FQisActiveTransaction(FBconn *conn)
 {
 	if (!conn)
 		return false;
@@ -2358,7 +2358,7 @@ FQisActiveTransaction(FQconn *conn)
  * Set connection's autocommit status
  */
 void
-FQsetAutocommit(FQconn *conn, bool autocommit)
+FQsetAutocommit(FBconn *conn, bool autocommit)
 {
 	if (conn != NULL)
 		conn->autocommit = autocommit;
@@ -2371,7 +2371,7 @@ FQsetAutocommit(FQconn *conn, bool autocommit)
  * Commit the connection's default transaction handle
  */
 FQtransactionStatusType
-FQcommitTransaction(FQconn *conn)
+FQcommitTransaction(FBconn *conn)
 {
 	if (!conn)
 		return TRANS_ERROR;
@@ -2386,7 +2386,7 @@ FQcommitTransaction(FQconn *conn)
  * Roll back the connection's default transaction handle
  */
 FQtransactionStatusType
-FQrollbackTransaction(FQconn *conn)
+FQrollbackTransaction(FBconn *conn)
 {
 	if (!conn)
 		return TRANS_ERROR;
@@ -2401,7 +2401,7 @@ FQrollbackTransaction(FQconn *conn)
  * Start a transaction using the connection's default transaction handle
  */
 FQtransactionStatusType
-FQstartTransaction(FQconn *conn)
+FQstartTransaction(FBconn *conn)
 {
 	if (!conn)
 		return TRANS_ERROR;
@@ -2416,7 +2416,7 @@ FQstartTransaction(FQconn *conn)
  * Commit the provided transaction handle
  */
 static FQtransactionStatusType
-_FQcommitTransaction(FQconn *conn, isc_tr_handle *trans)
+_FQcommitTransaction(FBconn *conn, isc_tr_handle *trans)
 {
 	if (isc_commit_transaction(conn->status, trans))
 		return TRANS_ERROR;
@@ -2433,7 +2433,7 @@ _FQcommitTransaction(FQconn *conn, isc_tr_handle *trans)
  * Roll back the provided transaction handle
  */
 static FQtransactionStatusType
-_FQrollbackTransaction(FQconn *conn, isc_tr_handle *trans)
+_FQrollbackTransaction(FBconn *conn, isc_tr_handle *trans)
 {
 	if (isc_rollback_transaction(conn->status, trans))
 		return TRANS_ERROR;
@@ -2450,7 +2450,7 @@ _FQrollbackTransaction(FQconn *conn, isc_tr_handle *trans)
  * Start a transaction using the provided transaction handle
  */
 static FQtransactionStatusType
-_FQstartTransaction(FQconn *conn, isc_tr_handle *trans)
+_FQstartTransaction(FBconn *conn, isc_tr_handle *trans)
 {
 	if (isc_start_transaction(conn->status, trans, 1, &conn->db, 0, NULL))
 		return TRANS_ERROR;
@@ -2465,7 +2465,7 @@ _FQstartTransaction(FQconn *conn, isc_tr_handle *trans)
  * Format the provided SQLVAR datum as a FQresTupleAtt
  */
 static FQresTupleAtt *
-_FQformatDatum(FQconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
+_FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 {
 	FQresTupleAtt *tuple_att;
 	short		datatype;
@@ -2845,7 +2845,7 @@ FQclear(FQresult *res)
  *  - strip leading whitespace from returned plan string
  */
 char *
-FQexplainStatement(FQconn *conn, const char *stmt)
+FQexplainStatement(FBconn *conn, const char *stmt)
 {
 	FQresult	  *result;
 
@@ -2915,10 +2915,10 @@ FQexplainStatement(FQconn *conn, const char *stmt)
  * Primitive logging output, mainly for debugging purposes.
  *
  * TODO
- * - optional log destination (specify in FQconn?)
+ * - optional log destination (specify in FBconn?)
  */
 void
-FQlog(FQconn *conn, short loglevel, const char *msg, ...)
+FQlog(FBconn *conn, short loglevel, const char *msg, ...)
 {
 	va_list argp;
 
@@ -3014,7 +3014,7 @@ FQdspstrlen(const char *s, short encoding_id)
  *
  */
 static const char *
-_FQclientEncoding(FQconn *conn)
+_FQclientEncoding(FBconn *conn)
 {
 	if (conn->client_encoding_id == -1)
 		_FQinitClientEncoding(conn);
@@ -3028,7 +3028,7 @@ _FQclientEncoding(FQconn *conn)
  *
  */
 int
-FQclientEncodingId(FQconn *conn)
+FQclientEncodingId(FBconn *conn)
 {
 	if (conn == NULL)
 		return -1;
@@ -3049,7 +3049,7 @@ FQclientEncodingId(FQconn *conn)
  *
  */
 static void
-_FQinitClientEncoding(FQconn *conn)
+_FQinitClientEncoding(FBconn *conn)
 {
 	const char *sql = \
 "    SELECT TRIM(rdb$character_set_name) AS client_encoding, " \

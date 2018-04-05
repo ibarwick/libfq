@@ -171,7 +171,7 @@ typedef enum
 {
 	CONNECTION_OK = 0,
 	CONNECTION_BAD
-} FQconnStatusType;
+} FBconnStatusType;
 
 
 typedef enum {
@@ -203,7 +203,7 @@ typedef enum {
 } FQtransactionStatusType;
 
 
-typedef struct FQconn {
+typedef struct FBconn {
 	isc_db_handle  db;
 	isc_tr_handle  trans;
 	isc_tr_handle  trans_internal;		  /* transaction handle for atomic internal operations */
@@ -218,7 +218,7 @@ typedef struct FQconn {
 	short		   client_encoding_id;	  /* corresponds to MON$ATTACHMENTS.MON$CHARACTER_SET_ID */
 	char		  *client_encoding;		  /* client encoding, default UTF8 */
 	bool		   get_dsp_len;			  /* calculate display length in single characters of each datum */
-} FQconn;
+} FBconn;
 
 
 
@@ -297,21 +297,21 @@ extern char *const fbresStatus[];
 
 
 
-extern FQconn *
+extern FBconn *
 FQconnect(char *db_path, char *uname, char *upass);
 
-extern FQconn *
+extern FBconn *
 FQconnectdbParams(const char * const *keywords,
                   const char * const *values);
 
 extern void
-FQfinish(FQconn *conn);
+FQfinish(FBconn *conn);
 
-extern FQconnStatusType
-FQstatus(const FQconn *conn);
+extern FBconnStatusType
+FQstatus(const FBconn *conn);
 
 extern char *
-FQerrorMessage(const FQconn *conn);
+FQerrorMessage(const FBconn *conn);
 
 extern char *
 FQresultErrorMessage(const FQresult *res);
@@ -323,22 +323,22 @@ extern char *
 FQresultErrorFieldsAsString(const FQresult *res, char *prefix);
 
 extern void
-FQresultDumpErrorFields(FQconn *conn, const FQresult *res);
+FQresultDumpErrorFields(FBconn *conn, const FQresult *res);
 
 extern int
-FQserverVersion(FQconn *conn);
+FQserverVersion(FBconn *conn);
 
 extern char *
-FQserverVersionString(FQconn *conn);
+FQserverVersionString(FBconn *conn);
 
 extern const char *
-FQparameterStatus(FQconn *conn, const char *paramName);
+FQparameterStatus(FBconn *conn, const char *paramName);
 
 extern FQresult *
-FQexec(FQconn *conn, const char *stmt);
+FQexec(FBconn *conn, const char *stmt);
 
 extern FQresult *
-FQexecParams(FQconn *conn,
+FQexecParams(FBconn *conn,
 			 const char *stmt,
 			 int nParams,
 			 const int *paramTypes,
@@ -349,10 +349,10 @@ FQexecParams(FQconn *conn,
 
 
 extern FQresult *
-FQexecTransaction(FQconn *conn, const char *stmt);
+FQexecTransaction(FBconn *conn, const char *stmt);
 
 extern char *
-FQexecSingleItemQuery(FQconn *conn, const char *stmt);
+FQexecSingleItemQuery(FBconn *conn, const char *stmt);
 
 extern int
 FQntuples(const FQresult *res);
@@ -377,7 +377,7 @@ extern short
 FQftype(const FQresult *res, int column_number);
 
 extern void
-FQsetGetdsplen(FQconn *conn, bool get_dsp_len);
+FQsetGetdsplen(FBconn *conn, bool get_dsp_len);
 
 
 extern int
@@ -413,29 +413,29 @@ extern char*
 FQresStatus(FQexecStatusType status);
 
 extern bool
-FQisActiveTransaction(FQconn *conn);
+FQisActiveTransaction(FBconn *conn);
 
 extern void
-FQsetAutocommit(FQconn *conn, bool autocommit);
+FQsetAutocommit(FBconn *conn, bool autocommit);
 
 extern FQtransactionStatusType
-FQcommitTransaction(FQconn *conn);
+FQcommitTransaction(FBconn *conn);
 
 extern FQtransactionStatusType
-FQrollbackTransaction(FQconn *conn);
+FQrollbackTransaction(FBconn *conn);
 
 extern FQtransactionStatusType
-FQstartTransaction(FQconn *conn);
+FQstartTransaction(FBconn *conn);
 
 extern char *
-FQexplainStatement(FQconn *conn, const char *stmt);
+FQexplainStatement(FBconn *conn, const char *stmt);
 
 extern void
 FQclear(FQresult *res);
 
 
 extern void
-FQlog(FQconn *conn, short loglevel, const char *msg, ...);
+FQlog(FBconn *conn, short loglevel, const char *msg, ...);
 
 /* handling for character/encoding */
 
@@ -445,7 +445,7 @@ extern int FQdsplen(const unsigned char *s, short encoding_id);
 
 extern int FQdspstrlen(const char *s, short encoding_id);
 
-extern int FQclientEncodingId(FQconn *conn);
+extern int FQclientEncodingId(FBconn *conn);
 
 extern int FQlibVersion(void);
 extern char *FQlibVersionString(void);
