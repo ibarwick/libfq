@@ -48,7 +48,7 @@ HTML.index: libfq.sgml $(ALMOSTALLSGML) stylesheet.dsl
 
 website-docs.css:
 	@$(MKDIR_P) html
-	curl http://www.postgresql.org/media/css/docs.css > ${srcdir}/website-docs.css
+	curl https://www.postgresql.org/media/css/docs.css > ${srcdir}/website-docs.css
 
 bookindex.sgml: HTML.index
 ifdef COLLATEINDEX
