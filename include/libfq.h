@@ -310,6 +310,15 @@ FQfinish(FBconn *conn);
 extern FBconnStatusType
 FQstatus(const FBconn *conn);
 
+extern const char *
+FQparameterStatus(const FBconn *conn, const char *paramName);
+
+extern int
+FQserverVersion(FBconn *conn);
+
+extern char *
+FQserverVersionString(FBconn *conn);
+
 extern char *
 FQerrorMessage(const FBconn *conn);
 
@@ -325,14 +334,7 @@ FQresultErrorFieldsAsString(const FQresult *res, char *prefix);
 extern void
 FQresultDumpErrorFields(FBconn *conn, const FQresult *res);
 
-extern int
-FQserverVersion(FBconn *conn);
 
-extern char *
-FQserverVersionString(FBconn *conn);
-
-extern const char *
-FQparameterStatus(FBconn *conn, const char *paramName);
 
 extern FQresult *
 FQexec(FBconn *conn, const char *stmt);

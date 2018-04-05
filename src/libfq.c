@@ -60,7 +60,7 @@ static char *_FQdeparseDbKey(const char *db_key);
 static char *_FQparseDbKey(const char *db_key);
 
 static void _FQinitClientEncoding(FBconn *conn);
-static const char *_FQclientEncoding(FBconn *conn);
+static const char *_FQclientEncoding(const FBconn *conn);
 
 
 /* keep this in same order as FQexecStatusType in libfq.h */
@@ -190,7 +190,10 @@ FQconnectdbParams(const char * const *keywords,
 	{
 		isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_lc_ctype, client_encoding, strlen(client_encoding));
 		conn->client_encoding = (char *)client_encoding;
+
+		_FQinitClientEncoding(conn);
 	}
+
 
 	db_path_len = strlen(db_path);
 
@@ -226,6 +229,12 @@ FQfinish(FBconn *conn)
 	if (conn->db != 0L)
 		isc_detach_database(conn->status, &conn->db);
 
+	if (conn->status != NULL)
+		free(conn->status);
+
+	if (conn->dpb_buffer != NULL)
+		free(conn->dpb_buffer);
+
 	free(conn);
 }
 
@@ -245,6 +254,24 @@ FQstatus(const FBconn *conn)
 	return CONNECTION_OK;
 }
 
+
+/**
+ * FQparameterStatus()
+ *
+ * Returns a current parameter setting from the provided connection object
+ */
+
+extern const char *
+FQparameterStatus(const FBconn *conn, const char *paramName)
+{
+	if (conn == NULL)
+		return NULL;
+
+	if (strcmp(paramName, "client_encoding") == 0)
+		return _FQclientEncoding(conn);
+
+	return NULL;
+}
 
 
 /**
@@ -334,23 +361,6 @@ FQsetGetdsplen(FBconn *conn, bool get_dsp_len)
 	conn->get_dsp_len = get_dsp_len;
 }
 
-
-/**
- * FQparameterStatus()
- *
- */
-
-extern const char *
-FQparameterStatus(FBconn *conn, const char *paramName)
-{
-	if (conn == NULL)
-		return NULL;
-
-	if (strcmp(paramName, "client_encoding") == 0)
-		return _FQclientEncoding(conn);
-
-	return NULL;
-}
 
 
 /**
@@ -3013,11 +3023,8 @@ FQdspstrlen(const char *s, short encoding_id)
  *
  */
 static const char *
-_FQclientEncoding(FBconn *conn)
+_FQclientEncoding(const FBconn *conn)
 {
-	if (conn->client_encoding_id == -1)
-		_FQinitClientEncoding(conn);
-
 	return conn->client_encoding;
 }
 
