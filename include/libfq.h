@@ -298,7 +298,7 @@ extern char *const fbresStatus[];
 
 
 extern FBconn *
-FQconnect(char *db_path, char *uname, char *upass);
+FQconnect(const char *db_path, const char *uname, const char *upass);
 
 extern FBconn *
 FQconnectdbParams(const char * const *keywords,

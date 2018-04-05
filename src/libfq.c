@@ -89,7 +89,7 @@ char *const fbresStatus[] = {
  * connection options.
  */
 FBconn *
-FQconnect(char *db_path, char *uname, char *upass)
+FQconnect(const char *db_path, const char *uname, const char *upass)
 {
 	const char *kw[4];
 	const char *val[4];
@@ -227,8 +227,24 @@ FQfinish(FBconn *conn)
 		isc_detach_database(conn->status, &conn->db);
 
 	free(conn);
-	conn = NULL;
 }
+
+
+/**
+ * FQstatus()
+ *
+ * Determines whether the provided connection object
+ * has an active connection.
+ */
+FBconnStatusType
+FQstatus(const FBconn *conn)
+{
+	if (conn == NULL || conn->db == 0L)
+		return CONNECTION_BAD;
+
+	return CONNECTION_OK;
+}
+
 
 
 /**
@@ -335,8 +351,6 @@ FQparameterStatus(FBconn *conn, const char *paramName)
 
 	return NULL;
 }
-
-
 
 
 /**
@@ -1922,6 +1936,7 @@ void _FQsetResultNonFatalError(const FBconn *conn, FQresult *res, short errlevel
 	fprintf(stderr, "%s: %s", _FQlogLevel(errlevel), msg);
 }
 
+
 /**
  * _FQsaveMessageField()
  *
@@ -2018,22 +2033,6 @@ FQexecTransaction(FBconn *conn, const char *stmt)
 	}
 
 	return result;
-}
-
-
-/**
- * FQstatus()
- *
- * Determines whether the provided connection object
- * has an active connection.
- */
-FBconnStatusType
-FQstatus(const FBconn *conn)
-{
-	if (conn == NULL || conn->db == 0L)
-		return CONNECTION_BAD;
-
-	return CONNECTION_OK;
 }
 
 
