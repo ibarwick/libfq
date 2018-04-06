@@ -181,21 +181,28 @@ FQconnectdbParams(const char * const *keywords,
 	conn->dpb_length = dpb - (char*)conn->dpb_buffer;
 	dpb = (char *)conn->dpb_buffer;
 
-	conn->db_path = malloc(strlen(db_path) + 1);
-	strncpy(conn->db_path, db_path, strlen(db_path));
+	db_path_len = strlen(db_path);
+
+	conn->db_path = malloc(db_path_len + 1);
+	strncpy(conn->db_path, db_path, db_path_len);
+	conn->db_path[db_path_len] = '\0';
 
 	if (uname != NULL)
 	{
+		int uname_len = strlen(uname);
 		isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_user_name, uname, strlen(uname));
-		conn->uname = malloc(strlen(uname) + 1);
-		strncpy(conn->uname, uname, strlen(uname));
+		conn->uname = malloc(uname_len + 1);
+		strncpy(conn->uname, uname, uname_len);
+		conn->uname[uname_len] = '\0';
 	}
 
 	if (upass != NULL)
 	{
+		int upass_len = strlen(upass);
 		isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_password, upass, strlen(upass));
-		conn->upass = malloc(strlen(upass) + 1);
-		strncpy(conn->upass, upass, strlen(upass));
+		conn->upass = malloc(upass_len + 1);
+		strncpy(conn->upass, upass, upass_len);
+		conn->upass[upass_len] = '\0';
 	}
 
 	if (client_encoding == NULL)
@@ -206,7 +213,6 @@ FQconnectdbParams(const char * const *keywords,
 
 	isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_lc_ctype, client_encoding, strlen(client_encoding));
 
-	db_path_len = strlen(db_path);
 
 	isc_attach_database(
 		conn->status,
@@ -302,6 +308,21 @@ FQparameterStatus(const FBconn *conn, const char *paramName)
 }
 
 
+const char *FQdb_path(const FBconn *conn)
+{
+	return conn->db_path;
+}
+
+const char *FQuname(const FBconn *conn)
+{
+	return conn->uname;
+}
+
+const char *FQupass(const FBconn *conn)
+{
+	return conn->upass;
+}
+
 /**
  * _FQserverVersionInit()
  */
@@ -325,19 +346,20 @@ _FQserverVersionInit(FBconn *conn)
 		{
 			int major, minor, revision;
 			char buf[10];
-			int len = sizeof(FQgetvalue(res, 0, 0));
+			int engine_version_len = sizeof(FQgetvalue(res, 0, 0));
 
-			conn->engine_version = malloc(len + 1);
-			strncpy(conn->engine_version, FQgetvalue(res, 0, 0), len);
+			conn->engine_version = malloc(engine_version_len + 1);
+			strncpy(conn->engine_version, FQgetvalue(res, 0, 0), engine_version_len);
+			conn->engine_version[engine_version_len] = '\0';
 
 			sscanf(conn->engine_version, "%i.%i.%i", &major, &minor, &revision);
 			sprintf(buf, "%d%02d%02d", major, minor, revision);
 			conn->engine_version_number = atoi(buf);
-
 		}
 		else
 		{
-			conn->engine_version = "";
+			conn->engine_version = malloc(1);
+			conn->engine_version[0] = '\0';
 			conn->engine_version_number = -1;
 		}
 		FQclear(res);
@@ -3157,7 +3179,7 @@ _FQinitClientEncoding(FBconn *conn)
 		conn->client_encoding =	 malloc(client_encoding_len + 1);
 
 		strncpy(conn->client_encoding, FQgetvalue(res, 0, 0), client_encoding_len);
-
+		conn->client_encoding[client_encoding_len] = '\0';
 		conn->client_encoding_id = (short)atoi(FQgetvalue(res, 0, 1));
 	}
 
@@ -3182,7 +3204,7 @@ FQlibVersion(void)
  * FQlibVersionString()
  */
 
-char *
+const char *
 FQlibVersionString(void)
 {
 	return LIBFQ_VERSION_STRING;

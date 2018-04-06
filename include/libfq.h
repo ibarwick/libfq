@@ -316,6 +316,12 @@ FQstatus(const FBconn *conn);
 extern const char *
 FQparameterStatus(const FBconn *conn, const char *paramName);
 
+extern const char *FQdb_path(const FBconn *conn);
+
+extern const char *FQuname(const FBconn *conn);
+
+extern const char *FQupass(const FBconn *conn);
+
 extern int
 FQserverVersion(FBconn *conn);
 
@@ -453,6 +459,6 @@ extern int FQdspstrlen(const char *s, short encoding_id);
 extern int FQclientEncodingId(FBconn *conn);
 
 extern int FQlibVersion(void);
-extern char *FQlibVersionString(void);
+extern const char *FQlibVersionString(void);
 
 #endif   /* LIBFQ_H */
