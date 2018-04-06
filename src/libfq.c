@@ -78,6 +78,11 @@ char *const fbresStatus[] = {
 };
 
 
+/*
+ * =====================================
+ * Database Connection Control Functions
+ * =====================================
+ */
 
 /**
  * FQconnect()
@@ -229,7 +234,6 @@ FQconnectdbParams(const char * const *keywords,
 }
 
 
-
 /**
  * FQfinish()
  *
@@ -272,6 +276,12 @@ FQfinish(FBconn *conn)
 	free(conn);
 }
 
+
+/*
+ * ====================================
+ * Database Connection Status Functions
+ * ====================================
+ */
 
 /**
  * FQstatus()
@@ -323,8 +333,52 @@ const char *FQupass(const FBconn *conn)
 	return conn->upass;
 }
 
+
+
+/**
+ * FQserverVersion()
+ *
+ * Return the reported server version number as an integer suitable for
+ * comparision, e.g. 2.5.2 = 20502
+ */
+int
+FQserverVersion(FBconn *conn)
+{
+	if (conn == NULL)
+		return -1;
+
+	_FQserverVersionInit(conn);
+
+	return conn->engine_version_number;
+}
+
+
+/**
+ * FQserverVersionString()
+ *
+ * Return the reported server version as a string (e.g. "2.5.2")
+ */
+char *
+FQserverVersionString(FBconn *conn)
+{
+	if (conn == NULL)
+		return NULL;
+
+	_FQserverVersionInit(conn);
+
+	return conn->engine_version;
+}
+
+
 /**
  * _FQserverVersionInit()
+ *
+ * Executes a query to extract the database server version,
+ * and stores the results in the connection object.
+ *
+ * This is called by FQserverVersion() and FQserverVersionString()
+ * so the version information is extracted on demand, not on every
+ * connection initialisation.
  */
 void
 _FQserverVersionInit(FBconn *conn)
@@ -367,40 +421,93 @@ _FQserverVersionInit(FBconn *conn)
 	}
 }
 
-
 /**
- * FQserverVersion()
+ * FQclientEncodingId()
  *
- * Return the reported server version number as an integer suitable for
- * comparision, e.g. 2.5.2 = 20502
  */
 int
-FQserverVersion(FBconn *conn)
+FQclientEncodingId(FBconn *conn)
 {
 	if (conn == NULL)
 		return -1;
 
-	_FQserverVersionInit(conn);
+	if (conn->client_encoding_id == -1)
+		_FQinitClientEncoding(conn);
 
-	return conn->engine_version_number;
+	/* in case we still couldn't get a valid encoding */
+	if (conn->client_encoding_id == -1)
+		return -1;
+
+	return conn->client_encoding_id;
 }
 
 
 /**
- * FQserverVersionString()
+ * _FQinitClientEncoding()
  *
- * Return the reported server version as a string (e.g. "2.5.2")
  */
-char *
-FQserverVersionString(FBconn *conn)
+static void
+_FQinitClientEncoding(FBconn *conn)
 {
-	if (conn == NULL)
-		return NULL;
+	const char *sql = \
+"    SELECT TRIM(rdb$character_set_name) AS client_encoding, " \
+"           mon$character_set_id AS client_encoding_id " \
+"      FROM mon$attachments " \
+"INNER JOIN rdb$character_sets " \
+"        ON mon$character_set_id = rdb$character_set_id "\
+"     WHERE mon$remote_pid = %i";
 
-	_FQserverVersionInit(conn);
+	char query[1024];
+	FQresult   *res;
 
-	return conn->engine_version;
+	if (_FQstartTransaction(conn, &conn->trans_internal) == TRANS_ERROR)
+		return;
+
+	sprintf(query, sql, getpid());
+
+	res = _FQexec(conn, &conn->trans_internal, query);
+
+	if (FQresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
+	{
+		int client_encoding_len = strlen(FQgetvalue(res, 0, 0));
+
+		if (conn->client_encoding != NULL)
+			free(conn->client_encoding);
+
+		conn->client_encoding =	 malloc(client_encoding_len + 1);
+
+		strncpy(conn->client_encoding, FQgetvalue(res, 0, 0), client_encoding_len);
+		conn->client_encoding[client_encoding_len] = '\0';
+		conn->client_encoding_id = (short)atoi(FQgetvalue(res, 0, 1));
+	}
+
+	FQclear(res);
+
+	_FQcommitTransaction(conn, &conn->trans_internal);
+
+	return;
 }
+
+/**
+ * FQlibVersion()
+ */
+int
+FQlibVersion(void)
+{
+	return LIBFQ_VERSION_NUMBER;
+}
+
+
+/**
+ * FQlibVersionString()
+ */
+
+const char *
+FQlibVersionString(void)
+{
+	return LIBFQ_VERSION_STRING;
+}
+
 
 
 /**
@@ -1040,7 +1147,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
  *     the length of the various arrays supplied (note: currently
  *     this argument is advisory and primarily for compatiblity
  *     with the libpq method PQexecParams(), however it may
- *     be used in the future
+ *     be used in the future)
  * paramTypes[]
  *   - (currently unused)
  * paramValues[]
@@ -1336,7 +1443,7 @@ _FQexecParams(FBconn *conn,
 					/* with decimals? */
 					if (var->sqlscale < 0)
 					{
-						/* numeric(?,?) */
+						/* NUMERIC(?,?) */
 						int	 scale = (int) (pow(10.0, (double) -var->sqlscale));
 						int	 dscale;
 						char *tmp;
@@ -1483,7 +1590,7 @@ _FQexecParams(FBconn *conn,
 					}
 					else
 					{
-						/* numeric(?,0): scan for one decimal and do rounding */
+						/* NUMERIC(?,0): scan for one decimal and do rounding */
 
 						sprintf(format, S_INT64_NOSCALE);
 
@@ -1821,249 +1928,6 @@ _FQexecParams(FBconn *conn,
 
 
 /**
- * FQerrorMessage()
- *
- * Returns the most recent error message associated with the result, or an
- * empty string.
- */
-char *
-FQerrorMessage(const FBconn *conn)
-{
-	if (conn == NULL)
-		return "";
-
-	/* XXX todo */
-	return "";
-}
-
-
-/**
- * FQresultErrorMessage()
- *
- * Return the error message associated with the result, or an empty string.
- */
-char *
-FQresultErrorMessage(const FQresult *result)
-{
-	if (result == NULL)
-		return "";
-
-	return result->errMsg == NULL ? "" : result->errMsg;
-}
-
-
-/**
- * FQresultErrorField()
- *
- * Returns an individual field of an error report, or NULL.
- */
-char *
-FQresultErrorField(const FQresult *res, FQdiagType fieldcode)
-{
-	FBMessageField *mfield;
-
-	if (!res || !res->errFields)
-		return NULL;
-
-	for (mfield = res->errFields; mfield != NULL; mfield = mfield->next)
-	{
-		if (mfield->code == fieldcode)
-			return mfield->value;
-	}
-
-	return NULL;
-}
-
-
-/**
- * FQresultErrorFieldsAsString()
- *
- * Return all error fields formatted as a single string
- */
-char *
-FQresultErrorFieldsAsString(const FQresult *res, char *prefix)
-{
-	FQExpBufferData buf;
-	FBMessageField *mfield;
-	char *str;
-	bool is_first = true;
-
-	if (!res || res->errFields == NULL)
-		return "";
-
-	initFQExpBuffer(&buf);
-
-	for (mfield = res->errFields; mfield->next != NULL; mfield = mfield->next);
-
-	do {
-		if (is_first == true)
-			is_first = false;
-		else
-			appendFQExpBufferChar(&buf, '\n');
-
-		if (prefix != NULL)
-			appendFQExpBuffer(&buf, prefix);
-
-		appendFQExpBuffer(&buf, mfield->value);
-
-		mfield = mfield->prev;
-	} while( mfield != NULL);
-
-	str = (char *)malloc(strlen(buf.data) + 1);
-	memcpy(str, buf.data, strlen(buf.data) + 1);
-	termFQExpBuffer(&buf);
-	return str;
-}
-
-
-/**
- * FQresultDumpErrorFields()
- *
- * Temporary function to dump the error fields in reverse
- * order, until we can find a way of assigning appropriate diagnostic
- * codes to each field
- */
-void
-FQresultDumpErrorFields(FBconn *conn, const FQresult *res)
-{
-	FBMessageField *mfield;
-
-	if (!res || res->errFields == NULL)
-		return;
-
-	/* scan to last field */
-	for (mfield = res->errFields; mfield->next != NULL; mfield = mfield->next);
-
-	for (; mfield != NULL;  mfield = mfield->prev)
-		FQlog(conn, DEBUG1, "* %s", mfield->value);
-}
-
-
-/**
- * _FQlogLevel()
- *
- * Return a loglevel value as a string
- */
-char *_FQlogLevel(short errlevel)
-{
-	switch(errlevel)
-	{
-		case INFO:
-			return "INFO";
-		case NOTICE:
-			return "NOTICE";
-		case WARNING:
-			return "WARNING";
-		case ERROR:
-			return "ERROR";
-		case FATAL:
-			return "FATAL";
-		case PANIC:
-			return "PANIC";
-		case DEBUG1:
-			return "DEBUG1";
-		case DEBUG2:
-			return "DEBUG2";
-		case DEBUG3:
-			return "DEBUG3";
-		case DEBUG4:
-			return "DEBUG4";
-		case DEBUG5:
-			return "DEBUG5";
-	}
-
-	return "Unknown log level";
-}
-
-
-/**
- * _FQsetResultError()
- *
- * http://ibexpert.net/ibe/index.php?n=Doc.Firebird21ErrorCodes
- * http://www.firebirdsql.org/file/documentation/reference_manuals/reference_material/Firebird-2.1-ErrorCodes.pdf
- * also ibase.h
- */
-void
-_FQsetResultError(const FBconn *conn, FQresult *res)
-{
-	long *pvector;
-	char msg[ERROR_BUFFER_LEN];
-
-	res->fbSQLCODE = isc_sqlcode(conn->status);
-
-	pvector = conn->status;
-
-	fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector);
-
-	res->errMsg = (char *)malloc(strlen(msg) + 1);
-	memcpy(res->errMsg, msg, strlen(msg) + 1);
-
-	while(fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector))
-	{
-		/* XXX todo: get appropriate FB_DIAG_* code */
-		_FQsaveMessageField(res, FB_DIAG_OTHER, msg);
-	}
-}
-
-
-/**
- * _FQsetResultNonFatalError()
- *
- * Handle non-fatal error.
- *
- * This function's behaviour mimics libpq, where a non-fatal error
- * is dumped to STDOUT by default. libpq also allows the client to nominate
- * or handled by a client-specified handler; this functionality is not
- * yet implemented.
- */
-void _FQsetResultNonFatalError(const FBconn *conn, FQresult *res, short errlevel, char *msg)
-{
-	fprintf(stderr, "%s: %s", _FQlogLevel(errlevel), msg);
-}
-
-
-/**
- * _FQsaveMessageField()
- *
- * store one field of an error or notice message
- */
-void
-_FQsaveMessageField(FQresult *res, FQdiagType code, const char *value, ...)
-{
-	va_list argp;
-	FBMessageField *mfield;
-
-	char buffer[2048];
-
-	va_start(argp, value);
-	vsnprintf(buffer, 2048, value, argp);
-	va_end(argp);
-
-	mfield = (FBMessageField *)
-		malloc(sizeof(FBMessageField));
-
-	if (!mfield)
-		return;
-
-	mfield->code = code;
-	mfield->prev = NULL;
-	mfield->value = (char *)malloc(strlen(buffer) + 1);
-
-	if (!mfield->value)
-	{
-		free(mfield);
-		return;
-	}
-
-	memcpy(mfield->value, buffer, strlen(buffer) + 1);
-	mfield->next = res->errFields;
-	if (mfield->next)
-		mfield->next->prev = mfield;
-	res->errFields = mfield;
-}
-
-
-/**
  * FQexecTransaction()
  *
  * Convenience function to execute a query using the internal
@@ -2094,7 +1958,7 @@ FQexecTransaction(FBconn *conn, const char *stmt)
 
 	if (FQresultStatus(result) == FBRES_FATAL_ERROR)
 	{
-/* XXX todo: set error */
+		/* XXX todo: set error */
 		_FQsaveMessageField(result, FB_DIAG_DEBUG, "query execution error");
 		isc_print_status(conn->status);
 		_FQrollbackTransaction(conn, &conn->trans_internal);
@@ -2119,6 +1983,8 @@ FQexecTransaction(FBconn *conn, const char *stmt)
 
 	return result;
 }
+
+
 
 
 /**
@@ -2418,6 +2284,258 @@ FQresStatus(FQexecStatusType status)
 
 	return fbresStatus[status];
 }
+
+
+/*
+ * ========================
+ * Error handling functions
+ * ========================
+ */
+
+/**
+ * FQerrorMessage()
+ *
+ * Returns the most recent error message associated with the result, or an
+ * empty string.
+ */
+char *
+FQerrorMessage(const FBconn *conn)
+{
+	if (conn == NULL)
+		return "";
+
+	/* XXX todo */
+	return "";
+}
+
+
+/**
+ * FQresultErrorMessage()
+ *
+ * Return the error message associated with the result, or an empty string.
+ */
+char *
+FQresultErrorMessage(const FQresult *result)
+{
+	if (result == NULL)
+		return "";
+
+	return result->errMsg == NULL ? "" : result->errMsg;
+}
+
+
+/**
+ * FQresultErrorField()
+ *
+ * Returns an individual field of an error report, or NULL.
+ */
+char *
+FQresultErrorField(const FQresult *res, FQdiagType fieldcode)
+{
+	FBMessageField *mfield;
+
+	if (!res || !res->errFields)
+		return NULL;
+
+	for (mfield = res->errFields; mfield != NULL; mfield = mfield->next)
+	{
+		if (mfield->code == fieldcode)
+			return mfield->value;
+	}
+
+	return NULL;
+}
+
+
+/**
+ * FQresultErrorFieldsAsString()
+ *
+ * Return all error fields formatted as a single string
+ */
+char *
+FQresultErrorFieldsAsString(const FQresult *res, char *prefix)
+{
+	FQExpBufferData buf;
+	FBMessageField *mfield;
+	char *str;
+	bool is_first = true;
+
+	if (!res || res->errFields == NULL)
+		return "";
+
+	initFQExpBuffer(&buf);
+
+	for (mfield = res->errFields; mfield->next != NULL; mfield = mfield->next);
+
+	do {
+		if (is_first == true)
+			is_first = false;
+		else
+			appendFQExpBufferChar(&buf, '\n');
+
+		if (prefix != NULL)
+			appendFQExpBuffer(&buf, prefix);
+
+		appendFQExpBuffer(&buf, mfield->value);
+
+		mfield = mfield->prev;
+	} while( mfield != NULL);
+
+	str = (char *)malloc(strlen(buf.data) + 1);
+	memcpy(str, buf.data, strlen(buf.data) + 1);
+	termFQExpBuffer(&buf);
+	return str;
+}
+
+
+/**
+ * FQresultDumpErrorFields()
+ *
+ * Temporary function to dump the error fields in reverse
+ * order, until we can find a way of assigning appropriate diagnostic
+ * codes to each field
+ */
+void
+FQresultDumpErrorFields(FBconn *conn, const FQresult *res)
+{
+	FBMessageField *mfield;
+
+	if (!res || res->errFields == NULL)
+		return;
+
+	/* scan to last field */
+	for (mfield = res->errFields; mfield->next != NULL; mfield = mfield->next);
+
+	for (; mfield != NULL;  mfield = mfield->prev)
+		FQlog(conn, DEBUG1, "* %s", mfield->value);
+}
+
+
+/**
+ * _FQlogLevel()
+ *
+ * Return a loglevel value as a string
+ */
+char *_FQlogLevel(short errlevel)
+{
+	switch(errlevel)
+	{
+		case INFO:
+			return "INFO";
+		case NOTICE:
+			return "NOTICE";
+		case WARNING:
+			return "WARNING";
+		case ERROR:
+			return "ERROR";
+		case FATAL:
+			return "FATAL";
+		case PANIC:
+			return "PANIC";
+		case DEBUG1:
+			return "DEBUG1";
+		case DEBUG2:
+			return "DEBUG2";
+		case DEBUG3:
+			return "DEBUG3";
+		case DEBUG4:
+			return "DEBUG4";
+		case DEBUG5:
+			return "DEBUG5";
+	}
+
+	return "Unknown log level";
+}
+
+
+/**
+ * _FQsetResultError()
+ *
+ * http://ibexpert.net/ibe/index.php?n=Doc.Firebird21ErrorCodes
+ * http://www.firebirdsql.org/file/documentation/reference_manuals/reference_material/Firebird-2.1-ErrorCodes.pdf
+ * also ibase.h
+ */
+void
+_FQsetResultError(const FBconn *conn, FQresult *res)
+{
+	long *pvector;
+	char msg[ERROR_BUFFER_LEN];
+
+	res->fbSQLCODE = isc_sqlcode(conn->status);
+
+	pvector = conn->status;
+
+	fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector);
+
+	res->errMsg = (char *)malloc(strlen(msg) + 1);
+	memcpy(res->errMsg, msg, strlen(msg) + 1);
+
+	while(fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector))
+	{
+		/* XXX todo: get appropriate FB_DIAG_* code */
+		_FQsaveMessageField(res, FB_DIAG_OTHER, msg);
+	}
+}
+
+
+/**
+ * _FQsetResultNonFatalError()
+ *
+ * Handle non-fatal error.
+ *
+ * This function's behaviour mimics libpq, where a non-fatal error
+ * is dumped to STDOUT by default. libpq also allows the client to nominate
+ * or handled by a client-specified handler; this functionality is not
+ * yet implemented.
+ */
+void _FQsetResultNonFatalError(const FBconn *conn, FQresult *res, short errlevel, char *msg)
+{
+	fprintf(stderr, "%s: %s", _FQlogLevel(errlevel), msg);
+}
+
+
+/**
+ * _FQsaveMessageField()
+ *
+ * store one field of an error or notice message
+ */
+void
+_FQsaveMessageField(FQresult *res, FQdiagType code, const char *value, ...)
+{
+	va_list argp;
+	FBMessageField *mfield;
+
+	char buffer[2048];
+
+	va_start(argp, value);
+	vsnprintf(buffer, 2048, value, argp);
+	va_end(argp);
+
+	mfield = (FBMessageField *)
+		malloc(sizeof(FBMessageField));
+
+	if (!mfield)
+		return;
+
+	mfield->code = code;
+	mfield->prev = NULL;
+	mfield->value = (char *)malloc(strlen(buffer) + 1);
+
+	if (!mfield->value)
+	{
+		free(mfield);
+		return;
+	}
+
+	memcpy(mfield->value, buffer, strlen(buffer) + 1);
+	mfield->next = res->errFields;
+	if (mfield->next)
+		mfield->next->prev = mfield;
+	res->errFields = mfield;
+}
+
+
+
 
 
 /**
@@ -3123,89 +3241,3 @@ _FQclientEncoding(const FBconn *conn)
 }
 
 
-/**
- * FQclientEncodingId()
- *
- */
-int
-FQclientEncodingId(FBconn *conn)
-{
-	if (conn == NULL)
-		return -1;
-
-	if (conn->client_encoding_id == -1)
-		_FQinitClientEncoding(conn);
-
-	/* in case we still couldn't get a valid encoding */
-	if (conn->client_encoding_id == -1)
-		return -1;
-
-	return conn->client_encoding_id;
-}
-
-
-/**
- * _FQinitClientEncoding()
- *
- */
-static void
-_FQinitClientEncoding(FBconn *conn)
-{
-	const char *sql = \
-"    SELECT TRIM(rdb$character_set_name) AS client_encoding, " \
-"           mon$character_set_id As client_encoding_id " \
-"      FROM mon$attachments " \
-"INNER JOIN rdb$character_sets " \
-"        ON mon$character_set_id = rdb$character_set_id "\
-"     WHERE mon$remote_pid = %i";
-
-	char query[1024];
-	FQresult   *res;
-
-	if (_FQstartTransaction(conn, &conn->trans_internal) == TRANS_ERROR)
-		return;
-
-	sprintf(query, sql, getpid());
-
-	res = _FQexec(conn, &conn->trans_internal, query);
-
-	if (FQresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
-	{
-		int client_encoding_len = strlen(FQgetvalue(res, 0, 0));
-
-		if (conn->client_encoding != NULL)
-			free(conn->client_encoding);
-
-		conn->client_encoding =	 malloc(client_encoding_len + 1);
-
-		strncpy(conn->client_encoding, FQgetvalue(res, 0, 0), client_encoding_len);
-		conn->client_encoding[client_encoding_len] = '\0';
-		conn->client_encoding_id = (short)atoi(FQgetvalue(res, 0, 1));
-	}
-
-	FQclear(res);
-
-	_FQcommitTransaction(conn, &conn->trans_internal);
-
-	return;
-}
-
-/**
- * FQlibVersion()
- */
-int
-FQlibVersion(void)
-{
-	return LIBFQ_VERSION_NUMBER;
-}
-
-
-/**
- * FQlibVersionString()
- */
-
-const char *
-FQlibVersionString(void)
-{
-	return LIBFQ_VERSION_STRING;
-}
