@@ -280,6 +280,196 @@ char *FQserverVersionString(FBconn *conn);
    </variablelist>
 
   </sect1>
+  <sect1 id="libfq-exec">
+	<title>Command Execution Functions</title>
 
+	<para>
+	  Once a connection to a database server has been successfully
+	  established, the functions described here are used to execute
+	  SQL queries and commands, and retrieve the results.
+	</para>
+
+	<sect2 id="libfq-exec-main">
+	  <title>Main Functions</title>
+	  <para>
+		<variablelist>
+		  <varlistentry id="libfq-fqexec">
+			<term>
+			  <function>FQexec</function>
+			  <indexterm>
+				<primary>FQexec</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Submits a command to the server and waits for the result.
+				Note that only one query can be provided.
+<synopsis>
+FQresult *FQexec(FBconn *conn, const char *stmt);
+</synopsis>
+			  </para>
+			  <para>
+				Returns a <structname>FQresult</structname> pointer, or NULL when
+				no server connection available.
+			  </para>
+			  <para>
+				See <xref linkend="libfq-fqexecparams"> for executing a parameterized
+				query.
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqexecparams">
+			<term>
+			  <function>FQexecParams</function>
+			  <indexterm>
+				<primary>FQexecParams</primary>
+			  </indexterm>
+			</term>
+			<listitem>
+			  <para>
+				Execute a parameterized query.
+			  </para>
+			  <para>
+				Note that this query's function signature matches that of PostgreSQL's
+				<function>PQexecParams()</function>, but not all arguments are currently
+				used.
+<synopsis>
+FQresult *
+FQexecParams(FBconn *conn,
+			 const char *stmt,
+			 int nParams,
+			 const int *paramTypes,
+			 const char * const *paramValues,
+			 const int *paramLengths,
+			 const int *paramFormats,
+			 int resultFormat);
+</synopsis>
+			  </para>
+			  <para>
+				The function arguments are:
+				<variablelist>
+				  <varlistentry>
+					<term><parameter>conn</parameter></term>
+
+					<listitem>
+					  <para>
+						The connection object to send the command through.
+					  </para>
+					</listitem>
+				  </varlistentry>
+
+				  <varlistentry>
+					<term><parameter>command</parameter></term>
+					<listitem>
+					  <para>
+						The SQL command string to be executed. If parameters are used,
+						they are provided in command string as <literal>?</literal>
+						placeholders, which will be replaced sequentially by the provided
+						parameter values.
+					  </para>
+					</listitem>
+				  </varlistentry>
+
+				  <varlistentry>
+					<term><parameter>nParams</parameter></term>
+					<listitem>
+					  <para>
+						The number of parameters supplied; it is the length of the arrays
+						<parameter>paramTypes[]</parameter>, <parameter>paramValues[]</parameter>,
+						<parameter>paramLengths[]</parameter>, and <parameter>paramFormats[]</parameter>.
+					  </para>
+					  <para>
+						Note: currently this argument is advisory, however it may be used a future release.
+					  </para>
+					</listitem>
+				  </varlistentry>
+
+				  <varlistentry>
+					<term><parameter>paramTypes[]</parameter></term>
+					<listitem>
+					  <para>
+						(currently unused)
+					  </para>
+					</listitem>
+				  </varlistentry>
+
+				  <varlistentry>
+					<term><parameter>paramValues[]</parameter></term>
+					<listitem>
+					  <para>
+						Specifies the actual values of the parameters.  A null pointer
+						in this array means the corresponding parameter is null;
+						otherwise the pointer points to a zero-terminated text string
+						(for text format).
+					  </para>
+					</listitem>
+				  </varlistentry>
+
+				  <varlistentry>
+					<term><parameter>paramLengths[]</parameter></term>
+					<listitem>
+					  <para>
+						(currently unused)
+					  </para>
+					</listitem>
+				  </varlistentry>
+
+				  <varlistentry>
+					<term><parameter>paramFormats[]</parameter></term>
+					<listitem>
+					  <para>
+						Optional array to specify whether parameters are passed as
+						text strings (array entry is <literal>0</literal>) or a
+						text string to be converted to an <literal>RDB$DB_KEY</literal>
+						value (array entry is <literal>-1</literal>).
+					  </para>
+					  <para>
+						Binary formats may be supported in the future.
+					  </para>
+					</listitem>
+				  </varlistentry>
+
+				  <varlistentry>
+					<term><parameter>resultFormat</parameter></term>
+					<listitem>
+					  <para>
+						(currently unused)
+					  </para>
+					</listitem>
+				  </varlistentry>
+
+				</variablelist>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqexectransaction">
+			<term>
+			  <function>FQexecTransaction</function>
+			  <indexterm>
+				<primary>FQexecTransaction</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Convenience function to execute a query using the internal
+				transaction handle
+<synopsis>
+FQresult *FQexecTransaction(FBconn *conn, const char *stmt)
+</synopsis>
+			  </para>
+			  <para>
+				This is primary useful for client applications which accept
+				queries as user input, and need to execute their own internal
+				queries without disturbing the user transaction.
+			  </para>
+			</listitem>
+		</variablelist>
+	  </para>
+	</sect2>
+  </sect1>
 
 </chapter>
