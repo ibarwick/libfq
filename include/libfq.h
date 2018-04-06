@@ -207,6 +207,9 @@ typedef struct FBconn {
 	isc_db_handle  db;
 	isc_tr_handle  trans;
 	isc_tr_handle  trans_internal;		  /* transaction handle for atomic internal operations */
+	char		  *db_path;
+	char		  *uname;
+	char		  *upass;
 	bool		   autocommit;
 	bool		   in_user_transaction;	  /* set when explicit SET TRANSACTION was executed */
 	char		  *dpb_buffer;

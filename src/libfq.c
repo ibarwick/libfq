@@ -167,7 +167,7 @@ FQconnectdbParams(const char * const *keywords,
 	conn->status =	(ISC_STATUS *) malloc(sizeof(ISC_STATUS) * ISC_STATUS_LENGTH);
 	conn->engine_version = NULL;
 	conn->client_min_messages = DEBUG1;
-	conn->client_encoding = "UTF8"; /* reasonably sensible default - but maybe "NONE" better? */
+	conn->client_encoding = NULL;
 	conn->client_encoding_id = -1;	/* indicate the server-parsed value has not yet been retrieved */
 	conn->get_dsp_len = false;
 
@@ -181,20 +181,30 @@ FQconnectdbParams(const char * const *keywords,
 	conn->dpb_length = dpb - (char*)conn->dpb_buffer;
 	dpb = (char *)conn->dpb_buffer;
 
+	conn->db_path = malloc(strlen(db_path) + 1);
+	strncpy(conn->db_path, db_path, strlen(db_path));
+
 	if (uname != NULL)
-		isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_user_name, uname, strlen(uname));
-
-	if (upass != NULL)
-		isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_password, upass, strlen(upass));
-
-	if (client_encoding != NULL)
 	{
-		isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_lc_ctype, client_encoding, strlen(client_encoding));
-		conn->client_encoding = (char *)client_encoding;
-
-		_FQinitClientEncoding(conn);
+		isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_user_name, uname, strlen(uname));
+		conn->uname = malloc(strlen(uname) + 1);
+		strncpy(conn->uname, uname, strlen(uname));
 	}
 
+	if (upass != NULL)
+	{
+		isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_password, upass, strlen(upass));
+		conn->upass = malloc(strlen(upass) + 1);
+		strncpy(conn->upass, upass, strlen(upass));
+	}
+
+	if (client_encoding == NULL)
+	{
+		/* reasonably sensible default - but maybe "NONE" better? */
+		client_encoding = "UTF8";
+	}
+
+	isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_lc_ctype, client_encoding, strlen(client_encoding));
 
 	db_path_len = strlen(db_path);
 
@@ -206,6 +216,8 @@ FQconnectdbParams(const char * const *keywords,
 		conn->dpb_length,
 		dpb
 	);
+
+	_FQinitClientEncoding(conn);
 
 	return conn;
 }
@@ -238,6 +250,18 @@ FQfinish(FBconn *conn)
 
 	if (conn->engine_version != NULL)
 		free(conn->engine_version);
+
+	if (conn->db_path != NULL)
+		free(conn->db_path);
+
+	if (conn->uname != NULL)
+		free(conn->uname);
+
+	if (conn->upass != NULL)
+		free(conn->upass);
+
+	if (conn->client_encoding != NULL)
+		free(conn->client_encoding);
 
 	free(conn);
 }
@@ -3120,11 +3144,20 @@ _FQinitClientEncoding(FBconn *conn)
 		return;
 
 	sprintf(query, sql, getpid());
+
 	res = _FQexec(conn, &conn->trans_internal, query);
 
 	if (FQresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
 	{
-		conn->client_encoding = FQgetvalue(res, 0, 0);
+		int client_encoding_len = strlen(FQgetvalue(res, 0, 0));
+
+		if (conn->client_encoding != NULL)
+			free(conn->client_encoding);
+
+		conn->client_encoding =	 malloc(client_encoding_len + 1);
+
+		strncpy(conn->client_encoding, FQgetvalue(res, 0, 0), client_encoding_len);
+
 		conn->client_encoding_id = (short)atoi(FQgetvalue(res, 0, 1));
 	}
 
