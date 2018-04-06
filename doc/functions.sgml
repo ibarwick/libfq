@@ -467,9 +467,331 @@ FQresult *FQexecTransaction(FBconn *conn, const char *stmt)
 				queries without disturbing the user transaction.
 			  </para>
 			</listitem>
+		  </varlistentry>
 		</variablelist>
 	  </para>
 	</sect2>
+
+	<sect2 id="libfq-exec-resultn">
+	  <title>Result Handling Functions</title>
+	  <para>
+		<variablelist>
+
+		  <varlistentry id="libfq-fqresultstatus">
+			<term>
+			  <function>FQresultStatus</function>
+			  <indexterm>
+				<primary>FQresultStatus</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Returns the result status of the previously execute command.
+<synopsis>
+FQexecStatusType FQresultStatus(const FQresult *res);
+</synopsis>
+			  </para>
+			  <para>
+				Following status values are defined:
+<programlisting>
+	"FBRES_NO_ACTION",
+	"FBRES_EMPTY_QUERY",
+	"FBRES_COMMAND_OK",
+	"FBRES_TUPLES_OK",
+	"FBRES_TRANSACTION_START",
+	"FBRES_TRANSACTION_COMMIT",
+	"FBRES_TRANSACTION_ROLLBACK",
+	"FBRES_BAD_RESPONSE",
+	"FBRES_NONFATAL_ERROR",
+	"FBRES_FATAL_ERROR"</programlisting>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+
+		  <varlistentry id="libfq-fqresstatus">
+			<term>
+			  <function>FQresStatus</function>
+			  <indexterm>
+				<primary>FQresStatus</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Converts the enumerated type returned by FQresultStatus into a
+				string constant describing the status code.
+<synopsis>
+char *FQresStatus(FQexecStatusType status);
+</synopsis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqntuples">
+			<term>
+			  <function>FQntuples</function>
+			  <indexterm>
+				<primary>FQntuples</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Returns the number of tuples (rows) in the provided result.
+				If no query has been executed, <literal>-1</literal> is returned.
+<synopsis>
+int FQntuples(const FQresult *res);
+</synopsis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+
+		  <varlistentry id="libfq-fqnfields">
+			<term>
+			  <function>FQnfields</function>
+			  <indexterm>
+				<primary>FQnfields</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Returns the number of columns (fields) in the provided result.
+				If no query has been executed, <literal>-1</literal> is returned.
+<synopsis>
+int FQnfields(const FQresult *res);
+</synopsis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqgetvalue">
+			<term>
+			  <function>FQgetvalue</function>
+			  <indexterm>
+				<primary>FQgetvalue</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Returns a single field of an <structname>FQresult</structname>.
+<synopsis>
+char *FQgetvalue(const FQresult *res, int row_number, int column_number);
+</synopsis>
+			  </para>
+			  <para>
+				Row and column numbers start at <literal>0</literal>.
+			  </para>
+			  <note>
+				<para>
+				  This function will return <literal>NULL</literal> if invalid row/column parameters
+				  are provided, as well as when the tuple value is actually <literal>NULL</literal>.
+				  To definitively determine if a tuple value is <literal>NULL</literal>,
+				  use <xref linkend="libfq-fqgetisnull">.
+				</para>
+			  </note>
+			</listitem>
+		  </varlistentry>
+
+
+		  <varlistentry id="libfq-fqgetisnull">
+			<term>
+			  <function>FQgetisnull</function>
+			  <indexterm>
+				<primary>FQgetisnull</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Tests a field for a <literal>NULL</literal> value. Row and column numbers start at 0.
+				This function returns <literal>1</literal> if the field is <literal>NULL</literal>
+				and <literal>0</literal> if it contains a non-<literal>NULL</literal> value.
+<synopsis>
+int FQgetisnull(const FQresult *res, int row_number, int column_number);
+</synopsis>
+			  </para>
+			  <para>
+				Note that <application>libpq</application>'s <function>PQgetvalue()</function>
+				returns an empty string if the field contains a <literal>NULL</literal> value;
+				<function>FQgetvalue()</function> returns <literal>NULL</literal>,
+				but will also return <literal>NULL</literal> if invalid parameters are provided,
+				so <function>FQgetisnull()</function> will provide a definitive result.
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqfhasNull">
+			<term>
+			  <function>FQfhasNull</function>
+			  <indexterm>
+				<primary>FQfhasNull</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Determine if for the provided column number, the result set contains
+				at least one <literal>NULL</literal>.
+<synopsis>
+bool FQfhasNull(const FQresult *res, int column_number);
+</synopsis>
+			  </para>
+			  <para>
+				Not to be confused with <xref linkend="libfq-fqgetisnull">, which determines
+				the <literal>NULL</literal> status for the given column of a particular result tuple.
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqfmaxwidth">
+			<term>
+			  <function>FQfmaxwidth</function>
+			  <indexterm>
+				<primary>FQfmaxwidth</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Provides the maximum width of a column in single character units.
+<synopsis>
+int FQfmaxwidth(const FQresult *res, int column_number);
+</synopsis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqfname">
+			<term>
+			  <function>FQfname</function>
+			  <indexterm>
+				<primary>FQfname</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Provides the name (or alias, if set) of a particular field (column).
+<synopsis>
+char *FQfname(const FQresult *res, int column_number);
+</synopsis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+
+		  <varlistentry id="libfq-fqgetlength">
+			<term>
+			  <function>FQgetlength</function>
+			  <indexterm>
+				<primary>FQgetlength</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Get length in bytes of a particular tuple column.
+<synopsis>
+int FQgetlength(const FQresult *res, int row_number, int column_number);
+</synopsis>
+			  </para>
+			  <para>
+				Row and column numbers start at <literal>0</literal>.
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqgetdsplen">
+			<term>
+			  <function>FQgetdsplen</function>
+			  <indexterm>
+				<primary>FQgetdsplen</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Returns the display length in single characters of the specified FQresult field.
+<synopsis>
+int FQgetdsplen(const FQresult *res, int row_number, int column_number);
+</synopsis>
+			  </para>
+			  <para>
+				Row and column numbers start at <literal>0</literal>.
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqfformat">
+			<term>
+			  <function>FQfformat</function>
+			  <indexterm>
+				<primary>FQfformat</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Returns the format code indicating the format of the given column.
+<synopsis>
+short FQfformat(const FQresult *res, int column_number);
+</synopsis>
+			  </para>
+			  <para>
+				Following values can be returned:
+<programlisting>
+   0 - text
+   1 - binary
+  -1 - invalid column specification</programlisting>
+			  </para>
+			  <para>
+				Column numbers start at <literal>0</literal>.
+			  </para>
+
+			</listitem>
+		  </varlistentry>
+
+
+		  <varlistentry id="libfq-fqftype">
+			<term>
+			  <function>FQftype</function>
+			  <indexterm>
+				<primary>FQftype</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				 Returns the data type associated with the given column number.
+
+<synopsis>
+short FQftype(const FQresult *res, int column_number);
+</synopsis>
+			  </para>
+			  <para>
+				The data type will be an integer corresponding to one of the <literal>SQL_*</literal>
+				constants defined in <filename>ibase.h</filename> (and repeated in <filename>libfq.h</filename>),
+				extended with the following pseudo-types for convenience:
+<programlisting>
+   - SQL_INVALID_TYPE
+   - SQL_DB_KEY</programlisting>
+			  </para>
+			  <para>
+				Column numbers start at <literal>0</literal>.
+			  </para>
+
+			</listitem>
+		  </varlistentry>
+
+		</variablelist>
+	  </para>
+	</sect2>
+
   </sect1>
 
 </chapter>
