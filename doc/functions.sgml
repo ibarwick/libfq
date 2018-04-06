@@ -9,114 +9,277 @@
 
     <para>
       The following functions handle connection initiation and
-      termination to/from a <productname>Firebird</productname> backend server.
+      termination to/from a <productname>Firebird</productname> backend server
     </para>
 
-   <variablelist>
+    <variablelist>
 
-    <varlistentry id="libfq-fqconnect">
-     <term>
-       <function>FQconnect</function>
-       <indexterm><primary>FQconnect</primary></indexterm>
-     </term>
-     <listitem>
-       <para>
-         Simple function to create a connection to a Firebird database
-         providing only the database path, username and password.
+      <varlistentry id="libfq-fqconnect">
+        <term>
+          <function>FQconnect</function>
+          <indexterm><primary>FQconnect</primary></indexterm>
+        </term>
+        <listitem>
+          <para>
+            Simple function to create a connection to a Firebird database
+            providing only the database path, username and password.
 <synopsis>
 FBconn * FQconnect(const char *db_path, const char *uname, const char *upass);
 </synopsis>
-       </para>
-     </listitem>
+          </para>
+        </listitem>
 
-    </varlistentry>
+      </varlistentry>
 
-    <varlistentry id="libfq-fqconnectdbparams">
-     <term>
-       <function>FQconnectdbParams</function>
-       <indexterm><primary>FQconnectdbParams</primary></indexterm>
-     </term>
-     <listitem>
-       <para>
+      <varlistentry id="libfq-fqconnectdbparams">
+        <term>
+          <function>FQconnectdbParams</function>
+          <indexterm><primary>FQconnectdbParams</primary></indexterm>
+        </term>
+        <listitem>
+          <para>
          Makes a new connection to the database server.
 <synopsis>
 FBconn *FQconnectdbParams(const char * const *keywords,
                           const char * const *values);
 </synopsis>
-      </para>
+          </para>
 
-      <para>
-        This function opens a new database connection using the parameters taken
-        from two <symbol>NULL</symbol>-terminated arrays. The first,
-        <literal>keywords</literal>, is defined as an array of strings, each one
-        being a keyword. The second, <literal>values</literal>, gives the value
-       for each keyword.
-      </para>
-      <para>
-        Following keywords are currently supported:
-      </para>
-      <itemizedlist spacing="compact" mark="bullet">
-        <listitem>
-          <simpara><literal>db_path</literal></simpara>
+          <para>
+            This function opens a new database connection using the parameters taken
+            from two <symbol>NULL</symbol>-terminated arrays. The first,
+            <literal>keywords</literal>, is defined as an array of strings, each one
+            being a keyword. The second, <literal>values</literal>, gives the value
+            for each keyword.
+          </para>
+          <para>
+            Following keywords are currently supported:
+          </para>
+          <itemizedlist spacing="compact" mark="bullet">
+            <listitem>
+              <simpara><literal>db_path</literal></simpara>
+            </listitem>
+            <listitem>
+              <simpara><literal>uname</literal></simpara>
+            </listitem>
+            <listitem>
+              <simpara><literal>upass</literal></simpara>
+            </listitem>
+            <listitem>
+              <simpara><literal>client_encoding</literal></simpara>
+            </listitem>
+          </itemizedlist>
         </listitem>
-        <listitem>
-          <simpara><literal>uname</literal></simpara>
-        </listitem>
-        <listitem>
-          <simpara><literal>upass</literal></simpara>
-        </listitem>
-        <listitem>
-          <simpara><literal>client_encoding</literal></simpara>
-        </listitem>
-      </itemizedlist>
+      </varlistentry>
 
-     </listitem>
-    </varlistentry>
-
-    <varlistentry id="libfq-fqfinish">
-     <term><function>FQfinish</function><indexterm><primary>FQfinish</primary></indexterm></term>
-     <listitem>
-      <para>
-        Closes the  connection to the server.  Also frees
-        memory used by the <structname>FBconn</structname> object.
-        Caller must not use the pointer again after <function>FQfinish</function> has been called.
+      <varlistentry id="libfq-fqfinish">
+        <term><function>FQfinish</function><indexterm><primary>FQfinish</primary></indexterm></term>
+        <listitem>
+          <para>
+            Closes the  connection to the server.  Also frees
+            memory used by the <structname>FBconn</structname> object.
+            Caller must not use the pointer again after <function>FQfinish</function> has been called.
 <synopsis>
 void FQfinish(FBconn *conn);
 </synopsis>
-      </para>
+          </para>
 
-     </listitem>
-    </varlistentry>
+        </listitem>
+      </varlistentry>
+	</variablelist>
+  </sect1>
 
+  <sect1 id="libfq-connection-status">
+    <title>Database Connection Status Functions</title>
+    <para>
+      The following functions provide details about an existing connection object.
+    </para>
 
-    <varlistentry id="libfq-fqstatus">
-      <term><function>FQstatus</function><indexterm><primary>FQstatus</primary></indexterm></term>
-      <listitem>
-        <para>
-          Determines whether the provided connection object has an active connection.
+    <variablelist>
+      <varlistentry id="libfq-fqstatus">
+        <term><function>FQstatus</function><indexterm><primary>FQstatus</primary></indexterm></term>
+        <listitem>
+          <para>
+            Determines whether the provided connection object has an active connection.
 <synopsis>
 FBconnStatusType FQstatus(const FBconn *conn);
 </synopsis>
-        </para>
-        <para>
-          Returns one of:
-        </para>
+          </para>
+          <para>
+            Returns one of:
+          </para>
 
-        <itemizedlist spacing="compact" mark="bullet">
-          <listitem>
-            <simpara><literal>CONNECTION_OK</literal></simpara>
-          </listitem>
+          <itemizedlist spacing="compact" mark="bullet">
+            <listitem>
+              <simpara><literal>CONNECTION_OK</literal></simpara>
+            </listitem>
+            <listitem>
+              <simpara><literal>CONNECTION_BAD</literal></simpara>
+            </listitem>
+          </itemizedlist>
 
-          <listitem>
-            <simpara><literal>CONNECTION_BAD</literal></simpara>
-          </listitem>
-        </itemizedlist>
+        </listitem>
+      </varlistentry>
 
-      </listitem>
-    </varlistentry>
+      <varlistentry id="libfq-fqdbpath">
+        <term>
+          <function>FQdb_path</function>
+          <indexterm><primary>FQdb_path</primary></indexterm>
+        </term>
+        <listitem>
+          <para>
+			Returns the path of the database for the current connection.
+<synopsis>
+   const char *FQdb_path(const FBconn *conn);
+</synopsis>
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id="libfq-fquname">
+        <term>
+          <function>FQuname</function>
+          <indexterm><primary>FQuname</primary></indexterm>
+        </term>
+        <listitem>
+          <para>
+			Returns the username for the current connection.
+<synopsis>
+const char *FQuname(const FBconn *conn);
+</synopsis>
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id="libfq-fqupass">
+        <term>
+          <function>FQupass</function>
+          <indexterm><primary>FQupass</primary></indexterm>
+        </term>
+        <listitem>
+          <para>
+			Returns the password for the current connection.
+<synopsis>
+const char *FQupass(const FBconn *conn);
+</synopsis>
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id="libfq-fqparameterstatus">
+        <term>
+          <function>FQparameterStatus</function>
+          <indexterm><primary>FQparameterStatus</primary></indexterm>
+        </term>
+        <listitem>
+          <para>
+            Looks up a current parameter setting of the connection.
+<synopsis>
+const char *FQparameterStatus(const FBconn *conn, const char *paramName);
+</synopsis>
+          </para>
+          <para>
+            Currently the only supported parameter is:
+          </para>
+          <itemizedlist spacing="compact" mark="bullet">
+            <listitem>
+              <simpara><literal>client_encoding</literal></simpara>
+            </listitem>
+          </itemizedlist>
+		  <para>
+			Other parameters may be added at a future date.
+		  </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id="libfq-fqclientcodingid">
+        <term>
+          <function>FQclientEncodingId</function>
+          <indexterm><primary>FQclientEncodingId</primary></indexterm>
+        </term>
+        <listitem>
+          <para>
+			Returns the ID of the current client encoding (or -1 if unknown).
+<synopsis>
+int FQclientEncodingId(FBconn *conn);
+</synopsis>
+          </para>
+        </listitem>
+      </varlistentry>
+
+
+
+      <varlistentry id="libfq-libversion">
+        <term>
+          <function>FQlibVersion</function>
+          <indexterm><primary>FQlibVersion</primary></indexterm>
+        </term>
+        <listitem>
+          <para>
+			Returns the integer value for the &libfq; version with which
+			the current connection is being made.
+<synopsis>
+int FQlibVersion(void);
+</synopsis>
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id="libfq-libversionstring">
+        <term>
+          <function>FQlibVersionString</function>
+          <indexterm><primary>FQlibVersionString</primary></indexterm>
+        </term>
+        <listitem>
+          <para>
+			Returns the string value for the &libfq; version with which
+			the current connection is being made.
+<synopsis>
+char *FQlibVersionString(void);
+</synopsis>
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry id="libfq-serverversion">
+        <term>
+          <function>FQserverVersion</function>
+          <indexterm><primary>FQserverVersion</primary></indexterm>
+        </term>
+        <listitem>
+          <para>
+			Returns the server version represented as an integer.
+<synopsis>
+int FQserverVersion(FBconn *conn);
+</synopsis>
+          </para>
+		  <para>
+			The integer is formed by multiplying the server's major version number by 10000,
+			the secondary version number by 100 and adding the tertiary version number.
+			For example, Firebird 2.5.8 becomes 20508, and Firebird 3.0.3 becomes 30003.
+		  </para>
+        </listitem>
+      </varlistentry>
+
+
+      <varlistentry id="libfq-fqserverversionstring">
+        <term>
+          <function>FQserverVersionString</function>
+          <indexterm><primary>FQserverVersionString</primary></indexterm>
+        </term>
+        <listitem>
+          <para>
+			Returns the server version in string form.
+<synopsis>
+char *FQserverVersionString(FBconn *conn);
+</synopsis>
+          </para>
+        </listitem>
+      </varlistentry>
+
    </variablelist>
 
-
-
   </sect1>
+
+
 </chapter>
