@@ -162,6 +162,7 @@ FQconnectdbParams(const char * const *keywords,
 	conn->db = 0L;
 	conn->trans = 0L;
 	conn->trans_internal = 0L;
+	conn->autocommit = true;
 	conn->in_user_transaction = false;
 	conn->status =	(ISC_STATUS *) malloc(sizeof(ISC_STATUS) * ISC_STATUS_LENGTH);
 	conn->engine_version = NULL;
