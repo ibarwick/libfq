@@ -235,6 +235,9 @@ FQfinish(FBconn *conn)
 	if (conn->dpb_buffer != NULL)
 		free(conn->dpb_buffer);
 
+	if (conn->engine_version != NULL)
+		free(conn->engine_version);
+
 	free(conn);
 }
 
@@ -292,22 +295,27 @@ _FQserverVersionInit(FBconn *conn)
 			return;
 
 		res = _FQexec(conn, &conn->trans_internal, sql);
+
 		if (FQresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
 		{
 			int major, minor, revision;
-			char buf[6];
-			conn->engine_version = FQgetvalue(res, 0, 0);
+			char buf[10];
+			int len = sizeof(FQgetvalue(res, 0, 0));
+
+			conn->engine_version = malloc(len + 1);
+			strncpy(conn->engine_version, FQgetvalue(res, 0, 0), len);
+
 			sscanf(conn->engine_version, "%i.%i.%i", &major, &minor, &revision);
 			sprintf(buf, "%d%02d%02d", major, minor, revision);
 			conn->engine_version_number = atoi(buf);
-			FQclear(res);
+
 		}
 		else
 		{
 			conn->engine_version = "";
 			conn->engine_version_number = -1;
 		}
-
+		FQclear(res);
 		_FQcommitTransaction(conn, &conn->trans_internal);
 	}
 }
@@ -450,8 +458,8 @@ void _FQexecClearSQLDA(FQresult *result, XSQLDA *sqlda)
 
 		if (var->sqltype & 1 && var->sqlind != NULL)
 		{
-			/* deallocate NULL status indicator */
-			var->sqlind = (short *)malloc(sizeof(short));
+			/* deallocate NULL status indicator if necessary */
+			free(var->sqlind);
 		}
 	}
 }
@@ -871,8 +879,8 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 
 	/* set up tuple holder */
 
-	result->tuple_last = (FQresTuple *)malloc(sizeof(FQresTuple));
-	result->tuple_first = result->tuple_last;
+	result->tuple_first = NULL;
+	result->tuple_last = NULL;
 
 	result->header = malloc(sizeof(FQresTupleAttDesc *) * result->ncols);
 
@@ -880,10 +888,9 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 	{
 		FQresTuple *tuple_next = (FQresTuple *)malloc(sizeof(FQresTuple));
 
-
-		result->tuple_last->position = num_rows+1;
-		result->tuple_last->next = tuple_next;
-		result->tuple_last->values = malloc(sizeof(FQresTupleAtt) * result->ncols);
+		tuple_next->position = num_rows;
+		tuple_next->next = NULL;
+		tuple_next->values = malloc(sizeof(FQresTupleAtt) * result->ncols);
 
 		/* store header information */
 		if (num_rows == 0)
@@ -936,13 +943,24 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 				if (tuple_att->dsplen > result->header[i]->att_max_len)
 					result->header[i]->att_max_len = tuple_att->dsplen;
 
-			result->tuple_last->values[i] = tuple_att;
+			tuple_next->values[i] = tuple_att;
 		}
 
-		result->tuple_last = tuple_next;
+		if (result->tuple_first == NULL)
+		{
+			result->tuple_first = tuple_next;
+			result->tuple_last = result->tuple_first;
+		}
+		else
+		{
+			result->tuple_last->next = tuple_next;
+			result->tuple_last = tuple_next;
+		}
+
 
 		num_rows++;
 	}
+
 	result->resultStatus = FBRES_TUPLES_OK;
 	result->ntups = num_rows;
 
@@ -1611,8 +1629,8 @@ _FQexecParams(FBconn *conn,
 	}
 
 	/* set up tuple holder */
-	result->tuple_last = (FQresTuple *)malloc(sizeof(FQresTuple));
-	result->tuple_first = result->tuple_last;
+	result->tuple_first = NULL;
+	result->tuple_last = NULL;
 
 	result->header = malloc(sizeof(FQresTupleAttDesc *) * result->ncols);
 
@@ -1632,9 +1650,9 @@ _FQexecParams(FBconn *conn,
 	{
 		FQresTuple *tuple_next = (FQresTuple *)malloc(sizeof(FQresTuple));
 
-		result->tuple_last->position = num_rows + 1;
-		result->tuple_last->next = tuple_next;
-		result->tuple_last->values = malloc(sizeof(FQresTupleAtt) * result->ncols);
+		tuple_next->position = num_rows;
+		tuple_next->next = NULL;
+		tuple_next->values = malloc(sizeof(FQresTupleAtt) * result->ncols);
 
 		/* store header information */
 		if (num_rows == 0)
@@ -1687,10 +1705,20 @@ _FQexecParams(FBconn *conn,
 				if (tuple_att->dsplen > result->header[i]->att_max_len)
 					result->header[i]->att_max_len = tuple_att->dsplen;
 
-			result->tuple_last->values[i]  = tuple_att;
+			tuple_next->values[i] = tuple_att;
+			//result->tuple_last->values[i]  = tuple_att;
 		}
 
-		result->tuple_last = tuple_next;
+		if (result->tuple_first == NULL)
+		{
+			result->tuple_first = tuple_next;
+			result->tuple_last = result->tuple_first;
+		}
+		else
+		{
+			result->tuple_last->next = tuple_next;
+			result->tuple_last = tuple_next;
+		}
 
 		num_rows++;
 	}
@@ -2777,70 +2805,89 @@ _FQdeparseDbKey(const char *db_key)
  * itself as that will result in dangling pointers and memory leaks.
  */
 void
-FQclear(FQresult *res)
+FQclear(FQresult *result)
 {
 	int i;
 
-	if (!res)
+	if (!result)
 		return;
 
-	if (res->ntups > 0)
+	if (result->ntups > 0)
 	{
 		/* Free header section */
-		if (res->header)
+		if (result->header)
 		{
-			for (i = 0; i < res->ncols; i++)
+			for (i = 0; i < result->ncols; i++)
 			{
-				if (res->header[i])
+				if (result->header[i])
 				{
-					if (res->header[i]->desc)
-						free(res->header[i]->desc);
+					if (result->header[i]->desc != NULL)
+						free(result->header[i]->desc);
 
-					if (res->header[i]->alias != NULL)
-						free(res->header[i]->alias);
+					if (result->header[i]->alias != NULL)
+						free(result->header[i]->alias);
 
-					free(res->header[i]);
+					free(result->header[i]);
 				}
 			}
 		}
 
-		free(res->header);
+		free(result->header);
 
 		/* Free any tuples */
-		if (res->tuple_first)
+		if (result->tuple_first)
 		{
-			FQresTuple *tuple_ptr = res->tuple_first;
-			for (i = 0; i  < res->ntups; i++)
+			FQresTuple *tuple_ptr = result->tuple_first;
+			for (i = 0; i  < result->ntups; i++)
 			{
+				int j;
+
 				FQresTuple *tuple_next = tuple_ptr->next;
+
 				if (!tuple_ptr)
 					break;
 
+				for (j = 0; j < result->ncols; j++)
+				{
+
+					if (tuple_ptr->values[j] != NULL)
+					{
+						if (tuple_ptr->values[j]->value != NULL)
+							free(tuple_ptr->values[j]->value);
+						free(tuple_ptr->values[j]);
+					}
+				}
+
+				free(tuple_ptr->values);
 				free(tuple_ptr);
+
 				tuple_ptr = tuple_next;
 			}
 
-			if (res->tuples)
-				free(res->tuples);
+			if (result->tuples)
+				free(result->tuples);
 		}
 	}
 
-	if (res->errMsg)
-		free(res->errMsg);
+	if (result->errMsg)
+		free(result->errMsg);
 
-	if (res->errFields)
+	if (result->errFields)
 	{
 		FBMessageField *mfield;
-		for (mfield = res->errFields; mfield != NULL; mfield = mfield->next)
+		for (mfield = result->errFields; mfield != NULL; mfield = mfield->next)
 		{
 			free(mfield->value);
 			free(mfield);
 		}
 	}
 
+
+	if (result->sqlda_out != NULL)
+		free(result->sqlda_out);
+
 	/* TODO - check for any other malloc'd sections */
-	free(res);
-	res = NULL;
+	free(result);
 }
 
 
