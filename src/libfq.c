@@ -1985,6 +1985,43 @@ FQexecTransaction(FBconn *conn, const char *stmt)
 }
 
 
+/*
+ * =========================
+ * Result handling functions
+ * =========================
+ */
+
+/**
+ * FQresultStatus()
+ *
+ * Returns the result status of the previously execute command.
+ *
+ * TODO: return something else if res is NULL?
+ */
+FQexecStatusType
+FQresultStatus(const FQresult *res)
+{
+	if (!res)
+		return FBRES_FATAL_ERROR;
+
+	return res->resultStatus;
+}
+
+
+/**
+ * FQresStatus()
+ *
+ * Converts the enumerated type returned by FQresultStatus into a
+ * string constant describing the status code.
+ */
+char *
+FQresStatus(FQexecStatusType status)
+{
+	if ((unsigned int) status >= sizeof fbresStatus / sizeof fbresStatus[0])
+		return "invalid FQexecStatusType code";
+
+	return fbresStatus[status];
+}
 
 
 /**
@@ -2020,6 +2057,61 @@ FQnfields(const FQresult *res)
 
 
 /**
+ * FQgetvalue()
+ *
+ * Returns a single field of an FQresult.
+ *
+ * Row and column numbers start at 0.
+ *
+ * NOTE: this function will return NULL if invalid row/column parameters
+ *   are provided, as well as when the tuple value is actually NULL.
+ *   To determine if a tuple value is null, use FQgetisnull().
+ *
+ */
+char *
+FQgetvalue(const FQresult *res,
+           int row_number,
+           int column_number)
+{
+	if (!res)
+		return NULL;
+
+	if (row_number >= res->ntups)
+		return NULL;
+
+	if (column_number >= res->ncols)
+		return NULL;
+
+	return res->tuples[row_number]->values[column_number]->value;
+}
+
+/**
+ * FQgetisnull()
+ *
+ * Tests a field for a null value. Row and column numbers start at 0.
+ * This function returns 1 if the field is null and 0 if it contains a non-null value.
+ *
+ * Note that libpq's PQgetvalue() returns an empty string if the field contains a
+ * NULL value; FQgetvalue() returns NULL, but will also return NULL if
+ * invalid parameters are provided, so FQgetisnull() will provide a
+ * definitive result.
+ */
+int
+FQgetisnull(const FQresult *res,
+            int row_number,
+            int column_number)
+{
+	if (!res)
+		return 0;
+
+	if (res->tuples[row_number]->values[column_number]->has_null == true)
+		return 1;
+
+	return 0;
+}
+
+
+/**
  * FQfhasNull()
  *
  * Determine if for the provided column number, the result set contains
@@ -2044,7 +2136,7 @@ FQfhasNull(const FQresult *res, int column_number)
 /**
  * FQfmaxwidth()
  *
- * Provides the maximum width of a column in single character units
+ * Provides the maximum width of a column in single character units.
  *
  */
 int
@@ -2117,36 +2209,6 @@ FQgetlength(const FQresult *res,
 
 
 /**
- * FQgetvalue()
- *
- * Returns a single field of an FQresult.
- *
- * Row and column numbers start at 0.
- *
- * NOTE: this function will return NULL if invalid row/column parameters
- *   are provided, as well as when the tuple value is actually NULL.
- *   To determine if a tuple value is null, use FQgetisnull().
- *
- */
-char *
-FQgetvalue(const FQresult *res,
-           int row_number,
-           int column_number)
-{
-	if (!res)
-		return NULL;
-
-	if (row_number >= res->ntups)
-		return NULL;
-
-	if (column_number >= res->ncols)
-		return NULL;
-
-	return res->tuples[row_number]->values[column_number]->value;
-}
-
-
-/**
  * FQgetdsplen()
  *
  * Returns the display length in single characters of the specified FQresult
@@ -2173,32 +2235,6 @@ FQgetdsplen(const FQresult *res,
 
 
 /**
- * FQgetisnull()
- *
- *Tests a field for a null value. Row and column numbers start at 0.
- * This function returns 1 if the field is null and 0 if it contains a non-null value.
- *
- * Note that libpq's PGgetvalue() returns an empty string if the field contains a
- * NULL value; FQgetvalue() returns NULL, but will also return NULL if
- * invalid parameters are provided, so FQgetisnull() will provide a
- * definitive result
- */
-int
-FQgetisnull(const FQresult *res,
-            int row_number,
-            int column_number)
-{
-	if (!res)
-		return 0;
-
-	if (res->tuples[row_number]->values[column_number]->has_null == true)
-		return 1;
-
-	return 0;
-}
-
-
-/**
  * FQfformat()
  *
  * Returns the format code indicating the format of the given column:
@@ -2208,6 +2244,8 @@ FQgetisnull(const FQresult *res,
  * -1 - invalid column specification
  *
  * Column numbers start at 0.
+ *
+ * TODO: define enum/constants for these
  */
 short
 FQfformat(const FQresult *res, int column_number)
@@ -2255,35 +2293,6 @@ FQftype(const FQresult *res, int column_number)
 }
 
 
-/**
- * FQresultStatus()
- *
- * Returns the result status of the previously execute command
- */
-FQexecStatusType
-FQresultStatus(const FQresult *res)
-{
-	if (!res)
-		return FBRES_FATAL_ERROR;
-
-	return res->resultStatus;
-}
-
-
-/**
- * FQresStatus()
- *
- * Converts the enumerated type returned by FQresultStatus into a
- * string constant describing the status code
- */
-char *
-FQresStatus(FQexecStatusType status)
-{
-	if ((unsigned int) status >= sizeof fbresStatus / sizeof fbresStatus[0])
-		return "invalid FQexecStatusType code";
-
-	return fbresStatus[status];
-}
 
 
 /*
@@ -2312,7 +2321,7 @@ FQerrorMessage(const FBconn *conn)
 /**
  * FQresultErrorMessage()
  *
- * Return the error message associated with the result, or an empty string.
+ * Returns the error message associated with the result, or an empty string.
  */
 char *
 FQresultErrorMessage(const FQresult *result)
@@ -2381,6 +2390,7 @@ FQresultErrorFieldsAsString(const FQresult *res, char *prefix)
 		mfield = mfield->prev;
 	} while( mfield != NULL);
 
+	// XXX is this kosher? Check callers free string!
 	str = (char *)malloc(strlen(buf.data) + 1);
 	memcpy(str, buf.data, strlen(buf.data) + 1);
 	termFQExpBuffer(&buf);

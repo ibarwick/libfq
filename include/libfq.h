@@ -375,6 +375,16 @@ FQntuples(const FQresult *res);
 extern int
 FQnfields(const FQresult *res);
 
+extern char *
+FQgetvalue(const FQresult *res,
+           int row_number,
+           int column_number);
+
+extern int
+FQgetisnull(const FQresult *res,
+            int row_number,
+            int column_number);
+
 extern bool
 FQfhasNull(const FQresult *res, int column_number);
 
@@ -393,25 +403,14 @@ FQftype(const FQresult *res, int column_number);
 extern void
 FQsetGetdsplen(FBconn *conn, bool get_dsp_len);
 
-
 extern int
 FQgetlength(const FQresult *res,
             int row_number,
             int column_number);
 
-extern char *
-FQgetvalue(const FQresult *res,
-           int row_number,
-           int column_number);
 
 extern int
 FQgetdsplen(const FQresult *res,
-            int row_number,
-            int column_number);
-
-
-extern int
-FQgetisnull(const FQresult *res,
             int row_number,
             int column_number);
 
@@ -423,9 +422,9 @@ FQformatDbKey(const FQresult *res,
 
 
 /*
- * =========================
- * Result handling functions
- * =========================
+ * ==============================
+ * Transaction handling functions
+ * ==============================
  */
 extern bool
 FQisActiveTransaction(FBconn *conn);
