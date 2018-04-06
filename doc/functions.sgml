@@ -472,7 +472,7 @@ FQresult *FQexecTransaction(FBconn *conn, const char *stmt)
 	  </para>
 	</sect2>
 
-	<sect2 id="libfq-exec-resultn">
+	<sect2 id="libfq-exec-results">
 	  <title>Result Handling Functions</title>
 	  <para>
 		<variablelist>
@@ -520,8 +520,8 @@ FQexecStatusType FQresultStatus(const FQresult *res);
 
 			<listitem>
 			  <para>
-				Converts the enumerated type returned by FQresultStatus into a
-				string constant describing the status code.
+				Converts the enumerated type returned by <xref linkend="libfq-fqresultStatus">
+				into a string constant describing the status code.
 <synopsis>
 char *FQresStatus(FQexecStatusType status);
 </synopsis>
@@ -792,6 +792,110 @@ short FQftype(const FQresult *res, int column_number);
 	  </para>
 	</sect2>
 
+	<sect2 id="libfq-exec-error">
+	  <title>Error Handling Functions</title>
+	  <para>
+		<variablelist>
+		  <varlistentry id="libfq-fqerrorMessage">
+			<term>
+			  <function>FQerrorMessage</function>
+			  <indexterm>
+				<primary>FQerrorMessage</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				 Returns the most recent error message associated with the result, or an
+				 empty string.
+<synopsis>
+char *FQerrorMessage(const FBconn *conn);
+</synopsis>
+			  </para>
+			  <para>
+				<emphasis>not currently implemented!</emphasis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqresulterrormessage">
+			<term>
+			  <function>FQresultErrorMessage</function>
+			  <indexterm>
+				<primary>FQresultErrorMessage</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Returns the error message associated with the result, or an empty string.
+<synopsis>
+char *FQresultErrorMessage(const FQresult *result);
+</synopsis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqresulterrorfield">
+			<term>
+			  <function>FQresultErrorField</function>
+			  <indexterm>
+				<primary>FQresultErrorField</primary>
+			  </indexterm>
+			</term>
+			<listitem>
+			  <para>
+				Returns an individual field of an error report, or <literal>NULL</literal>.
+<synopsis>
+char *FQresultErrorField(const FQresult *res, FQdiagType fieldcode);
+</synopsis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqresulterrorfieldsasstring">
+			<term>
+			  <function>FQresultErrorFieldsAsString</function>
+			  <indexterm>
+				<primary>FQresultErrorFieldsAsString</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Return all error fields formatted as a single, multiline string
+<synopsis>
+char *FQresultErrorFieldsAsString(const FQresult *res, char *prefix);
+</synopsis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqresultdumperrorfields">
+			<term>
+			  <function>FQresultDumpErrorFields</function>
+			  <indexterm>
+				<primary>FQresultDumpErrorFields</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				A temporary function to dump the error fields in reverse
+				order, until a way can be found of assigning appropriate diagnostic
+				codes to each field
+<synopsis>
+void FQresultDumpErrorFields(FBconn *conn, const FQresult *res);
+</synopsis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+
+
+		</variablelist>
+	  </para>
+	</sect2>
   </sect1>
 
 </chapter>
