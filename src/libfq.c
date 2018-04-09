@@ -2403,28 +2403,6 @@ FQresultErrorFieldsAsString(const FBresult *res, char *prefix)
 }
 
 
-/**
- * FQresultDumpErrorFields()
- *
- * Temporary function to dump the error fields in reverse
- * order, until we can find a way of assigning appropriate diagnostic
- * codes to each field
- */
-void
-FQresultDumpErrorFields(FBconn *conn, const FBresult *res)
-{
-	FBMessageField *mfield;
-
-	if (!res || res->errFields == NULL)
-		return;
-
-	/* scan to last field */
-	for (mfield = res->errFields; mfield->next != NULL; mfield = mfield->next);
-
-	for (; mfield != NULL;  mfield = mfield->prev)
-		FQlog(conn, DEBUG1, "* %s", mfield->value);
-}
-
 
 /**
  * _FQlogLevel()

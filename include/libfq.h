@@ -462,10 +462,6 @@ FQresultErrorField(const FBresult *res, FQdiagType fieldcode);
 extern char *
 FQresultErrorFieldsAsString(const FBresult *res, char *prefix);
 
-extern void
-FQresultDumpErrorFields(FBconn *conn, const FBresult *res);
-
-
 
 /*
  * =======================
