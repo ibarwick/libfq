@@ -191,8 +191,6 @@ typedef enum {
 	FB_DIAG_OTHER = 0,
 	FB_DIAG_MESSAGE_PRIMARY,
 	FB_DIAG_MESSAGE_DETAIL,
-	FB_DIAG_MESSAGE_LINE,
-	FB_DIAG_MESSAGE_COLUMN,
 	FB_DIAG_DEBUG  /* debugging info, not usually displayed */
 } FQdiagType;
 
@@ -364,7 +362,7 @@ extern FBresult *FQexecTransaction(FBconn *conn, const char *stmt);
  */
 
 extern FQexecStatusType
-FBresultStatus(const FBresult *res);
+FQresultStatus(const FBresult *res);
 
 extern char*
 FQresStatus(FQexecStatusType status);
@@ -459,7 +457,7 @@ extern char *
 FQresultErrorMessage(const FBresult *res);
 
 extern char *
-FBresultErrorField(const FBresult *res, FQdiagType fieldcode);
+FQresultErrorField(const FBresult *res, FQdiagType fieldcode);
 
 extern char *
 FQresultErrorFieldsAsString(const FBresult *res, char *prefix);

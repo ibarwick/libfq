@@ -396,7 +396,7 @@ _FQserverVersionInit(FBconn *conn)
 
 		res = _FQexec(conn, &conn->trans_internal, sql);
 
-		if (FBresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
+		if (FQresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
 		{
 			int major, minor, revision;
 			char buf[10];
@@ -467,7 +467,7 @@ _FQinitClientEncoding(FBconn *conn)
 
 	res = _FQexec(conn, &conn->trans_internal, query);
 
-	if (FBresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
+	if (FQresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
 	{
 		int client_encoding_len = strlen(FQgetvalue(res, 0, 0));
 
@@ -821,6 +821,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 		result->resultStatus = FBRES_FATAL_ERROR;
 
 		_FQexecClearResult(result);
+
 		return result;
 	}
 
@@ -917,6 +918,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 		/* Handle DDL statement */
 		if (statement_type == isc_info_sql_stmt_ddl)
 		{
+			puts("DDL?");
 			temp_trans = false;
 			if (*trans == 0L)
 			{
@@ -958,6 +960,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 
 		if (isc_dsql_execute(conn->status, trans,  &result->stmt_handle, SQL_DIALECT_V6, NULL))
 		{
+			puts("error executing non-SELECT");
 			_FQsaveMessageField(result, FB_DIAG_DEBUG, "error executing non-SELECT");
 			_FQsetResultError(conn, result);
 
@@ -966,7 +969,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 			return result;
 		}
 
-		if (conn->autocommit == true	 && conn->in_user_transaction == false)
+		if (conn->autocommit == true && conn->in_user_transaction == false)
 		{
 			_FQcommitTransaction(conn, trans);
 		}
@@ -1956,7 +1959,7 @@ FQexecTransaction(FBconn *conn, const char *stmt)
 
 	result = _FQexec(conn, &conn->trans_internal, stmt);
 
-	if (FBresultStatus(result) == FBRES_FATAL_ERROR)
+	if (FQresultStatus(result) == FBRES_FATAL_ERROR)
 	{
 		/* XXX todo: set error */
 		_FQsaveMessageField(result, FB_DIAG_DEBUG, "query execution error");
@@ -1964,7 +1967,7 @@ FQexecTransaction(FBconn *conn, const char *stmt)
 		_FQrollbackTransaction(conn, &conn->trans_internal);
 	}
 	/* Non-select query */
-	else if (FBresultStatus(result) == FBRES_COMMAND_OK)
+	else if (FQresultStatus(result) == FBRES_COMMAND_OK)
 	{
 		// TODO: show some meaningful output?
 		if (_FQcommitTransaction(conn, &conn->trans_internal) == TRANS_ERROR)
@@ -1976,7 +1979,7 @@ FQexecTransaction(FBconn *conn, const char *stmt)
 		}
 	}
 	/* Query returning rows */
-	else if (FBresultStatus(result) == FBRES_TUPLES_OK)
+	else if (FQresultStatus(result) == FBRES_TUPLES_OK)
 	{
 		_FQcommitTransaction(conn, &conn->trans_internal);
 	}
@@ -1992,14 +1995,14 @@ FQexecTransaction(FBconn *conn, const char *stmt)
  */
 
 /**
- * FBresultStatus()
+ * FQresultStatus()
  *
  * Returns the result status of the previously execute command.
  *
  * TODO: return something else if res is NULL?
  */
 FQexecStatusType
-FBresultStatus(const FBresult *res)
+FQresultStatus(const FBresult *res)
 {
 	if (!res)
 		return FBRES_FATAL_ERROR;
@@ -2011,7 +2014,7 @@ FBresultStatus(const FBresult *res)
 /**
  * FQresStatus()
  *
- * Converts the enumerated type returned by FBresultStatus into a
+ * Converts the enumerated type returned by FQresultStatus into a
  * string constant describing the status code.
  */
 char *
@@ -2334,12 +2337,12 @@ FQresultErrorMessage(const FBresult *result)
 
 
 /**
- * FBresultErrorField()
+ * FQresultErrorField()
  *
  * Returns an individual field of an error report, or NULL.
  */
 char *
-FBresultErrorField(const FBresult *res, FQdiagType fieldcode)
+FQresultErrorField(const FBresult *res, FQdiagType fieldcode)
 {
 	FBMessageField *mfield;
 
@@ -2349,7 +2352,9 @@ FBresultErrorField(const FBresult *res, FQdiagType fieldcode)
 	for (mfield = res->errFields; mfield != NULL; mfield = mfield->next)
 	{
 		if (mfield->code == fieldcode)
+		{
 			return mfield->value;
+		}
 	}
 
 	return NULL;
@@ -2470,9 +2475,9 @@ _FQsetResultError(const FBconn *conn, FBresult *res)
 {
 	long *pvector;
 	char msg[ERROR_BUFFER_LEN];
+	int line = 0;
 
 	res->fbSQLCODE = isc_sqlcode(conn->status);
-
 	pvector = conn->status;
 
 	fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector);
@@ -2480,10 +2485,35 @@ _FQsetResultError(const FBconn *conn, FBresult *res)
 	res->errMsg = (char *)malloc(strlen(msg) + 1);
 	memcpy(res->errMsg, msg, strlen(msg) + 1);
 
+	/*
+	 * In theory, the first line returned will always be:
+	 *
+	 *     SQL error code = -...
+	 *
+	 * so we can just skip it, as we have the error code anyway.
+	 */
+	fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector);
+
+	/*
+	 * TODO:
+	 *  - extract line and column numbers; currently observed to appear in one
+	 *    of two positions:
+	 *
+	 *     message 1: "Token unknown - line 1, column 1"
+	 *     message 3: "At line 1, column 15"
+	 */
 	while(fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector))
 	{
-		/* XXX todo: get appropriate FB_DIAG_* code */
-		_FQsaveMessageField(res, FB_DIAG_OTHER, msg);
+		FQdiagType current_diagType;
+		if (line == 0)
+			current_diagType = FB_DIAG_MESSAGE_PRIMARY;
+		else if (line == 1)
+			current_diagType = FB_DIAG_MESSAGE_DETAIL;
+		else
+			current_diagType = FB_DIAG_OTHER;
+
+		_FQsaveMessageField(res, current_diagType, msg);
+		line++;
 	}
 }
 
@@ -2516,10 +2546,14 @@ _FQsaveMessageField(FBresult *res, FQdiagType code, const char *value, ...)
 	FBMessageField *mfield;
 
 	char buffer[2048];
+	int buflen = 0;
+
 
 	va_start(argp, value);
 	vsnprintf(buffer, 2048, value, argp);
 	va_end(argp);
+
+	buflen = strlen(buffer);
 
 	mfield = (FBMessageField *)
 		malloc(sizeof(FBMessageField));
@@ -2529,7 +2563,7 @@ _FQsaveMessageField(FBresult *res, FQdiagType code, const char *value, ...)
 
 	mfield->code = code;
 	mfield->prev = NULL;
-	mfield->value = (char *)malloc(strlen(buffer) + 1);
+	mfield->value = (char *)malloc(buflen + 1);
 
 	if (!mfield->value)
 	{
@@ -2537,7 +2571,9 @@ _FQsaveMessageField(FBresult *res, FQdiagType code, const char *value, ...)
 		return;
 	}
 
-	memcpy(mfield->value, buffer, strlen(buffer) + 1);
+	memset(mfield->value, '\0', buflen + 1);
+	strncpy(mfield->value, buffer, buflen);
+
 	mfield->next = res->errFields;
 	if (mfield->next)
 		mfield->next->prev = mfield;
@@ -3055,6 +3091,9 @@ FQclear(FBresult *result)
 		}
 	}
 
+	/*
+	 * NOTE: these should be cleared by _FQexecClearResult() anyway
+	 */
 	if (result->sqlda_in != NULL)
 		free(result->sqlda_in);
 
