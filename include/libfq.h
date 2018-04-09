@@ -287,7 +287,7 @@ typedef struct FBresult
 
 	/*
 	 * Error information (all NULL if not an error result).	 errMsg is the
-	 * "overall" error message returned by FBresultErrorMessage.  If we have
+	 * "overall" error message returned by FQresultErrorMessage.  If we have
 	 * per-field info then it is stored in a linked list.
 	 */
 	char	   *errMsg;			/* error message, or NULL if no error */
@@ -456,16 +456,16 @@ extern char *
 FQerrorMessage(const FBconn *conn);
 
 extern char *
-FBresultErrorMessage(const FBresult *res);
+FQresultErrorMessage(const FBresult *res);
 
 extern char *
 FBresultErrorField(const FBresult *res, FQdiagType fieldcode);
 
 extern char *
-FBresultErrorFieldsAsString(const FBresult *res, char *prefix);
+FQresultErrorFieldsAsString(const FBresult *res, char *prefix);
 
 extern void
-FBresultDumpErrorFields(FBconn *conn, const FBresult *res);
+FQresultDumpErrorFields(FBconn *conn, const FBresult *res);
 
 
 

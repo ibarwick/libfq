@@ -306,11 +306,11 @@ char *FQserverVersionString(FBconn *conn);
 				Submits a command to the server and waits for the result.
 				Note that only one query can be provided.
 <synopsis>
-FQresult *FQexec(FBconn *conn, const char *stmt);
+FBresult *FQexec(FBconn *conn, const char *stmt);
 </synopsis>
 			  </para>
 			  <para>
-				Returns a <structname>FQresult</structname> pointer, or NULL when
+				Returns a <structname>FBresult</structname> pointer, or NULL when
 				no server connection available.
 			  </para>
 			  <para>
@@ -336,7 +336,7 @@ FQresult *FQexec(FBconn *conn, const char *stmt);
 				<function>PQexecParams()</function>, but not all arguments are currently
 				used.
 <synopsis>
-FQresult *
+FBresult *
 FQexecParams(FBconn *conn,
 			 const char *stmt,
 			 int nParams,
@@ -458,7 +458,7 @@ FQexecParams(FBconn *conn,
 				Convenience function to execute a query using the internal
 				transaction handle
 <synopsis>
-FQresult *FQexecTransaction(FBconn *conn, const char *stmt)
+FBresult *FQexecTransaction(FBconn *conn, const char *stmt)
 </synopsis>
 			  </para>
 			  <para>
@@ -479,11 +479,11 @@ FQresult *FQexecTransaction(FBconn *conn, const char *stmt)
 
 			<listitem>
 			  <para>
-				Free the storage attached to an <structname>FQresult</structname> object.
+				Free the storage attached to an <structname>FBresult</structname> object.
 				Never <function>free()</function> the object itself as that will result in
 				dangling pointers and memory leaks.
 <synopsis>
-void FQclear(FQresult *res);
+void FQclear(FBresult *res);
 </synopsis>
 			  </para>
 			</listitem>
@@ -500,9 +500,9 @@ void FQclear(FQresult *res);
 
 		  <varlistentry id="libfq-fqresultstatus">
 			<term>
-			  <function>FQresultStatus</function>
+			  <function>FBresultStatus</function>
 			  <indexterm>
-				<primary>FQresultStatus</primary>
+				<primary>FBresultStatus</primary>
 			  </indexterm>
 			</term>
 
@@ -510,7 +510,7 @@ void FQclear(FQresult *res);
 			  <para>
 				Returns the result status of the previously execute command.
 <synopsis>
-FQexecStatusType FQresultStatus(const FQresult *res);
+FQexecStatusType FBresultStatus(const FBresult *res);
 </synopsis>
 			  </para>
 			  <para>
@@ -563,7 +563,7 @@ char *FQresStatus(FQexecStatusType status);
 				Returns the number of tuples (rows) in the provided result.
 				If no query has been executed, <literal>-1</literal> is returned.
 <synopsis>
-int FQntuples(const FQresult *res);
+int FQntuples(const FBresult *res);
 </synopsis>
 			  </para>
 			</listitem>
@@ -583,7 +583,7 @@ int FQntuples(const FQresult *res);
 				Returns the number of columns (fields) in the provided result.
 				If no query has been executed, <literal>-1</literal> is returned.
 <synopsis>
-int FQnfields(const FQresult *res);
+int FQnfields(const FBresult *res);
 </synopsis>
 			  </para>
 			</listitem>
@@ -599,9 +599,9 @@ int FQnfields(const FQresult *res);
 
 			<listitem>
 			  <para>
-				Returns a single field of an <structname>FQresult</structname>.
+				Returns a single field of an <structname>FBresult</structname>.
 <synopsis>
-char *FQgetvalue(const FQresult *res, int row_number, int column_number);
+char *FQgetvalue(const FBresult *res, int row_number, int column_number);
 </synopsis>
 			  </para>
 			  <para>
@@ -633,7 +633,7 @@ char *FQgetvalue(const FQresult *res, int row_number, int column_number);
 				This function returns <literal>1</literal> if the field is <literal>NULL</literal>
 				and <literal>0</literal> if it contains a non-<literal>NULL</literal> value.
 <synopsis>
-int FQgetisnull(const FQresult *res, int row_number, int column_number);
+int FQgetisnull(const FBresult *res, int row_number, int column_number);
 </synopsis>
 			  </para>
 			  <para>
@@ -659,7 +659,7 @@ int FQgetisnull(const FQresult *res, int row_number, int column_number);
 				Determine if for the provided column number, the result set contains
 				at least one <literal>NULL</literal>.
 <synopsis>
-bool FQfhasNull(const FQresult *res, int column_number);
+bool FQfhasNull(const FBresult *res, int column_number);
 </synopsis>
 			  </para>
 			  <para>
@@ -681,7 +681,7 @@ bool FQfhasNull(const FQresult *res, int column_number);
 			  <para>
 				Provides the maximum width of a column in single character units.
 <synopsis>
-int FQfmaxwidth(const FQresult *res, int column_number);
+int FQfmaxwidth(const FBresult *res, int column_number);
 </synopsis>
 			  </para>
 			</listitem>
@@ -699,7 +699,7 @@ int FQfmaxwidth(const FQresult *res, int column_number);
 			  <para>
 				Provides the name (or alias, if set) of a particular field (column).
 <synopsis>
-char *FQfname(const FQresult *res, int column_number);
+char *FQfname(const FBresult *res, int column_number);
 </synopsis>
 			  </para>
 			</listitem>
@@ -718,7 +718,7 @@ char *FQfname(const FQresult *res, int column_number);
 			  <para>
 				Get length in bytes of a particular tuple column.
 <synopsis>
-int FQgetlength(const FQresult *res, int row_number, int column_number);
+int FQgetlength(const FBresult *res, int row_number, int column_number);
 </synopsis>
 			  </para>
 			  <para>
@@ -737,9 +737,9 @@ int FQgetlength(const FQresult *res, int row_number, int column_number);
 
 			<listitem>
 			  <para>
-				Returns the display length in single characters of the specified FQresult field.
+				Returns the display length in single characters of the specified FBresult field.
 <synopsis>
-int FQgetdsplen(const FQresult *res, int row_number, int column_number);
+int FQgetdsplen(const FBresult *res, int row_number, int column_number);
 </synopsis>
 			  </para>
 			  <para>
@@ -760,7 +760,7 @@ int FQgetdsplen(const FQresult *res, int row_number, int column_number);
 			  <para>
 				Returns the format code indicating the format of the given column.
 <synopsis>
-short FQfformat(const FQresult *res, int column_number);
+short FQfformat(const FBresult *res, int column_number);
 </synopsis>
 			  </para>
 			  <para>
@@ -791,7 +791,7 @@ short FQfformat(const FQresult *res, int column_number);
 				 Returns the data type associated with the given column number.
 
 <synopsis>
-short FQftype(const FQresult *res, int column_number);
+short FQftype(const FBresult *res, int column_number);
 </synopsis>
 			  </para>
 			  <para>
@@ -955,7 +955,7 @@ char *FQerrorMessage(const FBconn *conn);
 			  <para>
 				Returns the error message associated with the result, or an empty string.
 <synopsis>
-char *FQresultErrorMessage(const FQresult *result);
+char *FQresultErrorMessage(const FBresult *result);
 </synopsis>
 			  </para>
 			</listitem>
@@ -963,16 +963,16 @@ char *FQresultErrorMessage(const FQresult *result);
 
 		  <varlistentry id="libfq-fqresulterrorfield">
 			<term>
-			  <function>FQresultErrorField</function>
+			  <function>FBresultErrorField</function>
 			  <indexterm>
-				<primary>FQresultErrorField</primary>
+				<primary>FBresultErrorField</primary>
 			  </indexterm>
 			</term>
 			<listitem>
 			  <para>
 				Returns an individual field of an error report, or <literal>NULL</literal>.
 <synopsis>
-char *FQresultErrorField(const FQresult *res, FQdiagType fieldcode);
+char *FBresultErrorField(const FBresult *res, FQdiagType fieldcode);
 </synopsis>
 			  </para>
 			</listitem>
@@ -990,7 +990,7 @@ char *FQresultErrorField(const FQresult *res, FQdiagType fieldcode);
 			  <para>
 				Return all error fields formatted as a single, multiline string
 <synopsis>
-char *FQresultErrorFieldsAsString(const FQresult *res, char *prefix);
+char *FQresultErrorFieldsAsString(const FBresult *res, char *prefix);
 </synopsis>
 			  </para>
 			</listitem>
@@ -1010,7 +1010,7 @@ char *FQresultErrorFieldsAsString(const FQresult *res, char *prefix);
 				order, until a way can be found of assigning appropriate diagnostic
 				codes to each field
 <synopsis>
-void FQresultDumpErrorFields(FBconn *conn, const FQresult *res);
+void FQresultDumpErrorFields(FBconn *conn, const FBresult *res);
 </synopsis>
 			  </para>
 			</listitem>

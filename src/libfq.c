@@ -1727,7 +1727,7 @@ _FQexecParams(FBconn *conn,
 			_FQsetResultError(conn, result);
 			result->resultStatus = FBRES_FATAL_ERROR;
 
-			FBresultDumpErrorFields(conn, result);
+			FQresultDumpErrorFields(conn, result);
 
 			/* if autocommit, and no explicit transaction set, rollback */
 			if (conn->autocommit == true && conn->in_user_transaction == false)
@@ -2319,12 +2319,12 @@ FQerrorMessage(const FBconn *conn)
 
 
 /**
- * FBresultErrorMessage()
+ * FQresultErrorMessage()
  *
  * Returns the error message associated with the result, or an empty string.
  */
 char *
-FBresultErrorMessage(const FBresult *result)
+FQresultErrorMessage(const FBresult *result)
 {
 	if (result == NULL)
 		return "";
@@ -2357,12 +2357,12 @@ FBresultErrorField(const FBresult *res, FQdiagType fieldcode)
 
 
 /**
- * FBresultErrorFieldsAsString()
+ * FQresultErrorFieldsAsString()
  *
  * Return all error fields formatted as a single string
  */
 char *
-FBresultErrorFieldsAsString(const FBresult *res, char *prefix)
+FQresultErrorFieldsAsString(const FBresult *res, char *prefix)
 {
 	FQExpBufferData buf;
 	FBMessageField *mfield;
@@ -2399,14 +2399,14 @@ FBresultErrorFieldsAsString(const FBresult *res, char *prefix)
 
 
 /**
- * FBresultDumpErrorFields()
+ * FQresultDumpErrorFields()
  *
  * Temporary function to dump the error fields in reverse
  * order, until we can find a way of assigning appropriate diagnostic
  * codes to each field
  */
 void
-FBresultDumpErrorFields(FBconn *conn, const FBresult *res)
+FQresultDumpErrorFields(FBconn *conn, const FBresult *res)
 {
 	FBMessageField *mfield;
 
