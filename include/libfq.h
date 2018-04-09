@@ -293,6 +293,8 @@ typedef struct FBresult
 	char	   *errMsg;			/* error message, or NULL if no error */
 	FBMessageField *errFields;	/* message broken into fields */
 	long	   fbSQLCODE;		/* Firebird SQL code */
+	int	   	   errLine;
+	int	   	   errCol;
 } FBresult;
 
 extern char *const fbresStatus[];

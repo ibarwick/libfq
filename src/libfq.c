@@ -566,7 +566,8 @@ _FQinitResult(bool init_sqlda_in)
 	result->errMsg = NULL;
 	result->errFields = NULL;
 	result->fbSQLCODE = -1L;
-
+	result->errLine = -1;
+	result->errCol = -1;
 	return result;
 }
 
@@ -2486,6 +2487,7 @@ _FQsetResultError(FBconn *conn, FBresult *res)
 	int line = 0;
 	FQExpBufferData buf;
 	char *error_field;
+	bool skip_line;
 
 	res->fbSQLCODE = isc_sqlcode(conn->status);
 	pvector = conn->status;
@@ -2505,24 +2507,61 @@ _FQsetResultError(FBconn *conn, FBresult *res)
 	fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector);
 
 	/*
-	 * TODO:
-	 *  - extract line and column numbers; currently observed to appear in one
-	 *    of two positions:
+	 * Loop through the remaining lines; we assume the next one (line 0) will be the
+	 * a message with some useful information, and the one after that (line 1)
+	 * will have some detail, usually the name of the problematic object.
 	 *
-	 *     message 1: "Token unknown - line 1, column 1"
-	 *     message 3: "At line 1, column 15"
+	 * We'll also try and extract line and column numbers; these currently observed
+	 * to appear in one of two positions:
+	 *
+	 *     line 0: "Token unknown - line 1, column 1"
+	 *     line 2: "At line 1, column 15"
 	 */
 	while(fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector))
 	{
 		FQdiagType current_diagType;
+
+		skip_line = false;
+
 		if (line == 0)
+		{
+			int line, col;
+			char *message_part;
+
 			current_diagType = FB_DIAG_MESSAGE_PRIMARY;
+
+			if (sscanf(msg, "%m[^-]- line %d, column %d", &message_part, &line, &col) == 3)
+			{
+				res->errLine = line;
+				res->errCol = col;
+
+				memset(msg, '\0', ERROR_BUFFER_LEN);
+				strncpy(msg, message_part, strlen(message_part));
+				free(message_part);
+			}
+		}
 		else if (line == 1)
+		{
 			current_diagType = FB_DIAG_MESSAGE_DETAIL;
+		}
 		else
+		{
+			int line, col;
+
 			current_diagType = FB_DIAG_OTHER;
 
-		_FQsaveMessageField(res, current_diagType, msg);
+			if (sscanf(msg, "At line %d, column %d", &line, &col) == 2)
+			{
+				res->errLine = line;
+				res->errCol = col;
+
+				skip_line = true;
+			}
+		}
+
+		if (skip_line == false)
+			_FQsaveMessageField(res, current_diagType, msg);
+
 		line++;
 	}
 
@@ -2548,7 +2587,13 @@ _FQsetResultError(FBconn *conn, FBresult *res)
 		if (error_field != NULL)
 		{
 			appendFQExpBuffer(&buf,
-							  "DETAIL: %s\n", error_field);
+							  "DETAIL: %s", error_field);
+
+			if (res->errLine > 0)
+			{
+				appendFQExpBuffer(&buf,
+								  " at line %i, column %i", res->errLine, res->errCol);
+			}
 		}
 	}
 
@@ -3152,6 +3197,7 @@ FQclear(FBresult *result)
 
 	/*
 	 * NOTE: these should be cleared by _FQexecClearResult() anyway
+	 * XXX we should call _FQexecClearSQLDA here too
 	 */
 	if (result->sqlda_in != NULL)
 		free(result->sqlda_in);
