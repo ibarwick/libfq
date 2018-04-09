@@ -565,7 +565,7 @@ _FQinitResult(bool init_sqlda_in)
 	result->resultStatus = FBRES_NO_ACTION;
 	result->errMsg = NULL;
 	result->errFields = NULL;
-	result->fbSQLCODE = 0L;
+	result->fbSQLCODE = -1L;
 
 	return result;
 }
@@ -2026,6 +2026,33 @@ FQresStatus(FQexecStatusType status)
 		return "invalid FQexecStatusType code";
 
 	return fbresStatus[status];
+}
+
+
+/**
+ * FQsqlCode()
+ *
+ * Returns the Firebird SQL code associated with the query result.
+ *
+ * See here for a full list:
+ *
+ *     http://ibexpert.net/ibe/index.php?n=Doc.Firebird21ErrorCodes
+ *
+ * Following additional codes defined by libfq:
+ *
+ * -1 = query OK
+ * -2 = no result
+ *
+ * TODO: return GDS code if feasible
+ */
+
+int
+FQsqlCode(const FBresult *res)
+{
+	if (res == NULL)
+		return -2;
+
+	return res->fbSQLCODE;
 }
 
 

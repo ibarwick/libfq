@@ -366,8 +366,11 @@ extern FBresult *FQexecTransaction(FBconn *conn, const char *stmt);
 extern FQexecStatusType
 FQresultStatus(const FBresult *res);
 
-extern char*
+extern char *
 FQresStatus(FQexecStatusType status);
+
+extern int
+FQsqlCode(const FBresult *res);
 
 extern int
 FQntuples(const FBresult *res);
