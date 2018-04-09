@@ -189,6 +189,7 @@ typedef enum {
 
 typedef enum {
 	FB_DIAG_OTHER = 0,
+	FB_DIAG_MESSAGE_TYPE,
 	FB_DIAG_MESSAGE_PRIMARY,
 	FB_DIAG_MESSAGE_DETAIL,
 	FB_DIAG_DEBUG  /* debugging info, not usually displayed */

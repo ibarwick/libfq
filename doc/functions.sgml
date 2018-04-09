@@ -980,6 +980,9 @@ char *FQresultErrorField(const FBresult *res, FQdiagType fieldcode);
               </para>
               <itemizedlist spacing="compact" mark="bullet">
                 <listitem>
+                  <simpara><literal>FB_DIAG_MESSAGE_TYPE</literal></simpara>
+                </listitem>
+                <listitem>
                   <simpara><literal>FB_DIAG_MESSAGE_PRIMARY</literal></simpara>
                 </listitem>
                 <listitem>

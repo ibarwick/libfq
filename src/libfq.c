@@ -1730,8 +1730,6 @@ _FQexecParams(FBconn *conn,
 			_FQsetResultError(conn, result);
 			result->resultStatus = FBRES_FATAL_ERROR;
 
-			FQresultDumpErrorFields(conn, result);
-
 			/* if autocommit, and no explicit transaction set, rollback */
 			if (conn->autocommit == true && conn->in_user_transaction == false)
 			{
@@ -2454,17 +2452,19 @@ _FQsetResultError(const FBconn *conn, FBresult *res)
 	long *pvector;
 	char msg[ERROR_BUFFER_LEN];
 	int line = 0;
+	FQExpBufferData buf;
+	char *error_field;
 
 	res->fbSQLCODE = isc_sqlcode(conn->status);
 	pvector = conn->status;
 
-	fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector);
+	/* the first message will be something like "Dynamic SQL Error" */
 
-	res->errMsg = (char *)malloc(strlen(msg) + 1);
-	memcpy(res->errMsg, msg, strlen(msg) + 1);
+	fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector);
+	_FQsaveMessageField(res, FB_DIAG_MESSAGE_TYPE, msg);
 
 	/*
-	 * In theory, the first line returned will always be:
+	 * In theory, the next message returned will always be:
 	 *
 	 *     SQL error code = -...
 	 *
@@ -2493,6 +2493,38 @@ _FQsetResultError(const FBconn *conn, FBresult *res)
 		_FQsaveMessageField(res, current_diagType, msg);
 		line++;
 	}
+
+
+	/*
+	 * format the error message into something readable and store it
+	 * in both the connection and result structs
+	 */
+
+	initFQExpBuffer(&buf);
+
+	appendFQExpBuffer(&buf,
+					  "%s\n", FQresultErrorField(res, FB_DIAG_MESSAGE_TYPE));
+
+	error_field = FQresultErrorField(res, FB_DIAG_MESSAGE_PRIMARY);
+
+	if (error_field != NULL)
+	{
+		appendFQExpBuffer(&buf,
+						  "ERROR: %s\n", error_field);
+
+		error_field = FQresultErrorField(res, FB_DIAG_MESSAGE_DETAIL);
+		if (error_field != NULL)
+		{
+			appendFQExpBuffer(&buf,
+							  "DETAIL: %s\n", error_field);
+		}
+	}
+
+	res->errMsg = (char *)malloc(strlen(buf.data) + 1);
+	memset(res->errMsg, '\0', strlen(buf.data) + 1);
+	strncpy(res->errMsg, buf.data, strlen(buf.data));
+
+	termFQExpBuffer(&buf);
 }
 
 
@@ -2557,6 +2589,13 @@ _FQsaveMessageField(FBresult *res, FQdiagType code, const char *value, ...)
 		mfield->next->prev = mfield;
 	res->errFields = mfield;
 }
+
+
+/*
+ * ==============================
+ * Transaction handling functions
+ * ==============================
+ */
 
 
 /**
