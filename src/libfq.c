@@ -3055,11 +3055,12 @@ FQclear(FQresult *result)
 		}
 	}
 
+	if (result->sqlda_in != NULL)
+		free(result->sqlda_in);
 
 	if (result->sqlda_out != NULL)
 		free(result->sqlda_out);
 
-	/* TODO - check for any other malloc'd sections */
 	free(result);
 }
 
