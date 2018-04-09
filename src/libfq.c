@@ -34,15 +34,15 @@ static FQtransactionStatusType
 _FQstartTransaction(FBconn *conn, isc_tr_handle *trans);
 
 static FQresTupleAtt *_FQformatDatum (FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var);
-static FQresult *_FQinitResult(bool init_sqlda_in);
-static void _FQexecClearResult(FQresult *result);
-static void _FQexecClearSQLDA(FQresult *result, XSQLDA *sqlda);
-static void _FQexecFillTuplesArray(FQresult *result);
-static void _FQexecInitOutputSQLDA(FBconn *conn, FQresult *result);
+static FBresult *_FQinitResult(bool init_sqlda_in);
+static void _FQexecClearResult(FBresult *result);
+static void _FQexecClearSQLDA(FBresult *result, XSQLDA *sqlda);
+static void _FQexecFillTuplesArray(FBresult *result);
+static void _FQexecInitOutputSQLDA(FBconn *conn, FBresult *result);
 static ISC_LONG _FQexecParseStatementType(char *info_buffer);
 
-static FQresult *_FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt);
-static FQresult *_FQexecParams(FBconn *conn,
+static FBresult *_FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt);
+static FBresult *_FQexecParams(FBconn *conn,
 							   isc_tr_handle *trans,
 							   const char *stmt,
 							   int nParams,
@@ -53,9 +53,9 @@ static FQresult *_FQexecParams(FBconn *conn,
 							   int resultFormat);
 
 static char *_FQlogLevel(short errlevel);
-static void _FQsetResultError(const FBconn *conn, FQresult *res);
-static void _FQsetResultNonFatalError(const FBconn *conn, FQresult *res, short errlevel, char *msg);
-static void _FQsaveMessageField(FQresult *res, FQdiagType code, const char *value, ...);
+static void _FQsetResultError(const FBconn *conn, FBresult *res);
+static void _FQsetResultNonFatalError(const FBconn *conn, FBresult *res, short errlevel, char *msg);
+static void _FQsaveMessageField(FBresult *res, FQdiagType code, const char *value, ...);
 static char *_FQdeparseDbKey(const char *db_key);
 static char *_FQparseDbKey(const char *db_key);
 
@@ -389,14 +389,14 @@ _FQserverVersionInit(FBconn *conn)
 	{
 		/* Extract the server version code and cache it in the connection handle */
 
-		FQresult   *res;
+		FBresult   *res;
 
 		if (_FQstartTransaction(conn, &conn->trans_internal) == TRANS_ERROR)
 			return;
 
 		res = _FQexec(conn, &conn->trans_internal, sql);
 
-		if (FQresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
+		if (FBresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
 		{
 			int major, minor, revision;
 			char buf[10];
@@ -458,7 +458,7 @@ _FQinitClientEncoding(FBconn *conn)
 "     WHERE mon$remote_pid = %i";
 
 	char query[1024];
-	FQresult   *res;
+	FBresult   *res;
 
 	if (_FQstartTransaction(conn, &conn->trans_internal) == TRANS_ERROR)
 		return;
@@ -467,7 +467,7 @@ _FQinitClientEncoding(FBconn *conn)
 
 	res = _FQexec(conn, &conn->trans_internal, query);
 
-	if (FQresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
+	if (FBresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
 	{
 		int client_encoding_len = strlen(FQgetvalue(res, 0, 0));
 
@@ -528,15 +528,15 @@ FQsetGetdsplen(FBconn *conn, bool get_dsp_len)
 /**
  * _FQinitResult()
  *
- * Initialise an FQresult object with sensible defaults and
+ * Initialise an FBresult object with sensible defaults and
  * preallocate in/out SQLDAs.
  */
-static FQresult *
+static FBresult *
 _FQinitResult(bool init_sqlda_in)
 {
-	FQresult *result;
+	FBresult *result;
 
-	result = malloc(sizeof(FQresult));
+	result = malloc(sizeof(FBresult));
 
 	if (init_sqlda_in == true)
 	{
@@ -574,7 +574,7 @@ _FQinitResult(bool init_sqlda_in)
  * during query execution
  */
 static void
-_FQexecClearResult(FQresult *result)
+_FQexecClearResult(FBresult *result)
 {
 	if (result->sqlda_in != NULL)
 	{
@@ -598,7 +598,7 @@ _FQexecClearResult(FQresult *result)
  *
  */
 static
-void _FQexecClearSQLDA(FQresult *result, XSQLDA *sqlda)
+void _FQexecClearSQLDA(FBresult *result, XSQLDA *sqlda)
 {
 	XSQLVAR *var;
 	short	 i;
@@ -633,7 +633,7 @@ void _FQexecClearSQLDA(FQresult *result, XSQLDA *sqlda)
  * somewhat tricky to get right.
  */
 static void
-_FQexecInitOutputSQLDA(FBconn *conn, FQresult *result)
+_FQexecInitOutputSQLDA(FBconn *conn, FBresult *result)
 {
 	XSQLVAR *var;
 	short	 sqltype, i;
@@ -726,7 +726,7 @@ _FQexecParseStatementType(char *info_buffer)
  * access to individual tuples.
  */
 static void
-_FQexecFillTuplesArray(FQresult *result)
+_FQexecFillTuplesArray(FBresult *result)
 {
 	FQresTuple	  *tuple_ptr;
 	int i;
@@ -754,7 +754,7 @@ _FQexecFillTuplesArray(FQresult *result)
  *
  * To execute parameterized queries, use FQexecParams().
  */
-FQresult *
+FBresult *
 FQexec(FBconn *conn, const char *stmt)
 {
 	if (!conn)
@@ -772,10 +772,10 @@ FQexec(FBconn *conn, const char *stmt)
  * Execute the query specified in 'stmt' using the transaction handle
  * pointed to by 'trans'
  */
-static FQresult *
+static FBresult *
 _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 {
-	FQresult	  *result;
+	FBresult	  *result;
 
 	static char	  stmt_info[] = { isc_info_sql_stmt_type };
 	char		  info_buffer[20];
@@ -1162,7 +1162,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
  * resultFormat
  *   - (currently unused)
  */
-FQresult *
+FBresult *
 FQexecParams(FBconn *conn,
 			 const char *stmt,
 			 int nParams,
@@ -1199,7 +1199,7 @@ FQexecParams(FBconn *conn,
  * I love your cryptic minimalism) and is in dire need of refactoring.
  * But it works. Mostly.
  */
-FQresult *
+FBresult *
 _FQexecParams(FBconn *conn,
 			  isc_tr_handle *trans,
 			  const char *stmt,
@@ -1211,7 +1211,7 @@ _FQexecParams(FBconn *conn,
 			  int resultFormat
 	)
 {
-	FQresult	 *result;
+	FBresult	 *result;
 	XSQLVAR		 *var;
 	bool		  temp_trans = false;
 	int			  i, num_rows = 0;
@@ -1727,7 +1727,7 @@ _FQexecParams(FBconn *conn,
 			_FQsetResultError(conn, result);
 			result->resultStatus = FBRES_FATAL_ERROR;
 
-			FQresultDumpErrorFields(conn, result);
+			FBresultDumpErrorFields(conn, result);
 
 			/* if autocommit, and no explicit transaction set, rollback */
 			if (conn->autocommit == true && conn->in_user_transaction == false)
@@ -1933,10 +1933,10 @@ _FQexecParams(FBconn *conn,
  * Convenience function to execute a query using the internal
  * transaction handle.
  */
-FQresult *
+FBresult *
 FQexecTransaction(FBconn *conn, const char *stmt)
 {
-	FQresult	  *result = NULL;
+	FBresult	  *result = NULL;
 
 	if (!conn)
 	{
@@ -1956,7 +1956,7 @@ FQexecTransaction(FBconn *conn, const char *stmt)
 
 	result = _FQexec(conn, &conn->trans_internal, stmt);
 
-	if (FQresultStatus(result) == FBRES_FATAL_ERROR)
+	if (FBresultStatus(result) == FBRES_FATAL_ERROR)
 	{
 		/* XXX todo: set error */
 		_FQsaveMessageField(result, FB_DIAG_DEBUG, "query execution error");
@@ -1964,7 +1964,7 @@ FQexecTransaction(FBconn *conn, const char *stmt)
 		_FQrollbackTransaction(conn, &conn->trans_internal);
 	}
 	/* Non-select query */
-	else if (FQresultStatus(result) == FBRES_COMMAND_OK)
+	else if (FBresultStatus(result) == FBRES_COMMAND_OK)
 	{
 		// TODO: show some meaningful output?
 		if (_FQcommitTransaction(conn, &conn->trans_internal) == TRANS_ERROR)
@@ -1976,7 +1976,7 @@ FQexecTransaction(FBconn *conn, const char *stmt)
 		}
 	}
 	/* Query returning rows */
-	else if (FQresultStatus(result) == FBRES_TUPLES_OK)
+	else if (FBresultStatus(result) == FBRES_TUPLES_OK)
 	{
 		_FQcommitTransaction(conn, &conn->trans_internal);
 	}
@@ -1992,14 +1992,14 @@ FQexecTransaction(FBconn *conn, const char *stmt)
  */
 
 /**
- * FQresultStatus()
+ * FBresultStatus()
  *
  * Returns the result status of the previously execute command.
  *
  * TODO: return something else if res is NULL?
  */
 FQexecStatusType
-FQresultStatus(const FQresult *res)
+FBresultStatus(const FBresult *res)
 {
 	if (!res)
 		return FBRES_FATAL_ERROR;
@@ -2011,7 +2011,7 @@ FQresultStatus(const FQresult *res)
 /**
  * FQresStatus()
  *
- * Converts the enumerated type returned by FQresultStatus into a
+ * Converts the enumerated type returned by FBresultStatus into a
  * string constant describing the status code.
  */
 char *
@@ -2031,7 +2031,7 @@ FQresStatus(FQexecStatusType status)
  * Defaults to -1 if no query has been executed.
  */
 int
-FQntuples(const FQresult *res)
+FQntuples(const FBresult *res)
 {
 	if (!res)
 		return -1;
@@ -2047,7 +2047,7 @@ FQntuples(const FQresult *res)
  * Defaults to -1 if no query has been executed.
  */
 int
-FQnfields(const FQresult *res)
+FQnfields(const FBresult *res)
 {
 	if (!res)
 		return -1;
@@ -2059,7 +2059,7 @@ FQnfields(const FQresult *res)
 /**
  * FQgetvalue()
  *
- * Returns a single field of an FQresult.
+ * Returns a single field of an FBresult.
  *
  * Row and column numbers start at 0.
  *
@@ -2069,7 +2069,7 @@ FQnfields(const FQresult *res)
  *
  */
 char *
-FQgetvalue(const FQresult *res,
+FQgetvalue(const FBresult *res,
            int row_number,
            int column_number)
 {
@@ -2097,7 +2097,7 @@ FQgetvalue(const FQresult *res,
  * definitive result.
  */
 int
-FQgetisnull(const FQresult *res,
+FQgetisnull(const FBresult *res,
             int row_number,
             int column_number)
 {
@@ -2121,7 +2121,7 @@ FQgetisnull(const FQresult *res,
  * for the given column of a particular result tuple.
  */
 bool
-FQfhasNull(const FQresult *res, int column_number)
+FQfhasNull(const FBresult *res, int column_number)
 {
 	if (!res)
 		return false;
@@ -2140,7 +2140,7 @@ FQfhasNull(const FQresult *res, int column_number)
  *
  */
 int
-FQfmaxwidth(const FQresult *res, int column_number)
+FQfmaxwidth(const FBresult *res, int column_number)
 {
 	int max_width;
 
@@ -2169,7 +2169,7 @@ FQfmaxwidth(const FQresult *res, int column_number)
  * Provides the name (or alias, if set) of a particular field (column).
  */
 char *
-FQfname(const FQresult *res, int column_number)
+FQfname(const FBresult *res, int column_number)
 {
 	if (!res)
 		return NULL;
@@ -2191,7 +2191,7 @@ FQfname(const FQresult *res, int column_number)
  * Get length in bytes of a particular tuple column.
  */
 int
-FQgetlength(const FQresult *res,
+FQgetlength(const FBresult *res,
             int row_number,
             int column_number)
 {
@@ -2211,13 +2211,13 @@ FQgetlength(const FQresult *res,
 /**
  * FQgetdsplen()
  *
- * Returns the display length in single characters of the specified FQresult
+ * Returns the display length in single characters of the specified FBresult
  * field.
  *
  * Row and column numbers start at 0.
  */
 int
-FQgetdsplen(const FQresult *res,
+FQgetdsplen(const FBresult *res,
             int row_number,
             int column_number)
 {
@@ -2248,7 +2248,7 @@ FQgetdsplen(const FQresult *res,
  * TODO: define enum/constants for these
  */
 short
-FQfformat(const FQresult *res, int column_number)
+FQfformat(const FBresult *res, int column_number)
 {
 	if (!res)
 		return -1;
@@ -2281,7 +2281,7 @@ FQfformat(const FQresult *res, int column_number)
  * Column numbers start at 0.
  */
 short
-FQftype(const FQresult *res, int column_number)
+FQftype(const FBresult *res, int column_number)
 {
 	if (!res)
 		return SQL_INVALID_TYPE;
@@ -2319,12 +2319,12 @@ FQerrorMessage(const FBconn *conn)
 
 
 /**
- * FQresultErrorMessage()
+ * FBresultErrorMessage()
  *
  * Returns the error message associated with the result, or an empty string.
  */
 char *
-FQresultErrorMessage(const FQresult *result)
+FBresultErrorMessage(const FBresult *result)
 {
 	if (result == NULL)
 		return "";
@@ -2334,12 +2334,12 @@ FQresultErrorMessage(const FQresult *result)
 
 
 /**
- * FQresultErrorField()
+ * FBresultErrorField()
  *
  * Returns an individual field of an error report, or NULL.
  */
 char *
-FQresultErrorField(const FQresult *res, FQdiagType fieldcode)
+FBresultErrorField(const FBresult *res, FQdiagType fieldcode)
 {
 	FBMessageField *mfield;
 
@@ -2357,12 +2357,12 @@ FQresultErrorField(const FQresult *res, FQdiagType fieldcode)
 
 
 /**
- * FQresultErrorFieldsAsString()
+ * FBresultErrorFieldsAsString()
  *
  * Return all error fields formatted as a single string
  */
 char *
-FQresultErrorFieldsAsString(const FQresult *res, char *prefix)
+FBresultErrorFieldsAsString(const FBresult *res, char *prefix)
 {
 	FQExpBufferData buf;
 	FBMessageField *mfield;
@@ -2399,14 +2399,14 @@ FQresultErrorFieldsAsString(const FQresult *res, char *prefix)
 
 
 /**
- * FQresultDumpErrorFields()
+ * FBresultDumpErrorFields()
  *
  * Temporary function to dump the error fields in reverse
  * order, until we can find a way of assigning appropriate diagnostic
  * codes to each field
  */
 void
-FQresultDumpErrorFields(FBconn *conn, const FQresult *res)
+FBresultDumpErrorFields(FBconn *conn, const FBresult *res)
 {
 	FBMessageField *mfield;
 
@@ -2466,7 +2466,7 @@ char *_FQlogLevel(short errlevel)
  * also ibase.h
  */
 void
-_FQsetResultError(const FBconn *conn, FQresult *res)
+_FQsetResultError(const FBconn *conn, FBresult *res)
 {
 	long *pvector;
 	char msg[ERROR_BUFFER_LEN];
@@ -2498,7 +2498,7 @@ _FQsetResultError(const FBconn *conn, FQresult *res)
  * or handled by a client-specified handler; this functionality is not
  * yet implemented.
  */
-void _FQsetResultNonFatalError(const FBconn *conn, FQresult *res, short errlevel, char *msg)
+void _FQsetResultNonFatalError(const FBconn *conn, FBresult *res, short errlevel, char *msg)
 {
 	fprintf(stderr, "%s: %s", _FQlogLevel(errlevel), msg);
 }
@@ -2510,7 +2510,7 @@ void _FQsetResultNonFatalError(const FBconn *conn, FQresult *res, short errlevel
  * store one field of an error or notice message
  */
 void
-_FQsaveMessageField(FQresult *res, FQdiagType code, const char *value, ...)
+_FQsaveMessageField(FBresult *res, FQdiagType code, const char *value, ...)
 {
 	va_list argp;
 	FBMessageField *mfield;
@@ -2891,7 +2891,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
  * Format an RDB$DB_KEY value for output
  */
 char *
-FQformatDbKey(const FQresult *res,
+FQformatDbKey(const FBresult *res,
               int row_number,
               int column_number)
 {
@@ -2974,11 +2974,11 @@ _FQdeparseDbKey(const char *db_key)
 /**
  * FQclear()
  *
- * Free the storage attached to an FQresult object. Never free() the object
+ * Free the storage attached to an FBresult object. Never free() the object
  * itself as that will result in dangling pointers and memory leaks.
  */
 void
-FQclear(FQresult *result)
+FQclear(FBresult *result)
 {
 	int i;
 
@@ -3077,7 +3077,7 @@ FQclear(FQresult *result)
 char *
 FQexplainStatement(FBconn *conn, const char *stmt)
 {
-	FQresult	  *result;
+	FBresult	  *result;
 
 	char  plan_info[1];
 	char  plan_buffer[2048];

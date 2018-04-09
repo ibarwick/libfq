@@ -266,7 +266,7 @@ typedef struct fbMessageField
 
 
 /* Initialised with _FQinitResult() */
-typedef struct FQresult
+typedef struct FBresult
 {
 	XSQLDA *sqlda_out;				/* Pointer to a Firebird XSQLDA structure used to hold output tuple information */
 	XSQLDA *sqlda_in;				/* Pointer to a Firebird XSQLDA structure used to hold data for prepared statements */
@@ -287,13 +287,13 @@ typedef struct FQresult
 
 	/*
 	 * Error information (all NULL if not an error result).	 errMsg is the
-	 * "overall" error message returned by FQresultErrorMessage.  If we have
+	 * "overall" error message returned by FBresultErrorMessage.  If we have
 	 * per-field info then it is stored in a linked list.
 	 */
 	char	   *errMsg;			/* error message, or NULL if no error */
 	FBMessageField *errFields;	/* message broken into fields */
 	long	   fbSQLCODE;		/* Firebird SQL code */
-} FQresult;
+} FBresult;
 
 extern char *const fbresStatus[];
 
@@ -342,9 +342,9 @@ extern const char *FQlibVersionString(void);
  * ===========================
  */
 
-extern FQresult *FQexec(FBconn *conn, const char *stmt);
+extern FBresult *FQexec(FBconn *conn, const char *stmt);
 
-extern FQresult *
+extern FBresult *
 FQexecParams(FBconn *conn,
 			 const char *stmt,
 			 int nParams,
@@ -355,7 +355,7 @@ FQexecParams(FBconn *conn,
 			 int resultFormat);
 
 
-extern FQresult *FQexecTransaction(FBconn *conn, const char *stmt);
+extern FBresult *FQexecTransaction(FBconn *conn, const char *stmt);
 
 /*
  * =========================
@@ -364,63 +364,63 @@ extern FQresult *FQexecTransaction(FBconn *conn, const char *stmt);
  */
 
 extern FQexecStatusType
-FQresultStatus(const FQresult *res);
+FBresultStatus(const FBresult *res);
 
 extern char*
 FQresStatus(FQexecStatusType status);
 
 extern int
-FQntuples(const FQresult *res);
+FQntuples(const FBresult *res);
 
 extern int
-FQnfields(const FQresult *res);
+FQnfields(const FBresult *res);
 
 extern char *
-FQgetvalue(const FQresult *res,
+FQgetvalue(const FBresult *res,
            int row_number,
            int column_number);
 
 extern int
-FQgetisnull(const FQresult *res,
+FQgetisnull(const FBresult *res,
             int row_number,
             int column_number);
 
 extern bool
-FQfhasNull(const FQresult *res, int column_number);
+FQfhasNull(const FBresult *res, int column_number);
 
 extern int
-FQfmaxwidth(const FQresult *res, int column_number);
+FQfmaxwidth(const FBresult *res, int column_number);
 
 extern char *
-FQfname(const FQresult *res, int column_number);
+FQfname(const FBresult *res, int column_number);
 
 extern short
-FQfformat(const FQresult *res, int column_number);
+FQfformat(const FBresult *res, int column_number);
 
 extern short
-FQftype(const FQresult *res, int column_number);
+FQftype(const FBresult *res, int column_number);
 
 extern void
 FQsetGetdsplen(FBconn *conn, bool get_dsp_len);
 
 extern int
-FQgetlength(const FQresult *res,
+FQgetlength(const FBresult *res,
             int row_number,
             int column_number);
 
 
 extern int
-FQgetdsplen(const FQresult *res,
+FQgetdsplen(const FBresult *res,
             int row_number,
             int column_number);
 
 extern char *
-FQformatDbKey(const FQresult *res,
+FQformatDbKey(const FBresult *res,
               int row_number,
               int column_number);
 
 extern void
-FQclear(FQresult *res);
+FQclear(FBresult *res);
 
 
 
@@ -456,16 +456,16 @@ extern char *
 FQerrorMessage(const FBconn *conn);
 
 extern char *
-FQresultErrorMessage(const FQresult *res);
+FBresultErrorMessage(const FBresult *res);
 
 extern char *
-FQresultErrorField(const FQresult *res, FQdiagType fieldcode);
+FBresultErrorField(const FBresult *res, FQdiagType fieldcode);
 
 extern char *
-FQresultErrorFieldsAsString(const FQresult *res, char *prefix);
+FBresultErrorFieldsAsString(const FBresult *res, char *prefix);
 
 extern void
-FQresultDumpErrorFields(FBconn *conn, const FQresult *res);
+FBresultDumpErrorFields(FBconn *conn, const FBresult *res);
 
 
 
