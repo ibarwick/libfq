@@ -468,6 +468,27 @@ FQresult *FQexecTransaction(FBconn *conn, const char *stmt)
 			  </para>
 			</listitem>
 		  </varlistentry>
+
+		  <varlistentry id="libfq-fqclear">
+			<term>
+			  <function>FQclear</function>
+			  <indexterm>
+				<primary>FQclear</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Free the storage attached to an <structname>FQresult</structname> object.
+				Never <function>free()</function> the object itself as that will result in
+				dangling pointers and memory leaks.
+<synopsis>
+void FQclear(FQresult *res);
+</synopsis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
 		</variablelist>
 	  </para>
 	</sect2>
@@ -791,6 +812,110 @@ short FQftype(const FQresult *res, int column_number);
 		</variablelist>
 	  </para>
 	</sect2>
+
+	<sect2 id="libfq-transaction-functions">
+	  <title>Transaction Handling Functions</title>
+	  <para>
+		<variablelist>
+
+		  <varlistentry id="libfq-fqsetautocommit">
+			<term>
+			  <function>FQsetAutocommit</function>
+			  <indexterm>
+				<primary>FQsetAutocommit</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Set the connection's autocommit status.
+<synopsis>
+void FQsetAutocommit(FBconn *conn, bool autocommit);
+</synopsis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqstartransaction">
+			<term>
+			  <function>FQstartTransaction</function>
+			  <indexterm>
+				<primary>FQstartTransaction</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Start a transaction using the connection's default transaction handle.
+				XXX list FQtransactionStatusType
+<synopsis>
+FQtransactionStatusType FQstartTransaction(FBconn *conn);
+</synopsis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqcommittransaction">
+			<term>
+			  <function>FQcommitTransaction</function>
+			  <indexterm>
+				<primary>FQcommitTransaction</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Commit a transaction using the connection's default transaction handle.
+<synopsis>
+FQtransactionStatusType FQcommitTransaction(FBconn *conn);
+</synopsis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqrollbacktransaction">
+			<term>
+			  <function>FQrollbackTransaction</function>
+			  <indexterm>
+				<primary>FQrollbackTransaction</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Roll back a tranaction using the connection's default transaction handle.
+<synopsis>
+FQtransactionStatusType FQrollbackTransaction(FBconn *conn);
+</synopsis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+		  <varlistentry id="libfq-fqisactivetransaction">
+			<term>
+			  <function>FQisActiveTransaction</function>
+			  <indexterm>
+				<primary>FQisActiveTransaction</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+				Indicates whether the provided connection has been marked
+				as being in a user-initiated transaction.
+
+<synopsis>
+bool FQisActiveTransaction(FBconn *conn);
+</synopsis>
+			  </para>
+			</listitem>
+		  </varlistentry>
+
+
+		</variablelist>
+	  </para>
+	</sect2>
+
 
 	<sect2 id="libfq-exec-error">
 	  <title>Error Handling Functions</title>

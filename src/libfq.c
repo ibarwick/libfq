@@ -2545,14 +2545,11 @@ _FQsaveMessageField(FQresult *res, FQdiagType code, const char *value, ...)
 }
 
 
-
-
-
 /**
  * FQisActiveTransaction()
  *
- * Indicate whether the provided connection has been marked
- * as being in a user-initiated transaction
+ * Indicates whether the provided connection has been marked
+ * as being in a user-initiated transaction.
  */
 bool
 FQisActiveTransaction(FBconn *conn)
@@ -2578,9 +2575,24 @@ FQsetAutocommit(FBconn *conn, bool autocommit)
 
 
 /**
+ * FQstartTransaction()
+ *
+ * Start a transaction using the connection's default transaction handle.
+ */
+FQtransactionStatusType
+FQstartTransaction(FBconn *conn)
+{
+	if (!conn)
+		return TRANS_ERROR;
+
+	return _FQstartTransaction(conn, &conn->trans);
+}
+
+
+/**
  * FQcommitTransaction()
  *
- * Commit the connection's default transaction handle
+ * Commit a transaction using the connection's default transaction handle.
  */
 FQtransactionStatusType
 FQcommitTransaction(FBconn *conn)
@@ -2595,7 +2607,7 @@ FQcommitTransaction(FBconn *conn)
 /**
  * FQrollbackTransaction()
  *
- * Roll back the connection's default transaction handle
+ * Roll back a tranaction using the connection's default transaction handle.
  */
 FQtransactionStatusType
 FQrollbackTransaction(FBconn *conn)
@@ -2606,20 +2618,6 @@ FQrollbackTransaction(FBconn *conn)
 	return _FQrollbackTransaction(conn, &conn->trans);
 }
 
-
-/**
- * FQstartTransaction()
- *
- * Start a transaction using the connection's default transaction handle
- */
-FQtransactionStatusType
-FQstartTransaction(FBconn *conn)
-{
-	if (!conn)
-		return TRANS_ERROR;
-
-	return _FQstartTransaction(conn, &conn->trans);
-}
 
 
 /**

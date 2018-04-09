@@ -419,6 +419,9 @@ FQformatDbKey(const FQresult *res,
               int row_number,
               int column_number);
 
+extern void
+FQclear(FQresult *res);
+
 
 
 /*
@@ -426,11 +429,12 @@ FQformatDbKey(const FQresult *res,
  * Transaction handling functions
  * ==============================
  */
-extern bool
-FQisActiveTransaction(FBconn *conn);
 
 extern void
 FQsetAutocommit(FBconn *conn, bool autocommit);
+
+extern FQtransactionStatusType
+FQstartTransaction(FBconn *conn);
 
 extern FQtransactionStatusType
 FQcommitTransaction(FBconn *conn);
@@ -438,14 +442,9 @@ FQcommitTransaction(FBconn *conn);
 extern FQtransactionStatusType
 FQrollbackTransaction(FBconn *conn);
 
-extern FQtransactionStatusType
-FQstartTransaction(FBconn *conn);
+extern bool
+FQisActiveTransaction(FBconn *conn);
 
-extern char *
-FQexplainStatement(FBconn *conn, const char *stmt);
-
-extern void
-FQclear(FQresult *res);
 
 /*
  * ========================
@@ -469,6 +468,15 @@ extern void
 FQresultDumpErrorFields(FBconn *conn, const FQresult *res);
 
 
+
+/*
+ * =======================
+ * Miscellaneous functions
+ * =======================
+ */
+
+extern char *
+FQexplainStatement(FBconn *conn, const char *stmt);
 
 extern void
 FQlog(FBconn *conn, short loglevel, const char *msg, ...);
