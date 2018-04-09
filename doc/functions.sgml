@@ -931,14 +931,11 @@ bool FQisActiveTransaction(FBconn *conn);
 
 			<listitem>
 			  <para>
-				 Returns the most recent error message associated with the result, or an
-				 empty string.
+				Returns the most recent error message associated with the result, or an
+				empty string.
 <synopsis>
 char *FQerrorMessage(const FBconn *conn);
 </synopsis>
-			  </para>
-			  <para>
-				<emphasis>not currently implemented!</emphasis>
 			  </para>
 			</listitem>
 		  </varlistentry>
@@ -1020,6 +1017,9 @@ char *FQresultErrorField(const FBresult *res, FQdiagType fieldcode);
 char *FQresultErrorFieldsAsString(const FBresult *res, char *prefix);
 </synopsis>
 			  </para>
+              <para>
+                Caller must free the returned pointer.
+              </para>
 			</listitem>
 		  </varlistentry>
 

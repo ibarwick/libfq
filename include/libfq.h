@@ -220,6 +220,7 @@ typedef struct FBconn {
 	short		   client_encoding_id;	  /* corresponds to MON$ATTACHMENTS.MON$CHARACTER_SET_ID */
 	char		  *client_encoding;		  /* client encoding, default UTF8 */
 	bool		   get_dsp_len;			  /* calculate display length in single characters of each datum */
+	char		  *errMsg;		  		  /* most recently generated error message */
 } FBconn;
 
 

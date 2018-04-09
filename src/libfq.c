@@ -53,7 +53,7 @@ static FBresult *_FQexecParams(FBconn *conn,
 							   int resultFormat);
 
 static char *_FQlogLevel(short errlevel);
-static void _FQsetResultError(const FBconn *conn, FBresult *res);
+static void _FQsetResultError(FBconn *conn, FBresult *res);
 static void _FQsetResultNonFatalError(const FBconn *conn, FBresult *res, short errlevel, char *msg);
 static void _FQsaveMessageField(FBresult *res, FQdiagType code, const char *value, ...);
 static char *_FQdeparseDbKey(const char *db_key);
@@ -175,6 +175,7 @@ FQconnectdbParams(const char * const *keywords,
 	conn->client_encoding = NULL;
 	conn->client_encoding_id = -1;	/* indicate the server-parsed value has not yet been retrieved */
 	conn->get_dsp_len = false;
+	conn->errMsg = NULL;
 
 	/* Initialise the Firebird parameter buffer */
 	conn->dpb_buffer = (char *) malloc((size_t)256);
@@ -272,6 +273,9 @@ FQfinish(FBconn *conn)
 
 	if (conn->client_encoding != NULL)
 		free(conn->client_encoding);
+
+	if (conn->errMsg != NULL)
+		free(conn->errMsg);
 
 	free(conn);
 }
@@ -2314,8 +2318,7 @@ FQerrorMessage(const FBconn *conn)
 	if (conn == NULL)
 		return "";
 
-	/* XXX todo */
-	return "";
+	return conn->errMsg == NULL ? "" : conn->errMsg;
 }
 
 
@@ -2362,7 +2365,9 @@ FQresultErrorField(const FBresult *res, FQdiagType fieldcode)
 /**
  * FQresultErrorFieldsAsString()
  *
- * Return all error fields formatted as a single string
+ * Return all error fields formatted as a single string.
+ *
+ * Caller must free returned string.
  */
 char *
 FQresultErrorFieldsAsString(const FBresult *res, char *prefix)
@@ -2393,10 +2398,10 @@ FQresultErrorFieldsAsString(const FBresult *res, char *prefix)
 		mfield = mfield->prev;
 	} while( mfield != NULL);
 
-	// XXX is this kosher? Check callers free string!
 	str = (char *)malloc(strlen(buf.data) + 1);
 	memcpy(str, buf.data, strlen(buf.data) + 1);
 	termFQExpBuffer(&buf);
+
 	return str;
 }
 
@@ -2447,7 +2452,7 @@ char *_FQlogLevel(short errlevel)
  * also ibase.h
  */
 void
-_FQsetResultError(const FBconn *conn, FBresult *res)
+_FQsetResultError(FBconn *conn, FBresult *res)
 {
 	long *pvector;
 	char msg[ERROR_BUFFER_LEN];
@@ -2523,6 +2528,13 @@ _FQsetResultError(const FBconn *conn, FBresult *res)
 	res->errMsg = (char *)malloc(strlen(buf.data) + 1);
 	memset(res->errMsg, '\0', strlen(buf.data) + 1);
 	strncpy(res->errMsg, buf.data, strlen(buf.data));
+
+	if (conn->errMsg != NULL)
+		free(conn->errMsg);
+
+	conn->errMsg = (char *)malloc(strlen(buf.data) + 1);
+	memset(conn->errMsg, '\0', strlen(buf.data) + 1);
+	strncpy(conn->errMsg, buf.data, strlen(buf.data));
 
 	termFQExpBuffer(&buf);
 }
@@ -3100,11 +3112,14 @@ FQclear(FBresult *result)
 
 	if (result->errFields)
 	{
-		FBMessageField *mfield;
-		for (mfield = result->errFields; mfield != NULL; mfield = mfield->next)
+		FBMessageField *mfield = result->errFields;
+
+		while (mfield != NULL)
 		{
+			FBMessageField *mfield_next = mfield->next;
 			free(mfield->value);
 			free(mfield);
+			mfield = mfield_next;
 		}
 	}
 
