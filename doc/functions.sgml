@@ -567,7 +567,7 @@ int FQsqlCode(const FBresult *res);
 </synopsis>
 			  </para>
               <para>
-                See here for a (hopefully) full list: http://ibexpert.net/ibe/index.php?n=Doc.Firebird21ErrorCodes
+                See here for a full list: https://firebirdsql.org/file/documentation/reference_manuals/fblangref25-en/html/fblangref25-appx02-sqlcodes.html
               </para>
               <para>
                 In addition, &libfq; defines following additional codes:

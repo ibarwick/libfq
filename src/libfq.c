@@ -1742,6 +1742,9 @@ _FQexecParams(FBconn *conn,
 			}
 
 			_FQexecClearResult(result);
+
+			isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+
 			return result;
 		}
 
@@ -1754,6 +1757,9 @@ _FQexecParams(FBconn *conn,
 		}
 
 		_FQexecClearResult(result);
+
+		isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+
 		return result;
 	}
 
@@ -1785,6 +1791,8 @@ _FQexecParams(FBconn *conn,
 		}
 
 		_FQexecClearResult(result);
+		isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+
 		return result;
 	}
 
@@ -1803,6 +1811,8 @@ _FQexecParams(FBconn *conn,
 		result->resultStatus = FBRES_FATAL_ERROR;
 
 		_FQexecClearResult(result);
+		isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+
 		return result;
 	}
 
@@ -1902,6 +1912,9 @@ _FQexecParams(FBconn *conn,
 		result->resultStatus = FBRES_FATAL_ERROR;
 
 		_FQexecClearResult(result);
+
+		isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+
 		return result;
 	}
 
@@ -2037,6 +2050,7 @@ FQresStatus(FQexecStatusType status)
  *
  * See here for a full list:
  *
+ *     https://firebirdsql.org/file/documentation/reference_manuals/fblangref25-en/html/fblangref25-appx02-sqlcodes.html
  *     http://ibexpert.net/ibe/index.php?n=Doc.Firebird21ErrorCodes
  *
  * Following additional codes defined by libfq:
@@ -2044,7 +2058,9 @@ FQresStatus(FQexecStatusType status)
  * -1 = query OK
  * -2 = no result
  *
- * TODO: return GDS code if feasible
+ * TODO: return GDS code if feasible. FB docs say:
+ * "SQLCODE has been used for many years and should be considered as deprecated now.
+ *  Support for SQLCODE is likely to be dropped in a future version."
  */
 
 int
