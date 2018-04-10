@@ -2053,7 +2053,7 @@ FQsqlCode(const FBresult *res)
 	if (res == NULL)
 		return -2;
 
-	return res->fbSQLCODE;
+	return (int)res->fbSQLCODE;
 }
 
 
@@ -2406,7 +2406,11 @@ FQresultErrorFieldsAsString(const FBresult *res, char *prefix)
 	bool is_first = true;
 
 	if (!res || res->errFields == NULL)
-		return "";
+	{
+		str = (char *)malloc(1);
+		str[0] = '\0';
+		return str;
+	}
 
 	initFQExpBuffer(&buf);
 
