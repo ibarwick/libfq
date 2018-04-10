@@ -550,6 +550,48 @@ char *FQresStatus(FQexecStatusType status);
 			</listitem>
 		  </varlistentry>
 
+		  <varlistentry id="libfq-fqsqlCode">
+			<term>
+			  <function>FQsqlCode</function>
+			  <indexterm>
+				<primary>FQsqlCode</primary>
+			  </indexterm>
+			</term>
+
+			<listitem>
+			  <para>
+                Returns the Firebird SQL code associated with the query result
+                as an integer.
+<synopsis>
+int FQsqlCode(const FBresult *res);
+</synopsis>
+			  </para>
+              <para>
+                See here for a (hopefully) full list: http://ibexpert.net/ibe/index.php?n=Doc.Firebird21ErrorCodes
+              </para>
+              <para>
+                In addition, &libfq; defines following additional codes:
+              </para>
+              <itemizedlist spacing="compact" mark="bullet">
+                <listitem>
+                  <simpara><literal>-1</literal>: query OK</simpara>
+                </listitem>
+                <listitem>
+                  <simpara><literal>-2</literal>: no result</simpara>
+                </listitem>
+              </itemizedlist>
+              <note>
+                <para>
+                  The SQL codes are usually negative values, and each code
+                  covers a wide range of errors. A more precise
+                  <literal>GDSCODE</literal> is also available, it is hoped
+                  to make this available if feasible.
+                </para>
+              </note>
+			</listitem>
+
+		  </varlistentry>
+
 		  <varlistentry id="libfq-fqntuples">
 			<term>
 			  <function>FQntuples</function>
