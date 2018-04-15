@@ -1,5 +1,15 @@
 Revision history for libfq
 
+0.2.0	2018-04-??
+	- Add DocBook reference documentation
+	- Add functions to return libfq version information
+	- Rename FQconn and FQresult structs to FBconn and FBresult
+	  respectively, for consistency with PostgreSQL's libpq naming
+	  conventions
+	- Improve error message handling
+	- Improve memory handling
+	- Fix "too many open handles to database" errors
+
 0.1.4   2014-02-11
         - improve non-ASCII character handling (mainly for the
 	  benefit of fbsql)

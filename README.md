@@ -20,7 +20,7 @@ Requirements and compatibility
 `libfq` should work on any reasonably POSIX-like system; see the `INSTALL.md`
 file for details.
 
-It has been developed against Firebird 2.5.2, and should work with
+It has been developed against Firebird 2.5.7, and should work with
 any 2.5-series servers. It has not been tested against other Firebird
 versions.
 
