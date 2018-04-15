@@ -381,7 +381,8 @@ FQexecParams(FBconn *conn,
 						<parameter>paramLengths[]</parameter>, and <parameter>paramFormats[]</parameter>.
 					  </para>
 					  <para>
-						Note: currently this argument is advisory, however it may be used a future release.
+						<emphasis>Note</emphasis>:
+                        currently this argument is advisory, however it may be used in a future release.
 					  </para>
 					</listitem>
 				  </varlistentry>
@@ -399,8 +400,8 @@ FQexecParams(FBconn *conn,
 					<term><parameter>paramValues[]</parameter></term>
 					<listitem>
 					  <para>
-						Specifies the actual values of the parameters.  A null pointer
-						in this array means the corresponding parameter is null;
+						Specifies the actual values of the parameters.  A <literal>NULL</literal> pointer
+						in this array means the corresponding parameter is <literal>NULL</literal>;
 						otherwise the pointer points to a zero-terminated text string
 						(for text format).
 					  </para>
@@ -889,12 +890,25 @@ void FQsetAutocommit(FBconn *conn, bool autocommit);
 			<listitem>
 			  <para>
 				Start a transaction using the connection's default transaction handle.
-				XXX list FQtransactionStatusType
 <synopsis>
 FQtransactionStatusType FQstartTransaction(FBconn *conn);
 </synopsis>
 			  </para>
+              <para>
+                <literal>FQtransactionStatusType</literal> can be one of two values:
+              </para>
+              <itemizedlist spacing="compact" mark="bullet">
+                <listitem>
+                  <simpara><literal>TRANS_OK</literal></simpara>
+                </listitem>
+                <listitem>
+                  <simpara><literal>TRANS_ERROR</literal></simpara>
+                </listitem>
+              </itemizedlist>
+              <para></para>
+
 			</listitem>
+
 		  </varlistentry>
 
 		  <varlistentry id="libfq-fqcommittransaction">
