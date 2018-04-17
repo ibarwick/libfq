@@ -6,6 +6,9 @@ Revision history for libfq
 	- Rename FQconn and FQresult structs to FBconn and FBresult
 	  respectively, for consistency with PostgreSQL's libpq naming
 	  conventions
+	- Have FQstatus() actually check whether the provided connection
+	  is active
+	- Add function FQreconnect() - note this may be modified
 	- Improve error message handling
 	- Improve memory handling
 	- Fix "too many open handles to database" errors

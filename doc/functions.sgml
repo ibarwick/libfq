@@ -102,7 +102,7 @@ void FQfinish(FBconn *conn);
           <para>
             Determines whether the provided connection object has an active connection.
 <synopsis>
-FBconnStatusType FQstatus(const FBconn *conn);
+FBconnStatusType FQstatus(FBconn *conn);
 </synopsis>
           </para>
           <para>

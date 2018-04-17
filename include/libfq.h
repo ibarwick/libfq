@@ -310,6 +310,8 @@ extern FBconn *FQconnect(const char *db_path, const char *uname, const char *upa
 
 extern FBconn *FQconnectdbParams(const char * const *keywords, const char * const *values);
 
+extern FBconn *FQreconnect(FBconn *conn);
+
 extern void FQfinish(FBconn *conn);
 
 /*
@@ -318,7 +320,7 @@ extern void FQfinish(FBconn *conn);
  * ====================================
  */
 
-extern FBconnStatusType FQstatus(const FBconn *conn);
+extern FBconnStatusType FQstatus(FBconn *conn);
 
 extern const char *FQparameterStatus(const FBconn *conn, const char *paramName);
 

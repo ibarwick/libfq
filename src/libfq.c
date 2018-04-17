@@ -169,7 +169,7 @@ FQconnectdbParams(const char * const *keywords,
 	conn->trans_internal = 0L;
 	conn->autocommit = true;
 	conn->in_user_transaction = false;
-	conn->status =	(ISC_STATUS *) malloc(sizeof(ISC_STATUS) * ISC_STATUS_LENGTH);
+	conn->status = (ISC_STATUS *) malloc(sizeof(ISC_STATUS) * ISC_STATUS_LENGTH);
 	conn->engine_version = NULL;
 	conn->client_min_messages = DEBUG1;
 	conn->client_encoding = NULL;
@@ -187,16 +187,19 @@ FQconnectdbParams(const char * const *keywords,
 	conn->dpb_length = dpb - (char*)conn->dpb_buffer;
 	dpb = (char *)conn->dpb_buffer;
 
+	/* store database path */
 	db_path_len = strlen(db_path);
-
 	conn->db_path = malloc(db_path_len + 1);
 	strncpy(conn->db_path, db_path, db_path_len);
 	conn->db_path[db_path_len] = '\0';
 
+	/* set and store other parameters */
 	if (uname != NULL)
 	{
 		int uname_len = strlen(uname);
-		isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_user_name, uname, strlen(uname));
+
+		isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_user_name, uname, uname_len);
+
 		conn->uname = malloc(uname_len + 1);
 		strncpy(conn->uname, uname, uname_len);
 		conn->uname[uname_len] = '\0';
@@ -205,12 +208,15 @@ FQconnectdbParams(const char * const *keywords,
 	if (upass != NULL)
 	{
 		int upass_len = strlen(upass);
-		isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_password, upass, strlen(upass));
+
+		isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_password, upass, upass_len);
+
 		conn->upass = malloc(upass_len + 1);
 		strncpy(conn->upass, upass, upass_len);
 		conn->upass[upass_len] = '\0';
 	}
 
+	/* set client encoding */
 	if (client_encoding == NULL)
 	{
 		/* reasonably sensible default - but maybe "NONE" better? */
@@ -219,10 +225,10 @@ FQconnectdbParams(const char * const *keywords,
 
 	isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_lc_ctype, client_encoding, strlen(client_encoding));
 
-
+	/* actually attach to the database */
 	isc_attach_database(
 		conn->status,
-		db_path_len,
+		0,
 		db_path,
 		&conn->db,
 		conn->dpb_length,
@@ -232,6 +238,61 @@ FQconnectdbParams(const char * const *keywords,
 	_FQinitClientEncoding(conn);
 
 	return conn;
+}
+
+
+/**
+ * FQreconnect()
+ *
+ * Actually create a new connection with the parameters of the connection
+ * provided; it's up to the caller to FQclear() the old connection.
+ *
+ * NOTE: ideally we'd just modify the provided connection in-situ, but
+ * haven't worked out the correct incantations for doing this yet...
+ */
+
+FBconn *
+FQreconnect(FBconn *conn)
+{
+	const char *kw[5];
+	const char *val[5];
+	int i = 0;
+	FBconn *new_conn;
+
+	if (conn == NULL)
+		return;
+
+	kw[i] = "db_path";
+	val[i] = conn->db_path;
+	i++;
+
+	if (conn->uname != NULL)
+	{
+		kw[i] = "user";
+		val[i] = conn->uname;
+		i++;
+	}
+
+	if (conn->upass != NULL)
+	{
+		kw[i] = "password";
+		val[i] = conn->upass;
+		i++;
+	}
+
+	if (conn->client_encoding != NULL)
+	{
+		kw[i] = "client_encoding";
+		val[i] = conn->client_encoding;
+		i++;
+	}
+
+	kw[i] = NULL;
+	val[i] = NULL;
+
+	new_conn = FQconnectdbParams(kw, val);
+
+	return new_conn;
 }
 
 
@@ -294,10 +355,39 @@ FQfinish(FBconn *conn)
  * has an active connection.
  */
 FBconnStatusType
-FQstatus(const FBconn *conn)
+FQstatus(FBconn *conn)
 {
+	char db_items[] =
+	{
+		isc_info_page_size,
+		isc_info_num_buffers,
+		isc_info_end
+	};
+
+	char res_buffer[40];
+	char *p;
+
+	ISC_STATUS status_vector[20];
+
+	/* connection object not initialised, or database handle was never set */
 	if (conn == NULL || conn->db == 0L)
 		return CONNECTION_BAD;
+
+	/* (mis)use isc_database_info() to see if the connection is still active */
+
+	isc_database_info(
+		status_vector,
+		&conn->db,
+		sizeof(db_items),
+		db_items,
+		sizeof(res_buffer),
+		res_buffer);
+
+	if (status_vector[0] == 1 && status_vector[1])
+	{
+		return CONNECTION_BAD;
+	}
+
 
 	return CONNECTION_OK;
 }
@@ -478,8 +568,8 @@ _FQinitClientEncoding(FBconn *conn)
 		if (conn->client_encoding != NULL)
 			free(conn->client_encoding);
 
-		conn->client_encoding =	 malloc(client_encoding_len + 1);
-
+		conn->client_encoding =	malloc(client_encoding_len + 1);
+		memset(conn->client_encoding, '\0', client_encoding_len + 1);
 		strncpy(conn->client_encoding, FQgetvalue(res, 0, 0), client_encoding_len);
 		conn->client_encoding[client_encoding_len] = '\0';
 		conn->client_encoding_id = (short)atoi(FQgetvalue(res, 0, 1));
@@ -3412,5 +3502,3 @@ _FQclientEncoding(const FBconn *conn)
 {
 	return conn->client_encoding;
 }
-
-
