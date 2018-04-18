@@ -367,8 +367,6 @@ FQstatus(FBconn *conn)
 	char res_buffer[40];
 	char *p;
 
-	ISC_STATUS status_vector[20];
-
 	/* connection object not initialised, or database handle was never set */
 	if (conn == NULL || conn->db == 0L)
 		return CONNECTION_BAD;
@@ -376,14 +374,14 @@ FQstatus(FBconn *conn)
 	/* (mis)use isc_database_info() to see if the connection is still active */
 
 	isc_database_info(
-		status_vector,
+		conn->status,
 		&conn->db,
 		sizeof(db_items),
 		db_items,
 		sizeof(res_buffer),
 		res_buffer);
 
-	if (status_vector[0] == 1 && status_vector[1])
+	if (conn->status[0] == 1 && conn->status[1])
 	{
 		return CONNECTION_BAD;
 	}
