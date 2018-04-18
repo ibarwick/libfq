@@ -235,7 +235,49 @@ FQconnectdbParams(const char * const *keywords,
 		dpb
 	);
 
-	_FQinitClientEncoding(conn);
+	if (conn->status[0] == 1 && conn->status[1])
+	{
+		long *pvector;
+		char msg[ERROR_BUFFER_LEN];
+		FQExpBufferData buf;
+		int line = 0;
+		int msg_len = 0;
+
+		initFQExpBuffer(&buf);
+
+		/* fb_interpret() will modify this pointer */
+		pvector = conn->status;
+
+		while (fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector))
+		{
+			if (line == 0)
+			{
+				appendFQExpBuffer(&buf, "%s\n", msg);
+			}
+			else
+			{
+				appendFQExpBuffer(&buf, " - %s\n", msg);
+			}
+
+
+			line++;
+		}
+
+		msg_len = strlen(buf.data);
+
+		if (conn->errMsg != NULL)
+			free(conn->errMsg);
+
+		conn->errMsg = (char *)malloc(msg_len + 1);
+		memset(conn->errMsg, '\0', msg_len + 1);
+		strncpy(conn->errMsg, buf.data, msg_len);
+
+		termFQExpBuffer(&buf);
+	}
+	else
+	{
+		_FQinitClientEncoding(conn);
+	}
 
 	return conn;
 }
@@ -2594,10 +2636,13 @@ _FQsetResultError(FBconn *conn, FBresult *res)
 	char msg[ERROR_BUFFER_LEN];
 	int line = 0;
 	FQExpBufferData buf;
-	char *error_field;
-	bool skip_line;
+	char *error_field = NULL;
+	bool skip_line = false;
+	int msg_len = 0;
 
 	res->fbSQLCODE = isc_sqlcode(conn->status);
+
+	/* fb_interpret() will modify this pointer */
 	pvector = conn->status;
 
 	/* the first message will be something like "Dynamic SQL Error" */
@@ -2705,16 +2750,18 @@ _FQsetResultError(FBconn *conn, FBresult *res)
 		}
 	}
 
-	res->errMsg = (char *)malloc(strlen(buf.data) + 1);
-	memset(res->errMsg, '\0', strlen(buf.data) + 1);
-	strncpy(res->errMsg, buf.data, strlen(buf.data));
+	msg_len = strlen(buf.data);
+
+	res->errMsg = (char *)malloc(msg_len + 1);
+	memset(res->errMsg, '\0', msg_len + 1);
+	strncpy(res->errMsg, buf.data, msg_len);
 
 	if (conn->errMsg != NULL)
 		free(conn->errMsg);
 
-	conn->errMsg = (char *)malloc(strlen(buf.data) + 1);
-	memset(conn->errMsg, '\0', strlen(buf.data) + 1);
-	strncpy(conn->errMsg, buf.data, strlen(buf.data));
+	conn->errMsg = (char *)malloc(msg_len + 1);
+	memset(conn->errMsg, '\0', msg_len + 1);
+	strncpy(conn->errMsg, buf.data, msg_len);
 
 	termFQExpBuffer(&buf);
 }

@@ -27,6 +27,10 @@
 FBconn * FQconnect(const char *db_path, const char *uname, const char *upass);
 </synopsis>
           </para>
+          <para>
+            This is a wrapper around <xref linkend="libfq-fqconnectdbparams">;
+            see that function for details about error handling.
+          </para>
         </listitem>
 
       </varlistentry>
@@ -69,6 +73,15 @@ FBconn *FQconnectdbParams(const char * const *keywords,
               <simpara><literal>client_encoding</literal></simpara>
             </listitem>
           </itemizedlist>
+          <para>
+            To determine if the connection was successful, call <xref linkend="libfq-fqstatus">.
+            If the connection was not successful (<literal>CONNECTION_BAD</literal> is returned),
+            an error message containing more details can be retrieved with <xref linkend="libfq-fqerrorMessage">.
+          </para>
+          <para>
+            Note that even if the connection was unsuccessful, the connection object should
+            be deallocated with <xref linkend="libfq-fqclear">.
+          </para>
         </listitem>
       </varlistentry>
 
@@ -130,7 +143,7 @@ FBconnStatusType FQstatus(FBconn *conn);
           <para>
 			Returns the path of the database for the current connection.
 <synopsis>
-   const char *FQdb_path(const FBconn *conn);
+const char *FQdb_path(const FBconn *conn);
 </synopsis>
           </para>
         </listitem>
