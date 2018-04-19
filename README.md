@@ -21,9 +21,9 @@ Requirements and compatibility
 file for details.
 
 It has been developed against Firebird 2.5.7, and should work with
-any 2.5-series servers. It has not been tested against other Firebird
-versions.
-
+any 2.5-series servers. A quick test has shown it works with Firebird 3,
+but as yet no susbtantial testing has been carried out. It has not been
+tested against Firebird 2.1 or earlier.
 
 Installation
 ------------
