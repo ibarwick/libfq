@@ -302,7 +302,7 @@ FQreconnect(FBconn *conn)
 	FBconn *new_conn;
 
 	if (conn == NULL)
-		return;
+		return NULL;
 
 	kw[i] = "db_path";
 	val[i] = conn->db_path;
