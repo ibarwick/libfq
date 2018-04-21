@@ -1000,7 +1000,7 @@ bool FQisActiveTransaction(FBconn *conn);
 
 			<listitem>
 			  <para>
-				Returns the most recent error message associated with the result, or an
+				Returns the most recent error message associated with the connection, or an
 				empty string.
 <synopsis>
 char *FQerrorMessage(const FBconn *conn);
