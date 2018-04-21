@@ -1,6 +1,6 @@
 Summary: A wrapper library for the Firebird C API
 Name: libfq
-Version: 0.1.4
+Version: 0.2.0
 Release: 1
 Source: libfq-%{version}.tar.gz
 URL: https://github.com/ibarwick/libfq
@@ -12,8 +12,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-build
 Requires: firebird-libfbclient
 
 %description
-A libfq wrapper library for the Firebird C API, loosely based on
-libpq for PostgreSQL.
+A wrapper library for the Firebird C API, loosely based on libpq for PostgreSQL.
 
 %prep
 %setup
@@ -38,6 +37,8 @@ rm -rf $RPM_BUILD_ROOT
 /usr/include/libfq.h
 
 %changelog
+* Sat Apr 21 2018 Ian Barwick (barwick@gmail.com)
+- libfq 0.2.0
 * Tue Feb 11 2014 Ian Barwick (barwick@gmail.com)
 - libfq 0.1.4
 * Sun Feb 2 2014 Ian Barwick (barwick@gmail.com)
