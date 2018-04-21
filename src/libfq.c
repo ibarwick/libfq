@@ -1053,7 +1053,8 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 		/* Handle DDL statement */
 		if (statement_type == isc_info_sql_stmt_ddl)
 		{
-			puts("DDL?");
+			FQlog(conn, DEBUG1, "statement_type is DDL");
+
 			temp_trans = false;
 			if (*trans == 0L)
 			{
@@ -1095,7 +1096,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 
 		if (isc_dsql_execute(conn->status, trans,  &result->stmt_handle, SQL_DIALECT_V6, NULL))
 		{
-			puts("error executing non-SELECT");
+			FQlog(conn, DEBUG1, "error executing non-SELECT");
 			_FQsaveMessageField(result, FB_DIAG_DEBUG, "error executing non-SELECT");
 			_FQsetResultError(conn, result);
 
