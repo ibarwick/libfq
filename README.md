@@ -28,7 +28,11 @@ tested against Firebird 2.1 or earlier.
 Installation
 ------------
 
-See file `INSTALL.md`.
+RPM packages for CentOS and derivatives, and current Fedora versions, are
+available via the Fedora "copr" build system; for details see here:
+<https://copr.fedorainfracloud.org/coprs/ibarwick/libfq/>
+
+For installation from source, see file [INSTALL.md](INSTALL.md).
 
 
 KNOWN ISSUES

@@ -1,12 +1,12 @@
-Installing libfq
-================
+Installing libfq from source
+============================
 
 `libfq` should work on any UNIX-like system. Note that it requires
 the Firebird header and client library which may be installed
 as part of the Firebird binary package (e.g. on OS X), or which
 need to be installed as separate packages (e.g. `firebird-devel`).
 
-libfq can be installed from source in the usual way:
+`libfq` can be installed from source in the usual way:
 
     ./configure
     make
