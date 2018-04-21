@@ -1,0 +1,1 @@
+../packaging/redhat/libfq.spec
