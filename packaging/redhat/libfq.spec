@@ -16,9 +16,9 @@ A wrapper library for the Firebird C API, loosely based on libpq for PostgreSQL.
 
 %prep
 %setup
-./configure --prefix=%{_prefix} --with-ibase=/usr/include/firebird --libdir=/usr/lib64/
+%configure
 %build
-
+./configure --prefix=%{_prefix} --with-ibase=/usr/include/firebird --libdir=/usr/lib64/
 make
 %install
 rm -rf $RPM_BUILD_ROOT
@@ -30,8 +30,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib64/libfq.a
 /usr/lib64/libfq.la
 /usr/lib64/libfq.so
-/usr/lib64/libfq.so.0
-/usr/lib64/libfq.so.%version
+/usr/lib64/libfq-%version.so
 /usr/include/libfq-expbuffer.h
 /usr/include/libfq-int.h
 /usr/include/libfq.h
