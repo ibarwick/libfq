@@ -166,6 +166,7 @@ typedef uint32 bits32;                  /* >= 32 bits */
 #define FBENC_WIN1257                         60
 #define FBENC_WIN1258                         65
 
+#define BLOB_SEGMENT_LEN 80
 
 typedef enum
 {
@@ -225,35 +226,44 @@ typedef struct FBconn {
 
 
 
+/* Stores metadata for a tuple attribute (column) */
+typedef struct FQresTupleAttDesc
+{
+    char  *desc;         /* column name */
+    short  desc_len;     /* length of column name */
+    short  desc_dsplen;  /* display length of column name in single characters */
+    char  *alias;        /* column alias, if provided */
+    short  alias_len;    /* length of column alias */
+    short  alias_dsplen; /* display length of alias name in single characters */
+    int    att_max_len;  /* max length of value in column */
+    int    att_max_line_len; /* max length of line in text column */
+    short  type;         /* datatype */
+    bool   has_null;     /* indicates if resultset contains at least one NULL */
+} FQresTupleAttDesc;
+
+
+/* Stores value and metadata for an individual tuple attribute (row column) */
 typedef struct FQresTupleAtt
 {
-	char *value;
-	int len;
-	int dsplen;
-	bool has_null;
+    char *value;        /* pointer to the tuple's value expressed as a cstring */
+    int   len;          /* length in bytes */
+    int   dsplen;       /* Display length in single-width characters */
+    int   dsplen_line;  /* Display length in single-width characters of the longest line
+                         * (if value is a text field with multiple lines) */
+    int   lines;        /* Number of lines (if value is a text field with multiple lines) */
+    bool  has_null;
 } FQresTupleAtt;
 
 
+/* Stores metadata for a tuple (row) */
 typedef struct FQresTuple
 {
-	FQresTupleAtt	  **values;
-	int					position;
-	struct FQresTuple  *next;
+    FQresTupleAtt     **values;
+    int                 position;
+    int                 max_lines;
+    struct FQresTuple  *next;
 } FQresTuple;
 
-
-typedef struct FQresTupleAttDesc
-{
-	char  *desc;		 /* column name */
-	short  desc_len;	 /* length of column name */
-	short  desc_dsplen;	 /* display length of column name in single characters */
-	char  *alias;		 /* column alias, if provided */
-	short  alias_len;	 /* length of column alias */
-	short  alias_dsplen; /* display length of alias name in single characters */
-	int	   att_max_len;	 /* max length of value in column */
-	short  type;		 /* datatype */
-	bool   has_null;	 /* indicates if resultset contains at least one NULL */
-} FQresTupleAttDesc;
 
 /* Typedef for message-field list entries */
 typedef struct fbMessageField
@@ -382,6 +392,11 @@ FQntuples(const FBresult *res);
 extern int
 FQnfields(const FBresult *res);
 
+extern int
+FQgetlines(const FBresult *res,
+		   int row_number,
+		   int column_number);
+
 extern char *
 FQgetvalue(const FBresult *res,
            int row_number,
@@ -415,11 +430,14 @@ FQgetlength(const FBresult *res,
             int row_number,
             int column_number);
 
-
 extern int
 FQgetdsplen(const FBresult *res,
             int row_number,
             int column_number);
+
+extern int
+FQrgetlines(const FBresult *res,
+		   int row_number);
 
 extern char *
 FQformatDbKey(const FBresult *res,

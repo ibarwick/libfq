@@ -62,6 +62,7 @@ static char *_FQparseDbKey(const char *db_key);
 static void _FQinitClientEncoding(FBconn *conn);
 static const char *_FQclientEncoding(const FBconn *conn);
 
+static int _FQdspstrlen_line(FQresTupleAtt *att, short encoding_id);
 
 /* keep this in same order as FQexecStatusType in libfq.h */
 char *const fbresStatus[] = {
@@ -1125,6 +1126,19 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 			conn->in_user_transaction = true;
 	}
 
+	if (isc_dsql_describe(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out))
+	{
+		_FQsetResultError(conn, result);
+		_FQsaveMessageField(result, FB_DIAG_DEBUG, "isc_dsql_describe");
+
+		result->resultStatus = FBRES_FATAL_ERROR;
+
+		_FQexecClearResult(result);
+		return result;
+	}
+
+
+
 	/* Expand sqlda to required number of columns */
 	result->ncols = result->sqlda_out->sqld;
 
@@ -1153,7 +1167,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 
 	_FQexecInitOutputSQLDA(conn, result);
 
-	if (isc_dsql_execute(conn->status, trans, &result->stmt_handle, SQL_DIALECT_V6, NULL))
+	if (isc_dsql_execute(conn->status, trans, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out))
 	{
 		_FQsaveMessageField(result, FB_DIAG_DEBUG, "isc_dsql_execute error");
 
@@ -1182,6 +1196,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 		FQresTuple *tuple_next = (FQresTuple *)malloc(sizeof(FQresTuple));
 
 		tuple_next->position = num_rows;
+		tuple_next->max_lines = 1;
 		tuple_next->next = NULL;
 		tuple_next->values = malloc(sizeof(FQresTupleAtt) * result->ncols);
 
@@ -1213,8 +1228,9 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 					desc->alias_dsplen = FQdspstrlen(desc->alias, FQclientEncodingId(conn));
 				}
 				desc->att_max_len = 0;
+				desc->att_max_line_len = 0;
 
-				/* Firebird returns RDB$DB_KEY as "DB_KEY" - set the pseudo-datatype*/
+				/* Firebird returns RDB$DB_KEY as "DB_KEY" - set the pseudo-datatype */
 				if (strncmp(desc->desc, "DB_KEY", 6) == 0 && strlen(desc->desc) == 6)
 					desc->type = SQL_DB_KEY;
 				else
@@ -1230,12 +1246,27 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 			XSQLVAR *var = (XSQLVAR *)&result->sqlda_out->sqlvar[i];
 			FQresTupleAtt *tuple_att = _FQformatDatum(conn, result->header[i], var);
 
-			if (tuple_att->value == NULL)
-				result->header[i]->has_null = true;
-			else
-				if (tuple_att->dsplen > result->header[i]->att_max_len)
-					result->header[i]->att_max_len = tuple_att->dsplen;
+			if(tuple_att->lines > tuple_next->max_lines)
+			{
+				tuple_next->max_lines = tuple_att->lines;
+			}
 
+			if (tuple_att->value == NULL)
+			{
+				result->header[i]->has_null = true;
+			}
+			else
+			{
+				if (tuple_att->dsplen > result->header[i]->att_max_len)
+				{
+					result->header[i]->att_max_len = tuple_att->dsplen;
+				}
+
+				if(tuple_att->dsplen_line > result->header[i]->att_max_line_len)
+                {
+					result->header[i]->att_max_line_len = tuple_att->dsplen_line;
+				}
+			}
 			tuple_next->values[i] = tuple_att;
 		}
 
@@ -1547,6 +1578,10 @@ _FQexecParams(FBconn *conn,
 					size = sizeof(ISC_TIME);
 					break;
 
+				case SQL_BLOB:
+					size = sizeof(ISC_QUAD);
+					break;
+
 				default:
 					sprintf(error_message, "Unhandled sqlda_in type: %i", dtype);
 
@@ -1820,6 +1855,43 @@ _FQexecParams(FBconn *conn,
 
 					break;
 
+				case SQL_BLOB:
+				{
+					isc_blob_handle blob_handle = NULL;
+					char *ptr = (char *)paramValues[i];
+
+					len = strlen(paramValues[i]);
+					var->sqldata = (char *)malloc(sizeof(ISC_QUAD));
+					var->sqllen = sizeof(ISC_QUAD);
+
+					isc_create_blob2(
+						conn->status,
+						&conn->db,
+						&conn->trans,
+						&blob_handle,
+						(ISC_QUAD *)var->sqldata,
+						0,		 /* Blob Parameter Buffer length = 0; no filter will be used */
+						NULL	 /* NULL Blob Parameter Buffer, since no filter will be used */
+						);
+					while(ptr < paramValues[i] + len)
+					{
+						int seg_len = BLOB_SEGMENT_LEN;
+						if(ptr + seg_len > (paramValues[i] + len))
+						{
+							seg_len = (paramValues[i] + len) - ptr;
+						}
+						isc_put_segment(
+							conn->status,
+							&blob_handle,
+							seg_len,
+							ptr
+							);
+						ptr += BLOB_SEGMENT_LEN;
+					}
+					isc_close_blob(conn->status, &blob_handle);
+					break;
+				}
+
 				default:
 					sprintf(error_message, "Unhandled sqlda_in type: %i", dtype);
 
@@ -1982,6 +2054,7 @@ _FQexecParams(FBconn *conn,
 					desc->alias_dsplen = FQdspstrlen(desc->alias, FQclientEncodingId(conn));
 				}
 				desc->att_max_len = 0;
+				desc->att_max_line_len = 0;
 
 				/* Firebird returns RDB$DB_KEY as "DB_KEY" - set the pseudo-datatype */
 				if (strncmp(desc->desc, "DB_KEY", 6) == 0 && strlen(desc->desc) == 6)
@@ -2001,13 +2074,25 @@ _FQexecParams(FBconn *conn,
 			FQresTupleAtt *tuple_att = _FQformatDatum(conn, result->header[i], var);
 
 			if (tuple_att->value == NULL)
+			{
 				result->header[i]->has_null = true;
+			}
 			else
+			{
+				/* TODO: set max lines */
+
 				if (tuple_att->dsplen > result->header[i]->att_max_len)
+				{
 					result->header[i]->att_max_len = tuple_att->dsplen;
+				}
+
+				if(tuple_att->dsplen_line > result->header[i]->att_max_line_len)
+				{
+					result->header[i]->att_max_line_len = tuple_att->dsplen_line;
+				}
+			}
 
 			tuple_next->values[i] = tuple_att;
-			//result->tuple_last->values[i]  = tuple_att;
 		}
 
 		if (result->tuple_first == NULL)
@@ -2292,6 +2377,45 @@ FQgetisnull(const FBresult *res,
 
 
 /**
+ * FQgetlines()
+ *
+ * Return max number of lines in column
+ */
+int
+FQgetlines(const FBresult *res,
+			int row_number,
+			int column_number)
+{
+	if(!res)
+		return -1;
+
+	if(row_number >= res->ntups)
+		return -1;
+
+	return res->tuples[row_number]->values[column_number]->lines;
+}
+
+
+/**
+ * FQrgetlines()
+ *
+ * Return max number of lines in row
+ */
+int
+FQrgetlines(const FBresult *res,
+			int row_number)
+{
+	if(!res)
+		return -1;
+
+	if(row_number >= res->ntups)
+		return -1;
+
+	return res->tuples[row_number]->max_lines;
+}
+
+
+/**
  * FQfhasNull()
  *
  * Determine if for the provided column number, the result set contains
@@ -2332,11 +2456,11 @@ FQfmaxwidth(const FBresult *res, int column_number)
 
 	if (res->header[column_number]->alias_len)
 		max_width = res->header[column_number]->att_max_len > res->header[column_number]->alias_dsplen
-			? res->header[column_number]->att_max_len
+			? res->header[column_number]->att_max_line_len
 			: res->header[column_number]->alias_dsplen;
 	else
 		max_width = res->header[column_number]->att_max_len > res->header[column_number]->desc_dsplen
-			? res->header[column_number]->att_max_len
+			? res->header[column_number]->att_max_line_len
 			: res->header[column_number]->desc_dsplen;
 
 	return max_width;
@@ -2438,6 +2562,7 @@ FQfformat(const FBresult *res, int column_number)
 
 	switch(FQftype(res, column_number))
 	{
+		/* TODO: differentiate BLOB types */
 		case SQL_BLOB:
 			return 1;
 	}
@@ -2971,19 +3096,18 @@ static FQresTupleAtt *
 _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 {
 	FQresTupleAtt *tuple_att;
-	short		datatype;
-	char		*p;
-	VARY2		*vary2;
-	struct tm	times;
-	char		date_buffer[FB_TIMESTAMP_LEN + 1];
+	short		   datatype;
+	char		  *p;
+	VARY2		  *vary2;
+	struct tm	   times;
+	char		   date_buffer[FB_TIMESTAMP_LEN + 1];
 
 	tuple_att = (FQresTupleAtt *)malloc(sizeof(FQresTupleAtt));
 	tuple_att->value = NULL;
 	tuple_att->len = 0;
 	tuple_att->dsplen = 0;
-	tuple_att->has_null = false;
-
-	datatype = att_desc->type;
+	tuple_att->dsplen_line = 0;
+	tuple_att->lines = 1;
 
 	/* If the column is nullable and null, return initialized but empty FQresTupleAtt */
 	if ((var->sqltype & 1) && (*var->sqlind < 0))
@@ -2991,6 +3115,9 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 		tuple_att->has_null = true;
 		return tuple_att;
 	}
+
+	tuple_att->has_null = false;
+	datatype = att_desc->type;
 
 	switch (datatype)
 	{
@@ -3136,6 +3263,57 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			sprintf(p, "%*s", FB_TIME_LEN, date_buffer);
 			break;
 
+        /* BLOBs are tricky...*/
+		case SQL_BLOB:
+        {
+            ISC_QUAD *blob_id = (ISC_QUAD *)var->sqldata;
+
+            isc_blob_handle blob_handle = NULL;
+            char blob_segment[BLOB_SEGMENT_LEN];
+            unsigned short actual_seg_len;
+            ISC_STATUS blob_status;
+
+            FQExpBufferData blob_output;
+
+            initFQExpBuffer(&blob_output);
+
+            isc_open_blob2(
+                conn->status,
+                &conn->db,
+                &conn->trans,
+                &blob_handle, /* set by this function to refer to the BLOB */
+                blob_id,      /* Blob ID put into out_sqlda by isc_dsql_fetch() */
+                0,            /* BPB length = 0; no filter will be used */
+                NULL          /* NULL BPB, since no filter will be used */
+                );
+
+            do {
+                char *seg;
+                blob_status = isc_get_segment(
+                    conn->status,
+                    &blob_handle,         /* set by isc_open_blob2()*/
+                    &actual_seg_len,      /* length of segment read */
+                    sizeof(blob_segment), /* length of segment buffer */
+                    blob_segment          /* segment buffer */
+                    );
+
+                seg = (char *)malloc(sizeof(char *) * (actual_seg_len + 1));
+                memcpy(seg, blob_segment, actual_seg_len);
+                seg[actual_seg_len] = '\0';
+                appendFQExpBufferStr(&blob_output, seg);
+                free(seg);
+            } while(blob_status == 0 || conn->status[1] == isc_segment);
+
+            p = (char *)malloc(strlen(blob_output.data) + 1);
+            memcpy(p, blob_output.data, strlen(blob_output.data) + 1);
+
+            /* clean up */
+            isc_close_blob(conn->status, &blob_handle);
+            termFQExpBuffer(&blob_output);
+
+            break;
+        }
+
 		/* Special case for RDB$DB_KEY:
 		 * copy byte values individually, don't treat as string
 		 */
@@ -3158,6 +3336,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 
 	tuple_att->value = p;
 
+    /* Calculate display width */
 	/* Special case for RDB$DB_KEY */
 	if (datatype == SQL_DB_KEY)
 	{
@@ -3166,12 +3345,35 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 	}
 	else
 	{
+	   bool get_dsp_len = false;
 		tuple_att->len = strlen(p);
 
-		if (conn->get_dsp_len == true)
+		if(conn->get_dsp_len == true)
+		{
+			switch(datatype)
+			{
+				case SQL_TEXT:
+				case SQL_VARYING:
+					get_dsp_len = true;
+					break;
+
+				case SQL_BLOB:
+					/* TODO: get blob subtype */
+					get_dsp_len = true;
+					break;
+			}
+		}
+
+		if(get_dsp_len == true)
+		{
 			tuple_att->dsplen = FQdspstrlen(tuple_att->value, FQclientEncodingId(conn));
+			tuple_att->dsplen_line = _FQdspstrlen_line(tuple_att, FQclientEncodingId(conn));
+		}
 		else
+		{
 			tuple_att->dsplen = tuple_att->len;
+			tuple_att->dsplen_line = tuple_att->len;
+		}
 	}
 
 	return tuple_att;
@@ -3509,6 +3711,7 @@ FQdsplen(const unsigned char *s, short encoding_id)
 	return len;
 }
 
+
 /**
  * FQdspstrlen()
  *
@@ -3536,6 +3739,44 @@ FQdspstrlen(const char *s, short encoding_id)
 	}
 
 	return dsplen;
+}
+
+
+/**
+ * _FQdspstrlen_line()
+ *
+ * Returns the single-character-equivalent display length of the longest
+ * line from string in the provided encoding
+ */
+int
+_FQdspstrlen_line(FQresTupleAtt *att, short encoding_id)
+{
+	char *ptr = (char *)att->value;
+	int max_len = 0;
+	int cur_len = 0;
+
+	while(ptr[0] != '\0')
+	{
+		if(ptr[0] == '\n'
+		|| ptr[0] == '\r'
+		|| (ptr[0] == '\n' && ptr[1] == '\r')
+		|| (ptr[0] == '\r' && ptr[1] == '\n')
+		)
+		{
+			if(cur_len > max_len)
+				max_len = cur_len;
+
+			cur_len = 0;
+			att->lines;
+		}
+		else
+		{
+			cur_len++;
+		}
+		ptr++;
+	}
+
+	return max_len ? max_len : cur_len;
 }
 
 
