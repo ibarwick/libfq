@@ -52,6 +52,7 @@ static FBresult *_FQexecParams(FBconn *conn,
 							   const int *paramFormats,
 							   int resultFormat);
 
+static void _FQstoreResult(FBresult *result, FBconn *conn, int num_rows);
 static char *_FQlogLevel(short errlevel);
 static void _FQsetResultError(FBconn *conn, FBresult *res);
 static void _FQsetResultNonFatalError(const FBconn *conn, FBresult *res, short errlevel, char *msg);
@@ -1387,13 +1388,13 @@ _FQexecParams(FBconn *conn,
 	FBresult	 *result;
 	XSQLVAR		 *var;
 	bool		  temp_trans = false;
-	int			  i, num_rows = 0;
+	int			  i;
 
 	long		  fetch_stat;
 	char		  info_buffer[20];
 	static char	  stmt_info[] = { isc_info_sql_stmt_type };
 	int			  statement_type;
-
+	int			  exec_result;
 	char		  error_message[1024];
 
 	result = _FQinitResult(true);
@@ -1495,7 +1496,7 @@ _FQexecParams(FBconn *conn,
 
 	if (*trans == 0L)
 	{
-		FQlog(conn, DEBUG1, "execP: starting trans...");
+		FQlog(conn, DEBUG1, "_FQexecParams: starting transaction...");
 		_FQstartTransaction(conn, trans);
 
 		if (conn->autocommit == false)
@@ -1934,6 +1935,8 @@ _FQexecParams(FBconn *conn,
 	/* Expand output sqlda to required number of columns */
 	result->ncols = result->sqlda_out->sqld;
 
+	FQlog(conn, DEBUG2, "_FQexecParams(): ncols is %i", result->ncols);
+
 	/* No output expected */
 	if (!result->ncols)
 	{
@@ -1959,7 +1962,7 @@ _FQexecParams(FBconn *conn,
 			return result;
 		}
 
-		FQlog(conn, DEBUG1, "finished non-select");
+		FQlog(conn, DEBUG1, "_FQexecParams(): finished non-SELECT with no rows to return");
 		result->resultStatus = FBRES_COMMAND_OK;
 		if (conn->autocommit == true && conn->in_user_transaction == false)
 		{
@@ -1982,13 +1985,20 @@ _FQexecParams(FBconn *conn,
 		result->sqlda_out->version = SQLDA_VERSION1;
 		result->sqlda_out->sqln = result->ncols;
 
-		result->ncols = result->sqlda_out->sqld;
 		isc_dsql_describe(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out);
+
+		result->ncols = result->sqlda_out->sqld;
 	}
 
 	_FQexecInitOutputSQLDA(conn, result);
 
-	if (isc_dsql_execute2(conn->status, trans, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_in, NULL))
+	/* "isc_info_sql_stmt_exec_procedure" also covers "RETURNING ..." statements */
+	if (statement_type == isc_info_sql_stmt_exec_procedure)
+		exec_result = isc_dsql_execute2(conn->status, trans, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_in, result->sqlda_out);
+	else
+		exec_result = isc_dsql_execute(conn->status, trans, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_in);
+
+	if (exec_result)
 	{
 		_FQsaveMessageField(result, FB_DIAG_DEBUG, "isc_dsql_execute2() error");
 
@@ -2013,8 +2023,8 @@ _FQexecParams(FBconn *conn,
 
 	result->header = malloc(sizeof(FQresTupleAttDesc *) * result->ncols);
 
-	/* XXX TODO: verify if this is needed */
-	if (isc_dsql_set_cursor_name(conn->status, &result->stmt_handle, "dyn_cursor", 0))
+	/* XXX TODO: only needed for "SELECT ... FOR UPDATE " */
+	if (0 && isc_dsql_set_cursor_name(conn->status, &result->stmt_handle, "dyn_cursor", 0))
 	{
 		_FQsetResultError(conn, result);
 		_FQsaveMessageField(result, FB_DIAG_DEBUG, error_message);
@@ -2027,94 +2037,21 @@ _FQexecParams(FBconn *conn,
 		return result;
 	}
 
-	while ((fetch_stat = isc_dsql_fetch(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out)) == 0)
+	if (statement_type == isc_info_sql_stmt_exec_procedure)
 	{
-		FQresTuple *tuple_next = (FQresTuple *)malloc(sizeof(FQresTuple));
+		_FQstoreResult(result, conn, 0);
+		result->ntups = 1;
+	}
+	else
+	{
+		int num_rows = 0;
 
-		tuple_next->position = num_rows;
-		tuple_next->next = NULL;
-		tuple_next->values = malloc(sizeof(FQresTupleAtt) * result->ncols);
-
-		/* store header information */
-		if (num_rows == 0)
+		while ((fetch_stat = isc_dsql_fetch(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out)) == 0)
 		{
-			for (i = 0; i < result->ncols; i++)
-			{
-				FQresTupleAttDesc *desc = (FQresTupleAttDesc *)malloc(sizeof(FQresTupleAttDesc));
-				XSQLVAR *var1 = &result->sqlda_out->sqlvar[i];
-
-				desc->desc_len = var1->sqlname_length;
-				desc->desc = (char *)malloc(desc->desc_len + 1);
-				memcpy(desc->desc, var1->sqlname, desc->desc_len + 1);
-				desc->desc_dsplen = FQdspstrlen(desc->desc, FQclientEncodingId(conn));
-
-				if (var1->aliasname_length == var1->sqlname_length
-				   && strncmp(var1->aliasname, var1->sqlname, var1->aliasname_length ) == 0)
-				{
-					desc->alias_len = 0;
-					desc->alias = NULL;
-				}
-				else
-				{
-					desc->alias_len = var1->aliasname_length;
-					desc->alias = (char *)malloc(desc->alias_len + 1);
-					memcpy(desc->alias, var1->aliasname, desc->alias_len + 1);
-					desc->alias_dsplen = FQdspstrlen(desc->alias, FQclientEncodingId(conn));
-				}
-				desc->att_max_len = 0;
-				desc->att_max_line_len = 0;
-
-				/* Firebird returns RDB$DB_KEY as "DB_KEY" - set the pseudo-datatype */
-				if (strncmp(desc->desc, "DB_KEY", 6) == 0 && strlen(desc->desc) == 6)
-					desc->type = SQL_DB_KEY;
-				else
-					desc->type = var1->sqltype & ~1;
-
-				desc->has_null = false;
-				result->header[i] = desc;
-			}
+			_FQstoreResult(result, conn, num_rows);
+			num_rows ++;
 		}
-
-		/* Store tuple data */
-		for (i = 0; i < result->ncols; i++)
-		{
-			XSQLVAR *var = (XSQLVAR *)&result->sqlda_out->sqlvar[i];
-			FQresTupleAtt *tuple_att = _FQformatDatum(conn, result->header[i], var);
-
-			if (tuple_att->value == NULL)
-			{
-				result->header[i]->has_null = true;
-			}
-			else
-			{
-				/* TODO: set max lines */
-
-				if (tuple_att->dsplen > result->header[i]->att_max_len)
-				{
-					result->header[i]->att_max_len = tuple_att->dsplen;
-				}
-
-				if(tuple_att->dsplen_line > result->header[i]->att_max_line_len)
-				{
-					result->header[i]->att_max_line_len = tuple_att->dsplen_line;
-				}
-			}
-
-			tuple_next->values[i] = tuple_att;
-		}
-
-		if (result->tuple_first == NULL)
-		{
-			result->tuple_first = tuple_next;
-			result->tuple_last = result->tuple_first;
-		}
-		else
-		{
-			result->tuple_last->next = tuple_next;
-			result->tuple_last = tuple_next;
-		}
-
-		num_rows++;
+		result->ntups = num_rows;
 	}
 
 	/*
@@ -2125,7 +2062,7 @@ _FQexecParams(FBconn *conn,
 	 *
 	 * See maybe: http://support.codegear.com/article/35153
 	 */
-	if (fetch_stat != 100L && fetch_stat != isc_req_sync)
+	if (0 && fetch_stat != 100L && fetch_stat != isc_req_sync)
 	{
 		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_fetch reported %lu", fetch_stat);
 
@@ -2140,8 +2077,6 @@ _FQexecParams(FBconn *conn,
 
 		return result;
 	}
-
-	result->ntups = num_rows;
 
 	if (isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop))
 	{
@@ -2171,6 +2106,102 @@ _FQexecParams(FBconn *conn,
 	_FQexecClearResult(result);
 
 	return result;
+}
+
+static void
+_FQstoreResult(FBresult *result, FBconn *conn, int num_rows)
+{
+	FQresTuple *tuple_next = (FQresTuple *)malloc(sizeof(FQresTuple));
+	int i;
+
+	tuple_next->position = num_rows;
+	tuple_next->max_lines = 1;
+	tuple_next->next = NULL;
+	tuple_next->values = malloc(sizeof(FQresTupleAtt) * result->ncols);
+
+	/* store header information */
+	if (num_rows == 0)
+	{
+		for (i = 0; i < result->ncols; i++)
+		{
+			FQresTupleAttDesc *desc = (FQresTupleAttDesc *)malloc(sizeof(FQresTupleAttDesc));
+			XSQLVAR *var1 = &result->sqlda_out->sqlvar[i];
+
+			desc->desc_len = var1->sqlname_length;
+			desc->desc = (char *)malloc(desc->desc_len + 1);
+			memcpy(desc->desc, var1->sqlname, desc->desc_len + 1);
+			desc->desc_dsplen = FQdspstrlen(desc->desc, FQclientEncodingId(conn));
+
+			if (var1->aliasname_length == var1->sqlname_length
+				&& strncmp(var1->aliasname, var1->sqlname, var1->aliasname_length ) == 0)
+			{
+				desc->alias_len = 0;
+				desc->alias = NULL;
+			}
+			else
+			{
+				desc->alias_len = var1->aliasname_length;
+				desc->alias = (char *)malloc(desc->alias_len + 1);
+				memcpy(desc->alias, var1->aliasname, desc->alias_len + 1);
+				desc->alias_dsplen = FQdspstrlen(desc->alias, FQclientEncodingId(conn));
+			}
+			desc->att_max_len = 0;
+			desc->att_max_line_len = 0;
+
+			/* Firebird returns RDB$DB_KEY as "DB_KEY" - set the pseudo-datatype */
+			if (strncmp(desc->desc, "DB_KEY", 6) == 0 && strlen(desc->desc) == 6)
+				desc->type = SQL_DB_KEY;
+			else
+				desc->type = var1->sqltype & ~1;
+
+			desc->has_null = false;
+			result->header[i] = desc;
+		}
+	}
+
+	/* Store tuple data */
+	for (i = 0; i < result->ncols; i++)
+	{
+		XSQLVAR *var = (XSQLVAR *)&result->sqlda_out->sqlvar[i];
+		FQresTupleAtt *tuple_att = _FQformatDatum(conn, result->header[i], var);
+
+		if(tuple_att->lines > tuple_next->max_lines)
+		{
+			tuple_next->max_lines = tuple_att->lines;
+		}
+
+		if (tuple_att->value == NULL)
+		{
+			result->header[i]->has_null = true;
+		}
+		else
+		{
+			/* TODO: set max lines */
+
+			if (tuple_att->dsplen > result->header[i]->att_max_len)
+			{
+				result->header[i]->att_max_len = tuple_att->dsplen;
+			}
+
+			if(tuple_att->dsplen_line > result->header[i]->att_max_line_len)
+			{
+				result->header[i]->att_max_line_len = tuple_att->dsplen_line;
+			}
+		}
+
+		tuple_next->values[i] = tuple_att;
+	}
+
+	if (result->tuple_first == NULL)
+	{
+		result->tuple_first = tuple_next;
+		result->tuple_last = result->tuple_first;
+	}
+	else
+	{
+		result->tuple_last->next = tuple_next;
+		result->tuple_last = tuple_next;
+	}
 }
 
 
