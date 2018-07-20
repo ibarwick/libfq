@@ -267,7 +267,9 @@ FQconnectdbParams(const char * const *keywords,
 		msg_len = strlen(buf.data);
 
 		if (conn->errMsg != NULL)
+		{
 			free(conn->errMsg);
+		}
 
 		conn->errMsg = (char *)malloc(msg_len + 1);
 		memset(conn->errMsg, '\0', msg_len + 1);
@@ -722,6 +724,7 @@ _FQexecClearResult(FBresult *result)
 	if (result->sqlda_out != NULL)
 	{
 		_FQexecClearSQLDA(result, result->sqlda_out);
+
 		free(result->sqlda_out);
 		result->sqlda_out = NULL;
 	}
@@ -744,12 +747,14 @@ void _FQexecClearSQLDA(FBresult *result, XSQLDA *sqlda)
 		if (var->sqldata != NULL)
 		{
 			free(var->sqldata);
+			var->sqldata = NULL;
 		}
 
 		if (var->sqltype & 1 && var->sqlind != NULL)
 		{
 			/* deallocate NULL status indicator if necessary */
 			free(var->sqlind);
+			var->sqlind = NULL;
 		}
 	}
 }
@@ -1340,8 +1345,7 @@ FQexecParams(FBconn *conn,
 			 const char * const *paramValues,
 			 const int *paramLengths,
 			 const int *paramFormats,
-			 int resultFormat
-	)
+			 int resultFormat)
 {
 	if (!conn)
 		return NULL;
@@ -1354,8 +1358,7 @@ FQexecParams(FBconn *conn,
 						 paramValues,
 						 paramLengths,
 						 paramFormats,
-						 resultFormat
-		);
+						 resultFormat);
 }
 
 
@@ -1395,12 +1398,6 @@ _FQexecParams(FBconn *conn,
 
 	result = _FQinitResult(true);
 
-	if (*trans == 0L)
-	{
-		_FQstartTransaction(conn, trans);
-		temp_trans = true;
-	}
-
 	/* Allocate a statement. */
 	if (isc_dsql_alloc_statement2(conn->status, &conn->db, &result->stmt_handle))
 	{
@@ -1410,6 +1407,17 @@ _FQexecParams(FBconn *conn,
 
 		_FQexecClearResult(result);
 		return result;
+	}
+
+
+	/* An active transaction is required to prepare the statement -
+	 * if no transaction handle was provided by the caller,
+	 * start a temporary transaction
+	 */
+	if (*trans == 0L)
+	{
+		_FQstartTransaction(conn, trans);
+		temp_trans = true;
 	}
 
 	/* Prepare the statement. */
@@ -2109,7 +2117,6 @@ _FQexecParams(FBconn *conn,
 		num_rows++;
 	}
 
-
 	/*
 	 * HACK: INSERT/UPDATE/DELETE ... RETURNING ... sometimes results in a
 	 * "request synchronization error" - ignoring this doesn't seem to
@@ -2135,7 +2142,6 @@ _FQexecParams(FBconn *conn,
 	}
 
 	result->ntups = num_rows;
-	_FQexecClearResult(result);
 
 	if (isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop))
 	{
@@ -2144,6 +2150,7 @@ _FQexecParams(FBconn *conn,
 		_FQsetResultError(conn, result);
 
 		_FQrollbackTransaction(conn, trans);
+
 		result->resultStatus = FBRES_FATAL_ERROR;
 
 		return result;
@@ -2156,7 +2163,12 @@ _FQexecParams(FBconn *conn,
 
 	/* if autocommit, and no explicit transaction set, commit */
 	if (conn->autocommit == true && conn->in_user_transaction == false)
+	{
 		_FQcommitTransaction(conn, trans);
+	}
+
+	/* clear up internal storage */
+	_FQexecClearResult(result);
 
 	return result;
 }
@@ -2940,9 +2952,10 @@ _FQsaveMessageField(FBresult *res, FQdiagType code, const char *value, ...)
 	mfield->prev = NULL;
 	mfield->value = (char *)malloc(buflen + 1);
 
-	if (!mfield->value)
+	if (mfield->value == NULL)
 	{
 		free(mfield);
+		mfield->value = NULL;
 		return;
 	}
 
@@ -3558,10 +3571,16 @@ FQclear(FBresult *result)
 	 * XXX we should call _FQexecClearSQLDA here too
 	 */
 	if (result->sqlda_in != NULL)
+	{
 		free(result->sqlda_in);
+		result->sqlda_in = NULL;
+	}
 
 	if (result->sqlda_out != NULL)
+	{
 		free(result->sqlda_out);
+		result->sqlda_out  = NULL;
+	}
 
 	free(result);
 }
