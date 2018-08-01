@@ -2814,7 +2814,15 @@ _FQsetResultError(FBconn *conn, FBresult *res)
 	/* fb_interpret() will modify this pointer */
 	pvector = conn->status;
 
-	/* the first message will be something like "Dynamic SQL Error" */
+	/*
+	 * The first message will be something like "Dynamic SQL Error",
+	 * or something like:
+	 *   'violation of PRIMARY or UNIQUE KEY constraint "INTEG_276" on table "TBL_SUVYSYHE"'
+	 * if no further error fields are available, we'll assume that is
+	 * the primary message, and copy it there.
+	 *
+	 * Applications should not expect FB_DIAG_MESSAGE_TYPE to contain any useful content.
+	 */
 
 	fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector);
 	_FQsaveMessageField(res, FB_DIAG_MESSAGE_TYPE, msg);
@@ -2829,7 +2837,7 @@ _FQsetResultError(FBconn *conn, FBresult *res)
 	fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector);
 
 	/*
-	 * Loop through the remaining lines; we assume the next one (line 0) will be the
+	 * Loop through any remaining lines; we assume the next one (line 0) will be the
 	 * a message with some useful information, and the one after that (line 1)
 	 * will have some detail, usually the name of the problematic object.
 	 *
@@ -2839,7 +2847,7 @@ _FQsetResultError(FBconn *conn, FBresult *res)
 	 *     line 0: "Token unknown - line 1, column 1"
 	 *     line 2: "At line 1, column 15"
 	 */
-	while(fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector))
+	while (fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector))
 	{
 		FQdiagType current_diagType;
 
@@ -2858,6 +2866,7 @@ _FQsetResultError(FBconn *conn, FBresult *res)
 				res->errCol = col;
 
 				memset(msg, '\0', ERROR_BUFFER_LEN);
+
 				strncpy(msg, message_part, strlen(message_part));
 				free(message_part);
 			}
@@ -2887,6 +2896,10 @@ _FQsetResultError(FBconn *conn, FBresult *res)
 		line++;
 	}
 
+	if (line == 0)
+	{
+		_FQsaveMessageField(res, FB_DIAG_MESSAGE_PRIMARY, FQresultErrorField(res, FB_DIAG_MESSAGE_TYPE));
+	}
 
 	/*
 	 * format the error message into something readable and store it
@@ -2895,8 +2908,12 @@ _FQsetResultError(FBconn *conn, FBresult *res)
 
 	initFQExpBuffer(&buf);
 
-	appendFQExpBuffer(&buf,
-					  "%s\n", FQresultErrorField(res, FB_DIAG_MESSAGE_TYPE));
+	/* only add this if it's not the only error message */
+	if (line > 0)
+	{
+		appendFQExpBuffer(&buf,
+						  "%s\n", FQresultErrorField(res, FB_DIAG_MESSAGE_TYPE));
+	}
 
 	error_field = FQresultErrorField(res, FB_DIAG_MESSAGE_PRIMARY);
 
