@@ -149,7 +149,7 @@ FQconnectdbParams(const char * const *keywords,
 
 	int i = 0;
 
-	while(keywords[i])
+	while (keywords[i])
 	{
 		if (strcmp(keywords[i], "db_path") == 0)
 			db_path = values[i];
@@ -1252,7 +1252,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 			XSQLVAR *var = (XSQLVAR *)&result->sqlda_out->sqlvar[i];
 			FQresTupleAtt *tuple_att = _FQformatDatum(conn, result->header[i], var);
 
-			if(tuple_att->lines > tuple_next->max_lines)
+			if (tuple_att->lines > tuple_next->max_lines)
 			{
 				tuple_next->max_lines = tuple_att->lines;
 			}
@@ -1268,7 +1268,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 					result->header[i]->att_max_len = tuple_att->dsplen;
 				}
 
-				if(tuple_att->dsplen_line > result->header[i]->att_max_line_len)
+				if (tuple_att->dsplen_line > result->header[i]->att_max_line_len)
                 {
 					result->header[i]->att_max_line_len = tuple_att->dsplen_line;
 				}
@@ -1821,7 +1821,7 @@ _FQexecParams(FBconn *conn,
 				case SQL_TEXT:
 
 					/* convert RDB$DB_KEY hex value to raw bytes if requested */
-					if ( paramFormats != NULL && paramFormats[i] == -1)
+					if (paramFormats != NULL && paramFormats[i] == -1)
 					{
 						unsigned char *sqlptr;
 						unsigned char *srcptr;
@@ -1833,12 +1833,14 @@ _FQexecParams(FBconn *conn,
 						var->sqllen = len;
 						var->sqldata = (char *)malloc(len);
 						sqlptr = (unsigned char *)var->sqldata ;
+
 						for (ix = 0; ix < len; ix++)
 						{
 							*sqlptr++ = *srcptr++;
 						}
 					}
-					else {
+					else
+					{
 						len = strlen(paramValues[i]);
 						var->sqldata = (char *)malloc(sizeof(char) * len);
 						var->sqllen = len;
@@ -1882,10 +1884,10 @@ _FQexecParams(FBconn *conn,
 						0,		 /* Blob Parameter Buffer length = 0; no filter will be used */
 						NULL	 /* NULL Blob Parameter Buffer, since no filter will be used */
 						);
-					while(ptr < paramValues[i] + len)
+					while (ptr < paramValues[i] + len)
 					{
 						int seg_len = BLOB_SEGMENT_LEN;
-						if(ptr + seg_len > (paramValues[i] + len))
+						if (ptr + seg_len > (paramValues[i] + len))
 						{
 							seg_len = (paramValues[i] + len) - ptr;
 						}
@@ -2165,7 +2167,7 @@ _FQstoreResult(FBresult *result, FBconn *conn, int num_rows)
 		XSQLVAR *var = (XSQLVAR *)&result->sqlda_out->sqlvar[i];
 		FQresTupleAtt *tuple_att = _FQformatDatum(conn, result->header[i], var);
 
-		if(tuple_att->lines > tuple_next->max_lines)
+		if (tuple_att->lines > tuple_next->max_lines)
 		{
 			tuple_next->max_lines = tuple_att->lines;
 		}
@@ -2183,7 +2185,7 @@ _FQstoreResult(FBresult *result, FBconn *conn, int num_rows)
 				result->header[i]->att_max_len = tuple_att->dsplen;
 			}
 
-			if(tuple_att->dsplen_line > result->header[i]->att_max_line_len)
+			if (tuple_att->dsplen_line > result->header[i]->att_max_line_len)
 			{
 				result->header[i]->att_max_line_len = tuple_att->dsplen_line;
 			}
@@ -2429,10 +2431,10 @@ FQgetlines(const FBresult *res,
 			int row_number,
 			int column_number)
 {
-	if(!res)
+	if (!res)
 		return -1;
 
-	if(row_number >= res->ntups)
+	if (row_number >= res->ntups)
 		return -1;
 
 	return res->tuples[row_number]->values[column_number]->lines;
@@ -2448,10 +2450,10 @@ int
 FQrgetlines(const FBresult *res,
 			int row_number)
 {
-	if(!res)
+	if (!res)
 		return -1;
 
-	if(row_number >= res->ntups)
+	if (row_number >= res->ntups)
 		return -1;
 
 	return res->tuples[row_number]->max_lines;
@@ -2743,7 +2745,7 @@ FQresultErrorFieldsAsString(const FBresult *res, char *prefix)
 		appendFQExpBuffer(&buf, mfield->value);
 
 		mfield = mfield->prev;
-	} while( mfield != NULL);
+	} while ( mfield != NULL);
 
 	str = (char *)malloc(strlen(buf.data) + 1);
 	memcpy(str, buf.data, strlen(buf.data) + 1);
@@ -3363,7 +3365,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
                 seg[actual_seg_len] = '\0';
                 appendFQExpBufferStr(&blob_output, seg);
                 free(seg);
-            } while(blob_status == 0 || conn->status[1] == isc_segment);
+            } while (blob_status == 0 || conn->status[1] == isc_segment);
 
             p = (char *)malloc(strlen(blob_output.data) + 1);
             memcpy(p, blob_output.data, strlen(blob_output.data) + 1);
@@ -3409,7 +3411,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 	   bool get_dsp_len = false;
 		tuple_att->len = strlen(p);
 
-		if(conn->get_dsp_len == true)
+		if (conn->get_dsp_len == true)
 		{
 			switch(datatype)
 			{
@@ -3425,7 +3427,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			}
 		}
 
-		if(get_dsp_len == true)
+		if (get_dsp_len == true)
 		{
 			tuple_att->dsplen = FQdspstrlen(tuple_att->value, FQclientEncodingId(conn));
 			tuple_att->dsplen_line = _FQdspstrlen_line(tuple_att, FQclientEncodingId(conn));
@@ -3822,15 +3824,15 @@ _FQdspstrlen_line(FQresTupleAtt *att, short encoding_id)
 	int max_len = 0;
 	int cur_len = 0;
 
-	while(ptr[0] != '\0')
+	while (ptr[0] != '\0')
 	{
-		if(ptr[0] == '\n'
-		|| ptr[0] == '\r'
+		if (ptr[0] == '\n'
+		||  ptr[0] == '\r'
 		|| (ptr[0] == '\n' && ptr[1] == '\r')
 		|| (ptr[0] == '\r' && ptr[1] == '\n')
 		)
 		{
-			if(cur_len > max_len)
+			if (cur_len > max_len)
 				max_len = cur_len;
 
 			cur_len = 0;
