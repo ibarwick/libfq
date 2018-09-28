@@ -1,7 +1,7 @@
 # libfq - configure.ac
 
 AC_PREREQ([2.59])
-AC_INIT([libfq], [0.2.0], [barwick@gmail.com])
+AC_INIT([libfq], [0.3.0], [barwick@gmail.com])
 
 AC_CONFIG_AUX_DIR([config])
 AM_INIT_AUTOMAKE([-Wall foreign])
