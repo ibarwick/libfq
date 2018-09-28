@@ -1,5 +1,11 @@
 Revision history for libfq
 
+0.3.0	2018-09-28
+	- Refactor FQexecParams() result handling
+	- Improve error message handling
+	- Clean up memory handling
+	- Add initial support for retrieving text BLOBs
+
 0.2.0	2018-04-21
 	- Add DocBook reference documentation
 	- Add functions to return libfq version information
