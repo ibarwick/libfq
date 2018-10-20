@@ -1,5 +1,8 @@
 Revision history for libfq
 
+0.4.0	2018-10-??
+	- support BOOLEAN datatype (Firebird 3 and later)
+
 0.3.0	2018-09-28
 	- Refactor FQexecParams() result handling
 	- Improve error message handling

@@ -824,6 +824,13 @@ _FQexecInitOutputSQLDA(FBconn *conn, FBresult *result)
 				var->sqldata = (char *)malloc(sizeof(ISC_QUAD));
 				break;
 
+#if defined SQL_BOOLEAN
+			/* Firebird 3.0 and later */
+			case SQL_BOOLEAN:
+				var->sqldata = (char *)malloc(sizeof(FB_BOOLEAN));
+				break;
+#endif
+
 			default:
 				sprintf(error_message, "Unhandled sqlda_out type: %i", sqltype);
 
@@ -1591,6 +1598,13 @@ _FQexecParams(FBconn *conn,
 					size = sizeof(ISC_QUAD);
 					break;
 
+#if defined SQL_BOOLEAN
+				/* Firebird 3.0 and later */
+				case SQL_BOOLEAN:
+					size = sizeof(FB_BOOLEAN);
+					break;
+#endif
+
 				default:
 					sprintf(error_message, "Unhandled sqlda_in type: %i", dtype);
 
@@ -1887,21 +1901,33 @@ _FQexecParams(FBconn *conn,
 					while (ptr < paramValues[i] + len)
 					{
 						int seg_len = BLOB_SEGMENT_LEN;
+
 						if (ptr + seg_len > (paramValues[i] + len))
 						{
 							seg_len = (paramValues[i] + len) - ptr;
 						}
+
 						isc_put_segment(
 							conn->status,
 							&blob_handle,
 							seg_len,
-							ptr
-							);
+							ptr);
+
 						ptr += BLOB_SEGMENT_LEN;
 					}
 					isc_close_blob(conn->status, &blob_handle);
 					break;
 				}
+
+#if defined SQL_BOOLEAN
+				/* Firebird 3.0 and later */
+				case SQL_BOOLEAN:
+					var->sqldata = (char *)malloc(sizeof(FB_BOOLEAN));
+					var->sqllen = sizeof(FB_BOOLEAN);
+
+					*var->sqldata =  *(FB_BOOLEAN*)paramValues[i];
+					break;
+#endif
 
 				default:
 					sprintf(error_message, "Unhandled sqlda_in type: %i", dtype);
@@ -1915,6 +1941,7 @@ _FQexecParams(FBconn *conn,
 					return result;
 			}
 		}
+
 		if (var->sqltype & 1)
 		{
 			/* allocate variable to hold NULL status */
@@ -3376,6 +3403,14 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 
             break;
         }
+
+#if defined SQL_BOOLEAN
+		/* Firebird 3.0 and later */
+		case SQL_BOOLEAN:
+			p = (char *)malloc(2);
+			sprintf(p, "%c", *var->sqldata == FB_TRUE ? 't' : 'f');
+			break;
+#endif
 
 		/* Special case for RDB$DB_KEY:
 		 * copy byte values individually, don't treat as string
