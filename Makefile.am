@@ -4,7 +4,7 @@ AUTOMAKE_OPTIONS = subdir-objects
 
 SUBDIRS = src
 
-ACLOCAL_AMFLAGS = -I m4
+#ACLOCAL_AMFLAGS = -I m4
 
 AM_CPPFLAGS        = -I$(top_builddir)/include -I$(ibase)
 
