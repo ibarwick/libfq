@@ -1925,7 +1925,21 @@ _FQexecParams(FBconn *conn,
 					var->sqldata = (char *)malloc(sizeof(FB_BOOLEAN));
 					var->sqllen = sizeof(FB_BOOLEAN);
 
-					*var->sqldata =  *(FB_BOOLEAN*)paramValues[i];
+					if (strncasecmp(paramValues[i], "0", 1) == 0)
+						*var->sqldata = FB_FALSE;
+					else if (strncasecmp(paramValues[i], "1", 1) == 0)
+						*var->sqldata = FB_TRUE;
+					else if (strncasecmp(paramValues[i], "false", 5) == 0)
+						*var->sqldata = FB_FALSE;
+					else if (strncasecmp(paramValues[i], "f", 1) == 0)
+						*var->sqldata = FB_FALSE;
+					else if (strncasecmp(paramValues[i], "true", 4) == 0)
+						*var->sqldata = FB_TRUE;
+					else if (strncasecmp(paramValues[i], "t", 1) == 0)
+						*var->sqldata = FB_TRUE;
+					else
+						*var->sqldata = FB_FALSE;
+
 					break;
 #endif
 
