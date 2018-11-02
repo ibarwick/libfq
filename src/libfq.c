@@ -2100,6 +2100,21 @@ _FQstoreResult(FBresult *result, FBconn *conn, int num_rows)
 				memcpy(desc->alias, var1->aliasname, desc->alias_len + 1);
 				desc->alias_dsplen = FQdspstrlen(desc->alias, FQclientEncodingId(conn));
 			}
+
+			/* store table name, if set */
+			if (var1->relname_length)
+			{
+				desc->relname_len = var1->relname_length;
+				desc->relname = (char *)malloc(desc->relname_len + 1);
+				memset(desc->relname, '\0', desc->relname_len + 1);
+				strncpy(desc->relname, var1->relname, desc->relname_len);
+			}
+			else
+			{
+				desc->relname_len = 0;
+				desc->relname = NULL;
+			}
+
 			desc->att_max_len = 0;
 			desc->att_max_line_len = 0;
 
@@ -2938,7 +2953,6 @@ _FQsaveMessageField(FBresult *res, FQdiagType code, const char *value, ...)
 	char buffer[2048];
 	int buflen = 0;
 
-
 	va_start(argp, value);
 	vsnprintf(buffer, 2048, value, argp);
 	va_end(argp);
@@ -3518,6 +3532,9 @@ FQclear(FBresult *result)
 
 					if (result->header[i]->alias != NULL)
 						free(result->header[i]->alias);
+
+					if (result->header[i]->relname != NULL)
+						free(result->header[i]->relname);
 
 					free(result->header[i]);
 				}

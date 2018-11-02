@@ -229,16 +229,18 @@ typedef struct FBconn {
 /* Stores metadata for a tuple attribute (column) */
 typedef struct FQresTupleAttDesc
 {
-    char  *desc;         /* column name */
-    short  desc_len;     /* length of column name */
-    short  desc_dsplen;  /* display length of column name in single characters */
-    char  *alias;        /* column alias, if provided */
-    short  alias_len;    /* length of column alias */
-    short  alias_dsplen; /* display length of alias name in single characters */
-    int    att_max_len;  /* max length of value in column */
-    int    att_max_line_len; /* max length of line in text column */
-    short  type;         /* datatype */
-    bool   has_null;     /* indicates if resultset contains at least one NULL */
+    char  *desc;				/* column name */
+    short  desc_len;			/* length of column name */
+    short  desc_dsplen;			/* display length of column name in single characters */
+    char  *alias;				/* column alias, if provided */
+    short  alias_len;			/* length of column alias */
+    short  alias_dsplen;		/* display length of alias name in single characters */
+    char  *relname;				/* table name from whence the column is derived */
+    short  relname_len;			/* length of table name  */
+    int	   att_max_len;			/* max length of value in column */
+    int    att_max_line_len;	/* max length of line in text column */
+    short  type;				/* datatype */
+    bool   has_null;			/* indicates if resultset contains at least one NULL */
 } FQresTupleAttDesc;
 
 
@@ -278,10 +280,11 @@ typedef struct fbMessageField
 /* Initialised with _FQinitResult() */
 typedef struct FBresult
 {
-	XSQLDA *sqlda_out;				/* Pointer to a Firebird XSQLDA structure used to hold output tuple information */
-	XSQLDA *sqlda_in;				/* Pointer to a Firebird XSQLDA structure used to hold data for prepared statements */
-									/* NOTE: the XSQLDA pointers are only used during query execution and will be
-									 * freed once execution has completed; see _FQexecClearResult() */
+	XSQLDA *sqlda_out;				/* Pointer to a Firebird XSQLDA structure used to hold output tuple information. */
+	XSQLDA *sqlda_in;				/* Pointer to a Firebird XSQLDA structure used to hold data for prepared statements.
+									 * NOTE: the XSQLDA pointers are only used during query execution and will be
+									 * freed once execution has completed; see _FQexecClearResult().
+									 */
 	isc_stmt_handle stmt_handle;
 	FQexecStatusType resultStatus;
 	int ntups;						/* The number of rows (tuples) returned by a query.
