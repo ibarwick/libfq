@@ -17,13 +17,13 @@ the API definitions may change in an incompatible way.
 Requirements and compatibility
 ------------------------------
 
-`libfq` should work on any reasonably POSIX-like system; see the `INSTALL.md`
-file for details.
+`libfq` should work on any reasonably POSIX-like system; see the
+[INSTALL.md](INSTALL.md) file for details.
 
-It has been developed against Firebird 2.5.7, and should work with
-any 2.5-series servers. A quick test has shown it works with Firebird 3,
-but as yet no susbtantial testing has been carried out. It has not been
-tested against Firebird 2.1 or earlier.
+It has been developed against Firebird 2.5 and Firebird 3, and should
+work with Firebird 2.1 and later. It supports the `BOOLEAN` datatype
+introduced in Firebird 3.
+
 
 Installation
 ------------
@@ -35,16 +35,21 @@ available via the Fedora "copr" build system; for details see here:
 For installation from source, see file [INSTALL.md](INSTALL.md).
 
 
+Applications
+------------
+
+Following applications make use of `libfq`:
+
+- [firebird_fdw](https://github.com/ibarwick/firebird_fdw) - a foreign data wrapper for PostgreSQL
+- [fbsql](https://github.com/ibarwick/fbsql) - a command-line client inspired by PostgreSQL's `psql`
+
+
 KNOWN ISSUES
 ------------
 
-* Compatibility:
-  - tested on Linux and OS X
-  - should work on other reasonably POSIX-compatible systems
-  - untested on Windows
-
 * Data types
-  - `BLOB` and `ARRAY` datatypes are currently not handled
+  - `BLOB` (other than `SUB_TYPE TEXT`) not supported
+  - `ARRAY` datatype currently not handled
 
 * Parameterized queries (function `FQexecParams()`):
   - `NUMERIC`/`DECIMAL`: may overflow if more digits than permitted are supplied
