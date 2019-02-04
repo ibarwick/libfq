@@ -541,15 +541,21 @@ _FQserverVersionInit(FBconn *conn)
 		if (FQresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
 		{
 			int major, minor, revision;
-			char buf[10];
+			char buf[10] = "";
 			int engine_version_len = sizeof(FQgetvalue(res, 0, 0));
 
 			conn->engine_version = malloc(engine_version_len + 1);
 			strncpy(conn->engine_version, FQgetvalue(res, 0, 0), engine_version_len);
 			conn->engine_version[engine_version_len] = '\0';
 
-			sscanf(conn->engine_version, "%i.%i.%i", &major, &minor, &revision);
-			sprintf(buf, "%d%02d%02d", major, minor, revision);
+			if (sscanf(conn->engine_version, "%i.%i.%i", &major, &minor, &revision) == 3)
+			{
+				sprintf(buf, "%d%02d%02d", major, minor, revision);
+			}
+			else
+			{
+				sprintf(buf, "0");
+			}
 			conn->engine_version_number = atoi(buf);
 		}
 		else
@@ -3506,9 +3512,12 @@ _FQdeparseDbKey(const char *db_key)
 	{
 		sprintf(buf, "%c%c", inptr[0], inptr[1]);
 
-		sscanf(buf, "%02X", (unsigned int *)outptr);
-
-		outptr++;
+		/*
+		 * it's highly unlikely that the buffer will contain anything other than
+		 * two hexadecimal digits
+		 */
+		if (sscanf(buf, "%02X", (unsigned int *)outptr) == 1)
+			outptr++;
 	}
 
 	return (char *)deparsed_value;
