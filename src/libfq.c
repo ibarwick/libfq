@@ -2833,12 +2833,17 @@ _FQsetResultError(FBconn *conn, FBresult *res)
 
 			if (sscanf(msg, "%m[^-]- line %d, column %d", &message_part, &line, &col) == 3)
 			{
+				int msg_len = strlen(message_part);
+
+				if (msg_len >= ERROR_BUFFER_LEN)
+					msg_len = ERROR_BUFFER_LEN - 1;
+
 				res->errLine = line;
 				res->errCol = col;
 
 				memset(msg, '\0', ERROR_BUFFER_LEN);
 
-				strncpy(msg, message_part, strlen(message_part));
+				strncpy(msg, message_part, msg_len);
 				free(message_part);
 			}
 		}
