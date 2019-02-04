@@ -3658,7 +3658,6 @@ FQexplainStatement(FBconn *conn, const char *stmt)
 	if (!conn)
 	{
 		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - invalid connection");
-		_FQsetResultError(conn, result);
 
 		FQclear(result);
 		return NULL;
