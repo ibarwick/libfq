@@ -163,6 +163,10 @@ FQconnectdbParams(const char * const *keywords,
 		i++;
 	}
 
+	/* db_path is required */
+	if (db_path == NULL)
+		return NULL;
+
 	/* initialise libfq's connection struct */
 	conn = (FBconn *)malloc(sizeof(FBconn));
 
