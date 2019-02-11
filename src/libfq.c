@@ -3572,7 +3572,7 @@ FQclear(FBresult *result)
 
 				FQresTuple *tuple_next = tuple_ptr->next;
 
-				if (!tuple_ptr)
+				if (!tuple_next)
 					break;
 
 				for (j = 0; j < result->ncols; j++)
