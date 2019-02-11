@@ -3173,7 +3173,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			vary2 = (VARY2*)var->sqldata;
 			p = (char *)malloc(vary2->vary_length + 1);
 			vary2->vary_string[vary2->vary_length] = '\0';
-			memcpy(p, vary2->vary_string, strlen(vary2->vary_string) + 1);
+			memcpy(p, vary2->vary_string, strlen((const char *)vary2->vary_string) + 1);
 			break;
 
 		case SQL_SHORT:
@@ -3745,7 +3745,7 @@ FQmblen(const char *s, short encoding_id)
 	switch(encoding_id)
 	{
 		case FBENC_UTF8:
-			len = pg_utf_mblen(s);
+			len = pg_utf_mblen((const unsigned char *)s);
 			break;
 	}
 
@@ -3794,7 +3794,7 @@ FQdspstrlen(const char *s, short encoding_id)
 		if (len < (size_t) chlen)
 			break;
 
-		w = FQdsplen(s, encoding_id);
+		w = FQdsplen((const unsigned char *)s, encoding_id);
 		dsplen += w;
 		len -= chlen;
 	}
