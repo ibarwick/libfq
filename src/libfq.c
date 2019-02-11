@@ -1757,19 +1757,29 @@ _FQexecParams(FBconn *conn,
 					{
 						unsigned char *sqlptr;
 						unsigned char *srcptr;
+						unsigned char *srcptr_ix;
+						unsigned char *srcptr_parsed;
 						int ix = 0;
 
 						srcptr = (unsigned char *)_FQdeparseDbKey(paramValues[i]);
-						FQlog(conn, DEBUG1, "srcptr %s",  _FQparseDbKey((char *)srcptr));
+
+						srcptr_parsed = _FQparseDbKey((char *)srcptr);
+						FQlog(conn, DEBUG1, "srcptr %s", srcptr_parsed);
+						free(srcptr_parsed);
+
 						len = 8;
 						var->sqllen = len;
 						var->sqldata = (char *)malloc(len);
+
 						sqlptr = (unsigned char *)var->sqldata ;
+						srcptr_ix = srcptr;
 
 						for (ix = 0; ix < len; ix++)
 						{
-							*sqlptr++ = *srcptr++;
+							*sqlptr++ = *srcptr_ix++;
 						}
+
+						free(srcptr);
 					}
 					else
 					{
@@ -3685,6 +3695,8 @@ FQexplainStatement(FBconn *conn, const char *stmt)
 	{
 		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_sql_info");
 		_FQsetResultError(conn, result);
+
+		FQclear(result);
 
 		return NULL;
 	}
