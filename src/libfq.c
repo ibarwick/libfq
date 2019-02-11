@@ -2083,7 +2083,7 @@ _FQstoreResult(FBresult *result, FBconn *conn, int num_rows)
 	tuple_next->position = num_rows;
 	tuple_next->max_lines = 1;
 	tuple_next->next = NULL;
-	tuple_next->values = malloc(sizeof(FQresTupleAtt) * result->ncols);
+	tuple_next->values = malloc(sizeof(FQresTupleAtt *) * result->ncols);
 
 	/* store header information */
 	if (num_rows == 0)
@@ -3343,7 +3343,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
                     blob_segment          /* segment buffer */
                     );
 
-                seg = (char *)malloc(sizeof(char *) * (actual_seg_len + 1));
+                seg = (char *)malloc(sizeof(char) * (actual_seg_len + 1));
                 memcpy(seg, blob_segment, actual_seg_len);
                 seg[actual_seg_len] = '\0';
                 appendFQExpBufferStr(&blob_output, seg);
