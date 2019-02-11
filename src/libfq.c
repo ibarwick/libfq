@@ -2988,7 +2988,6 @@ _FQsaveMessageField(FBresult *res, FQdiagType code, const char *value, ...)
 	if (mfield->value == NULL)
 	{
 		free(mfield);
-		mfield->value = NULL;
 		return;
 	}
 
