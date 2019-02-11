@@ -1794,7 +1794,8 @@ _FQexecParams(FBconn *conn,
 
 				case SQL_BLOB:
 				{
-					isc_blob_handle blob_handle;
+					/* must be initialised to NULL */
+					isc_blob_handle blob_handle = NULL;
 					char *ptr = (char *)paramValues[i];
 
 					len = strlen(paramValues[i]);
@@ -3298,7 +3299,8 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
         {
             ISC_QUAD *blob_id = (ISC_QUAD *)var->sqldata;
 
-            isc_blob_handle blob_handle;
+            /* must be initialised to NULL */
+            isc_blob_handle blob_handle = NULL;
             char blob_segment[BLOB_SEGMENT_LEN];
             unsigned short actual_seg_len;
             ISC_STATUS blob_status;
