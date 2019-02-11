@@ -415,7 +415,6 @@ FQstatus(FBconn *conn)
 	};
 
 	char res_buffer[40];
-	char *p;
 
 	/* connection object not initialised, or database handle was never set */
 	if (conn == NULL || conn->db == 0L)
@@ -435,7 +434,6 @@ FQstatus(FBconn *conn)
 	{
 		return CONNECTION_BAD;
 	}
-
 
 	return CONNECTION_OK;
 }
@@ -942,7 +940,6 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 
 	int			  num_rows = 0;
 	long		  fetch_stat;
-	short		  i;
 
 	bool		  temp_trans = false;
 
@@ -1459,7 +1456,6 @@ _FQexecParams(FBconn *conn,
 	for (i = 0, var = result->sqlda_in->sqlvar; i < result->sqlda_in->sqld; i++, var++)
 	{
 		int dtype = (var->sqltype & ~1); /* drop flag bit for now */
-		struct tm tm;
 
 		int len = 0;
 
@@ -3832,7 +3828,6 @@ _FQdspstrlen_line(FQresTupleAtt *att, short encoding_id)
 				max_len = cur_len;
 
 			cur_len = 0;
-			att->lines;
 		}
 		else
 		{
