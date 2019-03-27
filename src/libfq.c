@@ -2206,18 +2206,23 @@ FQexecTransaction(FBconn *conn, const char *stmt)
 
 	if (!conn)
 	{
+		result->resultStatus = FBRES_FATAL_ERROR;
+
 		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - invalid connection object");
 		_FQsetResultError(conn, result);
 
-		return NULL;
+		return result;
 	}
 
 	if (_FQstartTransaction(conn, &conn->trans_internal) == TRANS_ERROR)
 	{
-		/* XXX todo: set error, return result */
+		result->resultStatus = FBRES_FATAL_ERROR;
+
+		/* XXX todo: set error */
 		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "transaction error");
 		isc_print_status(conn->status);
-		return NULL;
+
+		return result;
 	}
 
 	result = _FQexec(conn, &conn->trans_internal, stmt);
