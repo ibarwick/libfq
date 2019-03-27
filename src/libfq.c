@@ -56,7 +56,7 @@ static void _FQstoreResult(FBresult *result, FBconn *conn, int num_rows);
 static char *_FQlogLevel(short errlevel);
 static void _FQsetResultError(FBconn *conn, FBresult *res);
 static void _FQsetResultNonFatalError(const FBconn *conn, FBresult *res, short errlevel, char *msg);
-static void _FQsaveMessageField(FBresult *res, FQdiagType code, const char *value, ...);
+static void _FQsaveMessageField(FBresult **res, FQdiagType code, const char *value, ...);
 static char *_FQdeparseDbKey(const char *db_key);
 static char *_FQparseDbKey(const char *db_key);
 
@@ -710,6 +710,7 @@ _FQinitResult(bool init_sqlda_in)
 	result->fbSQLCODE = -1L;
 	result->errLine = -1;
 	result->errCol = -1;
+
 	return result;
 }
 
@@ -843,7 +844,7 @@ _FQexecInitOutputSQLDA(FBconn *conn, FBresult *result)
 				sprintf(error_message, "Unhandled sqlda_out type: %i", sqltype);
 
 				_FQsetResultError(conn, result);
-				_FQsaveMessageField(result, FB_DIAG_DEBUG, error_message);
+				_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message);
 
 				result->resultStatus = FBRES_FATAL_ERROR;
 
@@ -949,7 +950,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 	if (isc_dsql_allocate_statement(conn->status, &conn->db, &result->stmt_handle))
 	{
 		result->resultStatus = FBRES_FATAL_ERROR;
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_allocate_statement");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_allocate_statement");
 		_FQsetResultError(conn, result);
 
 		_FQexecClearResult(result);
@@ -969,7 +970,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 	/* Prepare the statement. */
 	if (isc_dsql_prepare(conn->status, trans, &result->stmt_handle, 0, stmt, SQL_DIALECT_V6, result->sqlda_out))
 	{
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_prepare");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_prepare");
 
 		_FQsetResultError(conn, result);
 
@@ -991,7 +992,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 	/* Determine the statement's type */
 	if (isc_dsql_sql_info(conn->status, &result->stmt_handle, sizeof (stmt_info), stmt_info, sizeof (info_buffer), info_buffer))
 	{
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_sql_info");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_sql_info");
 
 		_FQsetResultError(conn, result);
 
@@ -1086,7 +1087,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 			if (isc_dsql_execute(conn->status, trans,  &result->stmt_handle, SQL_DIALECT_V6, NULL))
 			{
 				_FQrollbackTransaction(conn, trans);
-				_FQsaveMessageField(result, FB_DIAG_DEBUG, "error executing DDL");
+				_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error executing DDL");
 				_FQsetResultError(conn, result);
 
 				result->resultStatus = FBRES_FATAL_ERROR;
@@ -1118,7 +1119,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 		if (isc_dsql_execute(conn->status, trans,  &result->stmt_handle, SQL_DIALECT_V6, NULL))
 		{
 			FQlog(conn, DEBUG1, "error executing non-SELECT");
-			_FQsaveMessageField(result, FB_DIAG_DEBUG, "error executing non-SELECT");
+			_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error executing non-SELECT");
 			_FQsetResultError(conn, result);
 
 			result->resultStatus = FBRES_FATAL_ERROR;
@@ -1149,7 +1150,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 	if (isc_dsql_describe(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out))
 	{
 		_FQsetResultError(conn, result);
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "isc_dsql_describe");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "isc_dsql_describe");
 
 		result->resultStatus = FBRES_FATAL_ERROR;
 
@@ -1174,7 +1175,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 		if (isc_dsql_describe(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out))
 		{
 			_FQsetResultError(conn, result);
-			_FQsaveMessageField(result, FB_DIAG_DEBUG, "isc_dsql_describe");
+			_FQsaveMessageField(&result, FB_DIAG_DEBUG, "isc_dsql_describe");
 
 			result->resultStatus = FBRES_FATAL_ERROR;
 
@@ -1189,7 +1190,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 
 	if (isc_dsql_execute(conn->status, trans, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out))
 	{
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "isc_dsql_execute error");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "isc_dsql_execute error");
 
 		result->resultStatus = FBRES_FATAL_ERROR;
 		_FQsetResultError(conn, result);
@@ -1329,7 +1330,7 @@ _FQexecParams(FBconn *conn,
 	if (isc_dsql_alloc_statement2(conn->status, &conn->db, &result->stmt_handle))
 	{
 		result->resultStatus = FBRES_FATAL_ERROR;
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_allocate_statement");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_allocate_statement");
 		_FQsetResultError(conn, result);
 
 		_FQexecClearResult(result);
@@ -1350,7 +1351,7 @@ _FQexecParams(FBconn *conn,
 	/* Prepare the statement. */
 	if (isc_dsql_prepare(conn->status, trans, &result->stmt_handle, 0, stmt, SQL_DIALECT_V6, NULL))
 	{
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_prepare");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_prepare");
 
 		_FQsetResultError(conn, result);
 
@@ -1371,7 +1372,7 @@ _FQexecParams(FBconn *conn,
 	/* Determine the statement's type */
 	if (isc_dsql_sql_info(conn->status, &result->stmt_handle, sizeof (stmt_info), stmt_info, sizeof (info_buffer), info_buffer))
 	{
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_sql_info");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_sql_info");
 
 		_FQsetResultError(conn, result);
 
@@ -1397,7 +1398,7 @@ _FQexecParams(FBconn *conn,
 			break;
 
 		default:
-			_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - stmt type is not DML");
+			_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - stmt type is not DML");
 
 			_FQsetResultError(conn, result);
 
@@ -1410,7 +1411,7 @@ _FQexecParams(FBconn *conn,
 
 	if (isc_dsql_describe_bind(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_in))
 	{
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_describe_bind");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_describe_bind");
 		_FQsetResultError(conn, result);
 		result->resultStatus = FBRES_FATAL_ERROR;
 
@@ -1527,7 +1528,7 @@ _FQexecParams(FBconn *conn,
 					sprintf(error_message, "Unhandled sqlda_in type: %i", dtype);
 
 					_FQsetResultError(conn, result);
-					_FQsaveMessageField(result, FB_DIAG_DEBUG, error_message);
+					_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message);
 
 					result->resultStatus = FBRES_FATAL_ERROR;
 
@@ -1876,7 +1877,7 @@ _FQexecParams(FBconn *conn,
 					sprintf(error_message, "Unhandled sqlda_in type: %i", dtype);
 
 					_FQsetResultError(conn, result);
-					_FQsaveMessageField(result, FB_DIAG_DEBUG, error_message);
+					_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message);
 
 					result->resultStatus = FBRES_FATAL_ERROR;
 
@@ -1897,7 +1898,7 @@ _FQexecParams(FBconn *conn,
 	if (isc_dsql_describe(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out))
 	{
 		_FQsetResultError(conn, result);
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "isc_dsql_describe");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "isc_dsql_describe");
 
 		result->resultStatus = FBRES_FATAL_ERROR;
 		_FQexecClearResult(result);
@@ -1916,7 +1917,7 @@ _FQexecParams(FBconn *conn,
 		{
 			FQlog(conn, DEBUG1, "isc_dsql_execute(): error");
 
-			_FQsaveMessageField(result, FB_DIAG_DEBUG, "isc_dsql_execute() error");
+			_FQsaveMessageField(&result, FB_DIAG_DEBUG, "isc_dsql_execute() error");
 
 			_FQsetResultError(conn, result);
 			result->resultStatus = FBRES_FATAL_ERROR;
@@ -1972,7 +1973,7 @@ _FQexecParams(FBconn *conn,
 
 	if (exec_result)
 	{
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "isc_dsql_execute2() error");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "isc_dsql_execute2() error");
 
 		result->resultStatus = FBRES_FATAL_ERROR;
 		_FQsetResultError(conn, result);
@@ -1999,7 +2000,7 @@ _FQexecParams(FBconn *conn,
 	if (0 && isc_dsql_set_cursor_name(conn->status, &result->stmt_handle, "dyn_cursor", 0))
 	{
 		_FQsetResultError(conn, result);
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, error_message);
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message);
 
 		result->resultStatus = FBRES_FATAL_ERROR;
 
@@ -2036,7 +2037,7 @@ _FQexecParams(FBconn *conn,
 	 */
 	if (0 && fetch_stat != 100L && fetch_stat != isc_req_sync)
 	{
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_fetch reported %lu", fetch_stat);
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_fetch reported %lu", fetch_stat);
 
 		_FQsetResultError(conn, result);
 
@@ -2052,7 +2053,7 @@ _FQexecParams(FBconn *conn,
 
 	if (isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop))
 	{
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_free_statement");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_free_statement");
 
 		_FQsetResultError(conn, result);
 
@@ -2205,7 +2206,7 @@ FQexecTransaction(FBconn *conn, const char *stmt)
 
 	if (!conn)
 	{
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - invalid connection object");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - invalid connection object");
 		_FQsetResultError(conn, result);
 
 		return NULL;
@@ -2214,7 +2215,7 @@ FQexecTransaction(FBconn *conn, const char *stmt)
 	if (_FQstartTransaction(conn, &conn->trans_internal) == TRANS_ERROR)
 	{
 		/* XXX todo: set error, return result */
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "transaction error");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "transaction error");
 		isc_print_status(conn->status);
 		return NULL;
 	}
@@ -2224,7 +2225,7 @@ FQexecTransaction(FBconn *conn, const char *stmt)
 	if (FQresultStatus(result) == FBRES_FATAL_ERROR)
 	{
 		/* XXX todo: set error */
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "query execution error");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "query execution error");
 		isc_print_status(conn->status);
 		_FQrollbackTransaction(conn, &conn->trans_internal);
 	}
@@ -2235,7 +2236,7 @@ FQexecTransaction(FBconn *conn, const char *stmt)
 		if (_FQcommitTransaction(conn, &conn->trans_internal) == TRANS_ERROR)
 		{
 			/* XXX todo: set error */
-			_FQsaveMessageField(result, FB_DIAG_DEBUG, "transaction commit error");
+			_FQsaveMessageField(&result, FB_DIAG_DEBUG, "transaction commit error");
 			isc_print_status(conn->status);
 			_FQrollbackTransaction(conn, &conn->trans_internal);
 		}
@@ -2812,7 +2813,7 @@ _FQsetResultError(FBconn *conn, FBresult *res)
 	 */
 
 	fb_interpret(msg, ERROR_BUFFER_LEN, (const ISC_STATUS**) &pvector);
-	_FQsaveMessageField(res, FB_DIAG_MESSAGE_TYPE, msg);
+	_FQsaveMessageField(&res, FB_DIAG_MESSAGE_TYPE, msg);
 
 	/*
 	 * In theory, the next message returned will always be:
@@ -2883,14 +2884,14 @@ _FQsetResultError(FBconn *conn, FBresult *res)
 		}
 
 		if (skip_line == false)
-			_FQsaveMessageField(res, current_diagType, msg);
+			_FQsaveMessageField(&res, current_diagType, msg);
 
 		line++;
 	}
 
 	if (line == 0)
 	{
-		_FQsaveMessageField(res, FB_DIAG_MESSAGE_PRIMARY, FQresultErrorField(res, FB_DIAG_MESSAGE_TYPE));
+		_FQsaveMessageField(&res, FB_DIAG_MESSAGE_PRIMARY, FQresultErrorField(res, FB_DIAG_MESSAGE_TYPE));
 	}
 
 	/*
@@ -2967,7 +2968,7 @@ void _FQsetResultNonFatalError(const FBconn *conn, FBresult *res, short errlevel
  * store one field of an error or notice message
  */
 void
-_FQsaveMessageField(FBresult *res, FQdiagType code, const char *value, ...)
+_FQsaveMessageField(FBresult **res, FQdiagType code, const char *value, ...)
 {
 	va_list argp;
 	FBMessageField *mfield;
@@ -2975,17 +2976,28 @@ _FQsaveMessageField(FBresult *res, FQdiagType code, const char *value, ...)
 	char buffer[2048];
 	int buflen = 0;
 
+	/*
+	 * It's possible we're being asked to store a message in a result
+	 * which has not yet been initialised; in that case we need to initialise
+	 * it ourselces.
+	 */
+	if (*res == NULL)
+	{
+		*res = _FQinitResult(false);
+	}
+
 	va_start(argp, value);
-	vsnprintf(buffer, 2048, value, argp);
+	vsnprintf(buffer, sizeof(buffer), value, argp);
 	va_end(argp);
 
 	buflen = strlen(buffer);
 
-	mfield = (FBMessageField *)
-		malloc(sizeof(FBMessageField));
+	mfield = (FBMessageField *)malloc(sizeof(FBMessageField));
 
 	if (!mfield)
 		return;
+
+	memset(mfield, '\0', sizeof(FBMessageField));
 
 	mfield->code = code;
 	mfield->prev = NULL;
@@ -3000,10 +3012,14 @@ _FQsaveMessageField(FBresult *res, FQdiagType code, const char *value, ...)
 	memset(mfield->value, '\0', buflen + 1);
 	strncpy(mfield->value, buffer, buflen);
 
-	mfield->next = res->errFields;
+	mfield->next = (*res)->errFields;
+
 	if (mfield->next)
 		mfield->next->prev = mfield;
-	res->errFields = mfield;
+
+	(*res)->errFields = mfield;
+
+	return;
 }
 
 
@@ -3662,7 +3678,7 @@ FQexplainStatement(FBconn *conn, const char *stmt)
 
 	if (!conn)
 	{
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - invalid connection");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - invalid connection");
 
 		FQclear(result);
 		return NULL;
@@ -3671,7 +3687,7 @@ FQexplainStatement(FBconn *conn, const char *stmt)
 
 	if (isc_dsql_allocate_statement(conn->status, &conn->db, &result->stmt_handle) != 0)
 	{
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_allocate_statement");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_allocate_statement");
 		_FQsetResultError(conn, result);
 
 		FQclear(result);
@@ -3681,7 +3697,7 @@ FQexplainStatement(FBconn *conn, const char *stmt)
 	/* Prepare the statement. */
 	if (isc_dsql_prepare(conn->status, &conn->trans, &result->stmt_handle, 0, stmt, SQL_DIALECT_V6, result->sqlda_out))
 	{
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_prepare");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_prepare");
 		_FQsetResultError(conn, result);
 
 		FQclear(result);
@@ -3693,7 +3709,7 @@ FQexplainStatement(FBconn *conn, const char *stmt)
 	if (isc_dsql_sql_info(conn->status, &result->stmt_handle, sizeof(plan_info), plan_info,
 						  sizeof(plan_buffer), plan_buffer))
 	{
-		_FQsaveMessageField(result, FB_DIAG_DEBUG, "error - isc_dsql_sql_info");
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_sql_info");
 		_FQsetResultError(conn, result);
 
 		FQclear(result);
