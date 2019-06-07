@@ -6,46 +6,70 @@
   </para>
   <sect1 id="libfq-installation">
 
+    <title>Installation</title>
+
     <indexterm>
       <primary>installation</primary>
     </indexterm>
 
-    <title>Installation</title>
-    <para>
-      &libfq; should work on any UNIX-like system. Note that it requires
-      the <productname>Firebird</productname> header and client library which may be installed
-      as part of the Firebird binary package (e.g. on OS X), or which
-      need to be installed as separate packages (e.g. <literal>firebird-devel</literal>).
-    </para>
-    <para>
-      &libfq; can be installed from source in the usual way:
-      <programlisting>
+	<sect2 id="libfq-installation-packages">
+	  <title>Installation from packages</title>
+
+      <indexterm>
+		<primary>installation</primary>
+		<secondary>from packages</secondary>
+      </indexterm>
+
+	  <para>
+		RPM packages for CentOS and derivatives are available via the Fedora &quot;copr&quot; build system;
+		for details see here: <ulink url="https://copr.fedorainfracloud.org/coprs/ibarwick/libfq/">https://copr.fedorainfracloud.org/coprs/ibarwick/libfq/</ulink>
+	  </para>
+	</sect2>
+
+	<sect2 id="libfq-installation-source">
+	  <title>Installation from source</title>
+
+      <indexterm>
+		<primary>installation</primary>
+		<secondary>from source</secondary>
+      </indexterm>
+
+      <para>
+		It should be possible to build &libfq; pn any UNIX-like system. Note that
+		the <productname>Firebird</productname> header and client library is required,
+		which may be installed as part of the Firebird binary package (e.g. on OS X), or which
+		need to be installed as separate packages (e.g. <literal>firebird-devel</literal>).
+      </para>
+
+      <para>
+		&libfq; can be installed from source in the usual way:
+		<programlisting>
            ./configure
            make
            make install
-      </programlisting>
+		</programlisting>
       The usual configuration options can be specified.
-    </para>
-    <para>
-      Note that &libfq; requires <productname>Firebird</productname>'s <filename>ibase.h</filename>
-      header file, which can be in a non-standard location. Specify its path either with the
-      <varname>CFLAGS</varname> environment variable or the configure option <option>--with-ibase=DIR</option>.
-    </para>
-    <para>
-      Typical locations for <filename>ibase.h</filename> include:
-    </para>
-    <itemizedlist spacing="compact" mark="bullet">
-      <listitem>
-        <simpara>
-          <productname>CentOS</productname>, <productname>OpenSuSE</productname>: <filename>/usr/include/firebird/</filename>
-        </simpara>
-      </listitem>
-      <listitem>
-        <simpara>
-          <productname>OS X</productname>: <filename>/Library/Frameworks/Firebird.framework/Versions/A/Headers/</filename>
-        </simpara>
-      </listitem>
-    </itemizedlist>
-
+      </para>
+      <para>
+		Note that &libfq; requires <productname>Firebird</productname>'s <filename>ibase.h</filename>
+		header file, which can be in a non-standard location. Specify its path either with the
+		<varname>CFLAGS</varname> environment variable or the configure option <option>--with-ibase=DIR</option>.
+      </para>
+      <para>
+		Typical locations for <filename>ibase.h</filename> include:
+      </para>
+      <itemizedlist spacing="compact" mark="bullet">
+		<listitem>
+          <simpara>
+			<productname>CentOS</productname>, <productname>OpenSuSE</productname>: <filename>/usr/include/firebird/</filename>
+          </simpara>
+		</listitem>
+		<listitem>
+          <simpara>
+			<productname>OS X</productname>: <filename>/Library/Frameworks/Firebird.framework/Versions/A/Headers/</filename>
+          </simpara>
+		</listitem>
+      </itemizedlist>
+	</sect2>
   </sect1>
 </chapter>

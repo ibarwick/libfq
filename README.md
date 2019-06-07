@@ -34,6 +34,13 @@ available via the Fedora "copr" build system; for details see here:
 
 For installation from source, see file [INSTALL.md](INSTALL.md).
 
+Documentation
+-------------
+
+`sgml` documentation is available in the `doc` subdirectory and can be built
+with the `Makefile` contained therein.
+
+An online version of the documentation is available here: [libfq documentation](https://libfq.sql-info.de/)
 
 Applications
 ------------

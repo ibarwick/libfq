@@ -19,7 +19,7 @@
 
     <abstract>
       <para>
-        This is the official documentation of libfq for use with Firebird 2.x.
+        This is the official documentation of libfq for use with Firebird 2.x and later.
         It describes the functionality supported by the current version of &libfq;.
       </para>
     </abstract>
