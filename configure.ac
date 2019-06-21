@@ -9,6 +9,8 @@ AC_CONFIG_AUX_DIR([config])
 AM_INIT_AUTOMAKE([-Wall foreign])
 
 ibase=/usr/include
+fbclient=/usr/lib
+
 AC_SUBST(ibase)
 
 AC_PROG_CC

@@ -2806,6 +2806,8 @@ am__tar='$${TAR-tar} chof - "$$tardir"' am__untar='$${TAR-tar} xf -'
 
 
 ibase=/usr/include
+fbclient=/usr/lib
+
 
 
 ac_ext=c
