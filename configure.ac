@@ -9,7 +9,10 @@ AC_CONFIG_AUX_DIR([config])
 AM_INIT_AUTOMAKE([-Wall foreign])
 
 ibase=/usr/include
+fbclient=/usr/lib
+
 AC_SUBST(ibase)
+AC_SUBST(fbclient)
 
 AC_PROG_CC
 AM_PROG_AR
@@ -32,6 +35,17 @@ AC_ARG_WITH(
     ),
     [ibase="$withval"]
 )
+
+AC_ARG_WITH(
+    fbclient,
+    AS_HELP_STRING(
+        [--with-fbclient=DIR],
+        [directory containing fbclient library]
+    ),
+    [fbclient="$withval"]
+)
+
+
 
 
 

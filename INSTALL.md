@@ -12,11 +12,14 @@ need to be installed as separate packages (e.g. `firebird-devel`).
     make
     make install
 
-The usual configuration options can be specified.
+The standard configuration options can be specified.
 
-Note that `libfq` requires Firebird's `ibase.h` header file, which can
-be in a non-standard location. Specify its path either with the
-CFLAGS environment variable or the configure option `--with-ibase=DIR`.
+Additionally two custom options are available
+
+- `--with-ibase=DIR`: location of Firebird's `ibase.h` header file, which
+  is often in a non-standard location (see below)
+- `--with-fbclient=DIR`: location of the `fbclient` library, if not in
+  standard library path (e.g. `/usr/local/lib`)
 
 
 Known ibase.h locations:
@@ -26,6 +29,10 @@ OpenSuSE, CentOS/RedHat:
 
     /usr/include/firebird/
 
+FreeBSD:
+
+    /usr/local/include/
+
 OS X:
 
     /Library/Frameworks/Firebird.framework/Versions/A/Headers/
@@ -34,7 +41,7 @@ OS X:
 Linking libfq
 -------------
 
-`libfq` depends on the Firebird client library 'libfbclient'; be sure
+`libfq` depends on the Firebird client library `libfbclient`; be sure
 to link `libfq` before `libfbclient` (`-lfq -lfbclient`), and that libfbclient
 is available to the linker (on OS X it is well hidden [1]).
 

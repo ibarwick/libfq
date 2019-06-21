@@ -682,6 +682,7 @@ CPPFLAGS
 LDFLAGS
 CFLAGS
 CC
+fbclient
 ibase
 AM_BACKSLASH
 AM_DEFAULT_VERBOSITY
@@ -765,6 +766,7 @@ with_gnu_ld
 with_sysroot
 enable_libtool_lock
 with_ibase
+with_fbclient
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1417,6 +1419,7 @@ Optional Packages:
   --with-sysroot=DIR Search for dependent libraries within DIR
                         (or the compiler's sysroot if not specified).
   --with-ibase=DIR        directory containing ibase.h
+  --with-fbclient=DIR     directory containing fbclient library
 
 Some influential environment variables:
   CC          C compiler command
@@ -2804,6 +2807,9 @@ am__tar='$${TAR-tar} chof - "$$tardir"' am__untar='$${TAR-tar} xf -'
 
 
 ibase=/usr/include
+fbclient=/usr/lib
+
+
 
 
 ac_ext=c
@@ -11569,6 +11575,16 @@ if test "${with_ibase+set}" = set; then :
   withval=$with_ibase; ibase="$withval"
 
 fi
+
+
+
+# Check whether --with-fbclient was given.
+if test "${with_fbclient+set}" = set; then :
+  withval=$with_fbclient; fbclient="$withval"
+
+fi
+
+
 
 
 
