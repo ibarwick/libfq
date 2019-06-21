@@ -33,6 +33,17 @@ AC_ARG_WITH(
     [ibase="$withval"]
 )
 
+AC_ARG_WITH(
+    fbclient,
+    AS_HELP_STRING(
+        [--with-fbclient=DIR],
+        [directory containing fbclient library]
+    ),
+    [fbclient="$withval"]
+)
+
+
+
 
 
 AC_OUTPUT
