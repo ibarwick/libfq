@@ -12,6 +12,7 @@ ibase=/usr/include
 fbclient=/usr/lib
 
 AC_SUBST(ibase)
+AC_SUBST(fbclient)
 
 AC_PROG_CC
 AM_PROG_AR

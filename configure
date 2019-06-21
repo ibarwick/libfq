@@ -682,6 +682,7 @@ CPPFLAGS
 LDFLAGS
 CFLAGS
 CC
+fbclient
 ibase
 AM_BACKSLASH
 AM_DEFAULT_VERBOSITY
@@ -2807,6 +2808,7 @@ am__tar='$${TAR-tar} chof - "$$tardir"' am__untar='$${TAR-tar} xf -'
 
 ibase=/usr/include
 fbclient=/usr/lib
+
 
 
 
