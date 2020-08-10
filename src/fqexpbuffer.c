@@ -8,10 +8,16 @@
  *
  * This module is essentially a copy of PostgreSQL's pqexpbuffer.c; see:
  *
- *   http://git.postgresql.org/gitweb/?p=postgresql.git;f=src/interfaces/libpq/pqexpbuffer.c;hb=HEAD
+ *   https://git.postgresql.org/gitweb/?p=postgresql.git;f=src/interfaces/libpq/pqexpbuffer.c;hb=HEAD
  *
  * Note that this library relies on vsnprintf() and will not work if a
  * suitable implementation is not available.
+ *
+ * Copyright (c) 2013-2020 Ian Barwick
+ *
+ * This software is released under the PostgreSQL Licence
+ *
+ * Author: Ian Barwick <barwick@gmail.com>
  *
  * Portions Copyright (c) 1996-2013, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

@@ -2,8 +2,17 @@
  *
  * fqmultibyte.c - various functions for handling non-ASCII characters
  *
- * Much of this code has been shamelessly lifted from PostgreSQL and
- * falls under that project's copyright.
+ * Copyright (c) 2013-2020 Ian Barwick
+ *
+ * This software is released under the PostgreSQL Licence
+ *
+ * Author: Ian Barwick <barwick@gmail.com>
+ *
+ * Portions Copyright (c) 1996-2013, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1994, Regents of the University of California
+ *
+ * src/fqmultibyte.c
+ *
  *----------------------------------------------------------------------
  */
 
