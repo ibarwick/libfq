@@ -3728,11 +3728,12 @@ FQexplainStatement(FBconn *conn, const char *stmt)
 		return NULL;
 	}
 
-	plan_length = (short) isc_vax_integer((char *)plan_buffer + 1, 2) + 1;
+	plan_length = (short) isc_vax_integer((char *)plan_buffer + 1, 2);
 
 	if (plan_length)
 	{
 		plan_out = (char *)malloc(plan_length + 1);
+		memset(plan_out, '\0', plan_length + 1);
 		memcpy(plan_out, plan_buffer + 3, plan_length);
 	}
 
