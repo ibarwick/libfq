@@ -29,6 +29,10 @@ OpenSuSE, CentOS/RedHat:
 
     /usr/include/firebird/
 
+Debian/Ubuntu:
+
+    /usr/include/
+
 FreeBSD:
 
     /usr/local/include/
