@@ -41,7 +41,6 @@ OS X:
 
     /Library/Frameworks/Firebird.framework/Versions/A/Headers/
 
-
 Linking libfq
 -------------
 
