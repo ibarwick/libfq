@@ -1541,11 +1541,9 @@ _FQexecParams(FBconn *conn,
 					_FQexecClearResult(result);
 			}
 
+			/* var->sqldata remains NULL to indicate NULL */
 			if (size >= 0)
-			{
-				var->sqldata = (char *)malloc(size);
 				var->sqllen = size;
-			}
 		}
 		else
 		{
