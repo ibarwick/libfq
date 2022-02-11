@@ -2997,15 +2997,21 @@ _FQsaveMessageField(FBresult **res, FQdiagType code, const char *value, ...)
 		*res = _FQinitResult(false);
 	}
 
+	/*
+	 * Format the message
+	 */
 	va_start(argp, value);
 	vsnprintf(buffer, sizeof(buffer), value, argp);
 	va_end(argp);
 
 	buflen = strlen(buffer);
 
+	/*
+	 * Initialize the message field struct
+	 */
 	mfield = (FBMessageField *)malloc(sizeof(FBMessageField));
 
-	if (!mfield)
+	if (mfield == NULL)
 		return;
 
 	memset(mfield, '\0', sizeof(FBMessageField));
@@ -3021,8 +3027,16 @@ _FQsaveMessageField(FBresult **res, FQdiagType code, const char *value, ...)
 	}
 
 	memset(mfield->value, '\0', buflen + 1);
-	strncpy(mfield->value, buffer, buflen);
 
+	/*
+	 * Copy the message. We know the allocated buffer has sufficient space
+	 * for the formatted message, so strcpy() is appropriate here.
+	 */
+	strcpy(mfield->value, buffer);
+
+	/*
+	 * Add the message to the errFields linked list.
+	 */
 	mfield->next = (*res)->errFields;
 
 	if (mfield->next)
