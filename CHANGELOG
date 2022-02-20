@@ -1,6 +1,6 @@
 Revision history for libfq
 
-0.4.3	2022-02-??
+0.4.3	2022-02-20
 	- Fix NULL value handling in FQexecParams()
 
 0.4.2	2020-10-17
