@@ -459,6 +459,130 @@ FQexecParams(FBconn *conn,
 			</listitem>
 		  </varlistentry>
 
+          <varlistentry id="libfq-fqprepare">
+			<term>
+			  <function>FQprepare</function>
+			  <indexterm>
+				<primary>FQprepare</primary>
+			  </indexterm>
+			</term>
+            <listitem>
+			  <para>
+                Creates a prepared statement with the given parameters for later execution with
+                <xref linkend="libfq-fqexecprepared"/>.
+<synopsis>
+FBresult *FQprepare(FBconn *conn, const char *stmt, int nParams, const int *paramTypes)
+</synopsis>
+              </para>
+              <para>
+                Execute <xref linkend="libfq-fqclear"/> to deallocate the statement.
+              </para>
+              <para>
+				The function arguments are:
+				<variablelist>
+				  <varlistentry>
+					<term><parameter>conn</parameter></term>
+
+					<listitem>
+					  <para>
+						The connection object to send the command through.
+					  </para>
+					</listitem>
+				  </varlistentry>
+
+				  <varlistentry>
+					<term><parameter>command</parameter></term>
+					<listitem>
+					  <para>
+						The SQL command string to be executed. If parameters are used,
+						they are provided in command string as <literal>?</literal>
+						placeholders, which will be replaced sequentially by the provided
+						parameter values.
+					  </para>
+					</listitem>
+				  </varlistentry>
+
+              	  <varlistentry>
+					<term><parameter>nParams</parameter></term>
+					<listitem>
+					  <para>
+						The number of parameters supplied; it is the length of the arrays
+						<parameter>paramTypes[]</parameter>, <parameter>paramValues[]</parameter>,
+						<parameter>paramLengths[]</parameter>, and <parameter>paramFormats[]</parameter>.
+					  </para>
+					  <para>
+						<emphasis>Note</emphasis>:
+                        currently this argument is advisory, however it may be used in a future release.
+					  </para>
+					</listitem>
+				  </varlistentry>
+
+				  <varlistentry>
+					<term><parameter>paramTypes[]</parameter></term>
+					<listitem>
+					  <para>
+						(currently unused)
+					  </para>
+					</listitem>
+				  </varlistentry>
+                </variablelist>
+              </para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry id="libfq-fqexecprepared">
+			<term>
+			  <function>FQexecPrepared</function>
+			  <indexterm>
+				<primary>FQexecPrepared</primary>
+			  </indexterm>
+			</term>
+            <listitem>
+			  <para>
+                Executes a prepared statement previously created with <xref linkend="libfq-fqprepare"/>.
+                using the provided parameter values.
+<synopsis>
+FBresult *FQexecPrepared(FBconn *conn, FBresult *result, int nParams, const char * const *paramValues, const int *paramLengths, const int *paramFormats, int resultFormat)
+</synopsis>
+              </para>
+              <para>
+                <function>FQexecPrepared</function> is like <xref linkend="libfq-fqexecparams"/>, but the command to be executed is
+                specified by passing a <literal>FBresult</literal> object previously created with <xref linkend="libfq-fqprepare"/>,
+                instead of passing a query string. This feature allows commands that will be used repeatedly to be parsed
+                and planned just once, rather than each time they are executed.
+              </para>
+              <para>
+                The parameters are identical to  <xref linkend="libfq-fqexecparams"/>, except thata <literal>FBresult</literal> object
+                is provided instead of a query string, and the <parameter>paramTypes[]</parameter> parameter is not present.
+              </para>
+              <para>
+                Once the prepared statement is no longer required, execute <xref linkend="libfq-fqdeallocateprepared"/>
+                before executing  <xref linkend="libfq-fqclear"/>.
+              </para>
+            </listitem>
+          </varlistentry>
+
+
+          <varlistentry id="libfq-fqdeallocateprepared">
+			<term>
+			  <function>FQdeallocatePrepared</function>
+			  <indexterm>
+				<primary>FQdeallocatePrepared</primary>
+			  </indexterm>
+			</term>
+            <listitem>
+			  <para>
+                Deallocate a prepared statement previously created with <xref linkend="libfq-fqprepare"/>.
+<synopsis>
+void FQdeallocatePrepared(FBconn *conn, FBresult *result)
+</synopsis>
+              </para>
+              <para>
+                Call before executing  <xref linkend="libfq-fqclear"/>.
+              </para>
+            </listitem>
+          </varlistentry>
+
 		  <varlistentry id="libfq-fqexectransaction">
 			<term>
 			  <function>FQexecTransaction</function>

@@ -41,7 +41,9 @@ _FQstartTransaction(FBconn *conn, isc_tr_handle *trans);
 
 static FQresTupleAtt *_FQformatDatum (FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var);
 static FBresult *_FQinitResult(bool init_sqlda_in);
+static void _FQinitResultSqlDa(FBresult *result, bool init_sqlda_in);
 static void _FQexecClearResult(FBresult *result);
+static void _FQexecClearResultParams(FBconn *conn, FBresult *result, bool free_result_stmt_handle);
 static void _FQexecClearSQLDA(FBresult *result, XSQLDA *sqlda);
 static void _FQexecFillTuplesArray(FBresult *result);
 static void _FQexecInitOutputSQLDA(FBconn *conn, FBresult *result);
@@ -50,9 +52,10 @@ static ISC_LONG _FQexecParseStatementType(char *info_buffer);
 static FBresult *_FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt);
 static FBresult *_FQexecParams(FBconn *conn,
 							   isc_tr_handle *trans,
-							   const char *stmt,
+							   //const char *stmt,
+							   FBresult	 *result,
+							   bool free_result_stmt_handle,
 							   int nParams,
-							   const int *paramTypes,
 							   const char * const *paramValues,
 							   const int *paramLengths,
 							   const int *paramFormats,
@@ -690,6 +693,25 @@ _FQinitResult(bool init_sqlda_in)
 
 	result = malloc(sizeof(FBresult));
 
+	_FQinitResultSqlDa(result, init_sqlda_in);
+
+	result->stmt_handle = 0L;
+	result->statement_type = 0L;
+	result->ntups = -1;
+	result->ncols = -1;
+	result->resultStatus = FBRES_NO_ACTION;
+	result->errMsg = NULL;
+	result->errFields = NULL;
+	result->fbSQLCODE = -1L;
+	result->errLine = -1;
+	result->errCol = -1;
+
+	return result;
+}
+
+static void
+_FQinitResultSqlDa(FBresult *result, bool init_sqlda_in)
+{
 	if (init_sqlda_in == true)
 	{
 		result->sqlda_in = (XSQLDA *) malloc(XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
@@ -706,20 +728,7 @@ _FQinitResult(bool init_sqlda_in)
 	memset(result->sqlda_out, '\0', XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
 	result->sqlda_out->sqln = FB_XSQLDA_INITLEN;
 	result->sqlda_out->version = SQLDA_VERSION1;
-
-	result->stmt_handle = 0L;
-	result->ntups = -1;
-	result->ncols = -1;
-	result->resultStatus = FBRES_NO_ACTION;
-	result->errMsg = NULL;
-	result->errFields = NULL;
-	result->fbSQLCODE = -1L;
-	result->errLine = -1;
-	result->errCol = -1;
-
-	return result;
 }
-
 
 /**
  * _FQexecClearResult()
@@ -743,6 +752,23 @@ _FQexecClearResult(FBresult *result)
 
 		free(result->sqlda_out);
 		result->sqlda_out = NULL;
+	}
+}
+
+
+
+static void
+_FQexecClearResultParams(FBconn *conn, FBresult *result, bool free_result_stmt_handle)
+{
+	_FQexecClearResult(result);
+
+	if (free_result_stmt_handle)
+	{
+		isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+	}
+	else
+	{
+		_FQinitResultSqlDa(result, true);
 	}
 }
 
@@ -1281,14 +1307,21 @@ FQexecParams(FBconn *conn,
 			 const int *paramFormats,
 			 int resultFormat)
 {
+	FBresult	 *result;
+
 	if (!conn)
 		return NULL;
 
+	result = FQprepare(conn, stmt, nParams, paramTypes);
+
+	if (result->resultStatus != FBRES_NO_ACTION)
+		return result;
+
 	return _FQexecParams(conn,
 						 &conn->trans,
-						 stmt,
+						 result,
+						 true,
 						 nParams,
-						 paramTypes,
 						 paramValues,
 						 paramLengths,
 						 paramFormats,
@@ -1296,39 +1329,17 @@ FQexecParams(FBconn *conn,
 }
 
 
-/**
- * _FQexecParams()
- *
- * Actually execute the parameterized query. See above for parameter
- * details.
- *
- * Be warned, this was a pain to kludge together (oh Firebird C API, how
- * I love your cryptic minimalism) and is in dire need of refactoring.
- * But it works. Mostly.
- */
 FBresult *
-_FQexecParams(FBconn *conn,
-			  isc_tr_handle *trans,
-			  const char *stmt,
-			  int nParams,
-			  const int *paramTypes,
-			  const char * const *paramValues,
-			  const int *paramLengths,
-			  const int *paramFormats,
-			  int resultFormat
-	)
+FQprepare(FBconn *conn,
+		  const char *stmt,
+		  int nParams,
+		  const int *paramTypes)
 {
 	FBresult	 *result;
-	XSQLVAR		 *var;
 	bool		  temp_trans = false;
-	int			  i;
-
-	long		  fetch_stat;
+	isc_tr_handle *trans = &conn->trans;
 	char		  info_buffer[20];
 	static char	  stmt_info[] = { isc_info_sql_stmt_type };
-	int			  statement_type;
-	int			  exec_result;
-	char		  error_message[1024];
 
 	result = _FQinitResult(true);
 
@@ -1342,7 +1353,6 @@ _FQexecParams(FBconn *conn,
 		_FQexecClearResult(result);
 		return result;
 	}
-
 
 	/* An active transaction is required to prepare the statement -
 	 * if no transaction handle was provided by the caller,
@@ -1389,11 +1399,11 @@ _FQexecParams(FBconn *conn,
 		return result;
 	}
 
-	statement_type = _FQexecParseStatementType((char *) info_buffer);
+	result->statement_type = _FQexecParseStatementType((char *) info_buffer);
 
-	FQlog(conn, DEBUG1, "statement_type: %i", statement_type);
+	FQlog(conn, DEBUG1, "statement_type: %i", result->statement_type);
 
-	switch(statement_type)
+	switch(result->statement_type)
 	{
 		case isc_info_sql_stmt_insert:
 		case isc_info_sql_stmt_update:
@@ -1414,6 +1424,59 @@ _FQexecParams(FBconn *conn,
 			_FQexecClearResult(result);
 			return result;
 	}
+
+	return result;
+}
+
+FBresult *
+FQexecPrepared(FBconn *conn,
+			   FBresult *result,
+			   int nParams,
+			   const char * const *paramValues,
+			   const int *paramLengths,
+			   const int *paramFormats,
+			   int resultFormat)
+{
+	return _FQexecParams(conn,
+						 &conn->trans,
+						 result,
+						 false,
+						 nParams,
+						 paramValues,
+						 paramLengths,
+						 paramFormats,
+						 resultFormat);
+}
+
+/**
+ * _FQexecParams()
+ *
+ * Actually execute the parameterized query. See above for parameter
+ * details.
+ *
+ * Be warned, this was a pain to kludge together (oh Firebird C API, how
+ * I love your cryptic minimalism) and is in dire need of refactoring.
+ * But it works. Mostly.
+ */
+static FBresult *
+_FQexecParams(FBconn *conn,
+			  isc_tr_handle *trans,
+			  FBresult	 *result,
+			  bool free_result_stmt_handle,
+			  int nParams,
+			  const char * const *paramValues,
+			  const int *paramLengths,
+			  const int *paramFormats,
+			  int resultFormat
+	)
+{
+	XSQLVAR		 *var;
+	int			  i;
+
+	long		  fetch_stat;
+	int			  exec_result;
+	char		  error_message[1024];
+
 
 	if (isc_dsql_describe_bind(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_in))
 	{
@@ -1460,11 +1523,15 @@ _FQexecParams(FBconn *conn,
 	}
 	*/
 
+	FQlog(conn, DEBUG1, "_FQexecParams: sqld %i", result->sqlda_in->sqld);
+
 	for (i = 0, var = result->sqlda_in->sqlvar; i < result->sqlda_in->sqld; i++, var++)
 	{
 		int dtype = (var->sqltype & ~1); /* drop flag bit for now */
 
 		int len = 0;
+
+		FQlog(conn, DEBUG1, "_FQexecParams: here %i", i);
 
 		var->sqldata = NULL;
 		var->sqllen = 0;
@@ -1932,9 +1999,7 @@ _FQexecParams(FBconn *conn,
 				_FQrollbackTransaction(conn, trans);
 			}
 
-			_FQexecClearResult(result);
-
-			isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+			_FQexecClearResultParams(conn, result, free_result_stmt_handle);
 
 			return result;
 		}
@@ -1947,9 +2012,7 @@ _FQexecParams(FBconn *conn,
 			_FQcommitTransaction(conn, trans);
 		}
 
-		_FQexecClearResult(result);
-
-		isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+		_FQexecClearResultParams(conn, result, free_result_stmt_handle);
 
 		return result;
 	}
@@ -1970,7 +2033,7 @@ _FQexecParams(FBconn *conn,
 	_FQexecInitOutputSQLDA(conn, result);
 
 	/* "isc_info_sql_stmt_exec_procedure" also covers "RETURNING ..." statements */
-	if (statement_type == isc_info_sql_stmt_exec_procedure)
+	if (result->statement_type == isc_info_sql_stmt_exec_procedure)
 		exec_result = isc_dsql_execute2(conn->status, trans, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_in, result->sqlda_out);
 	else
 		exec_result = isc_dsql_execute(conn->status, trans, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_in);
@@ -1989,7 +2052,9 @@ _FQexecParams(FBconn *conn,
 		}
 
 		_FQexecClearResult(result);
-		isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+
+		if (free_result_stmt_handle)
+			isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
 
 		return result;
 	}
@@ -2008,13 +2073,12 @@ _FQexecParams(FBconn *conn,
 
 		result->resultStatus = FBRES_FATAL_ERROR;
 
-		_FQexecClearResult(result);
-		isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+		_FQexecClearResultParams(conn, result, free_result_stmt_handle);
 
 		return result;
 	}
 
-	if (statement_type == isc_info_sql_stmt_exec_procedure)
+	if (result->statement_type == isc_info_sql_stmt_exec_procedure)
 	{
 		_FQstoreResult(result, conn, 0);
 		result->ntups = 1;
@@ -2048,24 +2112,25 @@ _FQexecParams(FBconn *conn,
 		_FQrollbackTransaction(conn, trans);
 		result->resultStatus = FBRES_FATAL_ERROR;
 
-		_FQexecClearResult(result);
-
-		isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+		_FQexecClearResultParams(conn, result, free_result_stmt_handle);
 
 		return result;
 	}
 
-	if (isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop))
+	if (free_result_stmt_handle)
 	{
-		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_free_statement");
+		if (isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop))
+		{
+			_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_free_statement");
 
-		_FQsetResultError(conn, result);
+			_FQsetResultError(conn, result);
 
-		_FQrollbackTransaction(conn, trans);
+			_FQrollbackTransaction(conn, trans);
 
-		result->resultStatus = FBRES_FATAL_ERROR;
+			result->resultStatus = FBRES_FATAL_ERROR;
 
-		return result;
+			return result;
+		}
 	}
 
 	/* add an array for offset-based access */
@@ -2079,7 +2144,10 @@ _FQexecParams(FBconn *conn,
 		_FQcommitTransaction(conn, trans);
 	}
 
-	/* clear up internal storage */
+	/*
+	 * Clear up internal storage; we already freed the statement handle,
+	 * if required.
+	 */
 	_FQexecClearResult(result);
 
 	return result;
@@ -2196,6 +2264,19 @@ _FQstoreResult(FBresult *result, FBconn *conn, int num_rows)
 	}
 }
 
+
+/**
+ * FQdeallocatePrepared()
+ *
+ * Essentially a wrapper around isc_dsql_free_statement(); call after
+ * finishing with FQexecPrepared().
+ */
+
+void
+FQdeallocatePrepared(FBconn *conn, FBresult *result)
+{
+	isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+}
 
 /**
  * FQexecTransaction()
@@ -3673,7 +3754,6 @@ FQclear(FBresult *result)
 		free(result->sqlda_out);
 		result->sqlda_out  = NULL;
 	}
-
 	free(result);
 }
 

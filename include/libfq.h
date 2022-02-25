@@ -286,6 +286,7 @@ typedef struct FBresult
 									 * freed once execution has completed; see _FQexecClearResult().
 									 */
 	isc_stmt_handle stmt_handle;
+	ISC_LONG statement_type;
 	FQexecStatusType resultStatus;
 	int ntups;						/* The number of rows (tuples) returned by a query.
 									 * Will be -1 until a valid query is executed. */
@@ -361,6 +362,7 @@ extern const char *FQlibVersionString(void);
 
 extern FBresult *FQexec(FBconn *conn, const char *stmt);
 
+
 extern FBresult *
 FQexecParams(FBconn *conn,
 			 const char *stmt,
@@ -371,6 +373,23 @@ FQexecParams(FBconn *conn,
 			 const int *paramFormats,
 			 int resultFormat);
 
+extern FBresult *
+FQprepare(FBconn *conn,
+		  const char *stmt,
+		  int nParams,
+		  const int *paramTypes);
+
+extern FBresult *
+FQexecPrepared(FBconn *conn,
+			   FBresult *result,
+			   int nParams,
+			   const char * const *paramValues,
+			   const int *paramLengths,
+			   const int *paramFormats,
+			   int resultFormat);
+
+extern void
+FQdeallocatePrepared(FBconn *conn, FBresult *result);
 
 extern FBresult *FQexecTransaction(FBconn *conn, const char *stmt);
 
