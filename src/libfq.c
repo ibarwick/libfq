@@ -190,6 +190,8 @@ FQconnectdbParams(const char * const *keywords,
 	conn->client_encoding = NULL;
 	conn->client_encoding_id = -1;	/* indicate the server-parsed value has not yet been retrieved */
 	conn->get_dsp_len = false;
+	conn->uname = NULL;
+	conn->upass = NULL;
 	conn->errMsg = NULL;
 
 	/* Initialise the Firebird parameter buffer */
