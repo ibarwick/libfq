@@ -1,7 +1,9 @@
 Revision history for libfq
 
-0.5.0	2022-03-??
+0.5.0	2022-12-??
 	- Add functions FQprepare() and FQexecPrepared()
+	- Handle errors encountered when executing isc_dsql_fetch()
+	- Ensure FBconn objects are initialized correctly	
 
 0.4.3	2022-02-20
 	- Fix NULL value handling in FQexecParams()
