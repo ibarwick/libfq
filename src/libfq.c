@@ -974,7 +974,7 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 	int			  statement_type;
 
 	int			  num_rows = 0;
-	long		  fetch_stat;
+	ISC_STATUS    retcode;
 
 	bool		  temp_trans = false;
 
@@ -1246,10 +1246,26 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 
 	result->header = malloc(sizeof(FQresTupleAttDesc *) * result->ncols);
 
-	while ((fetch_stat = isc_dsql_fetch(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out)) == 0)
+	while ((retcode = isc_dsql_fetch(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out)) == 0)
 	{
 		_FQstoreResult(result, conn, num_rows);
 		num_rows++;
+	}
+
+	if (retcode != 100L)
+	{
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "isc_dsql_fetch() error");
+		result->resultStatus = FBRES_FATAL_ERROR;
+		_FQsetResultError(conn, result);
+
+		/* if autocommit, and no explicit transaction set, rollback */
+		if (conn->autocommit == true && conn->in_user_transaction == false)
+		{
+			_FQrollbackTransaction(conn, trans);
+		}
+
+		_FQexecClearResult(result);
+		return result;
 	}
 
 	result->resultStatus = FBRES_TUPLES_OK;
@@ -1475,7 +1491,7 @@ _FQexecParams(FBconn *conn,
 	XSQLVAR		 *var;
 	int			  i;
 
-	long		  fetch_stat;
+	ISC_STATUS    retcode;
 	int			  exec_result;
 	char		  error_message[1024];
 
@@ -2089,11 +2105,33 @@ _FQexecParams(FBconn *conn,
 	{
 		int num_rows = 0;
 
-		while ((fetch_stat = isc_dsql_fetch(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out)) == 0)
+		while ((retcode = isc_dsql_fetch(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out)) == 0)
 		{
 			_FQstoreResult(result, conn, num_rows);
 			num_rows ++;
 		}
+
+		if (retcode != 100L)
+		{
+			_FQsaveMessageField(&result, FB_DIAG_DEBUG, "isc_dsql_fetch() error");
+
+			result->resultStatus = FBRES_FATAL_ERROR;
+			_FQsetResultError(conn, result);
+
+			/* if autocommit, and no explicit transaction set, rollback */
+			if (conn->autocommit == true && conn->in_user_transaction == false)
+			{
+				_FQrollbackTransaction(conn, trans);
+			}
+
+			_FQexecClearResult(result);
+
+			if (free_result_stmt_handle)
+				isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+
+			return result;
+		}
+
 		result->ntups = num_rows;
 	}
 
@@ -2105,9 +2143,9 @@ _FQexecParams(FBconn *conn,
 	 *
 	 * See maybe: http://support.codegear.com/article/35153
 	 */
-	if (0 && fetch_stat != 100L && fetch_stat != isc_req_sync)
+	if (0 && retcode != 100L && retcode != isc_req_sync)
 	{
-		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_fetch reported %lu", fetch_stat);
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_fetch reported %lu", retcode);
 
 		_FQsetResultError(conn, result);
 
