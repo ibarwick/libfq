@@ -9,7 +9,11 @@ Group: Development/Libraries/C and C++
 Packager: Ian Barwick
 BuildRequires: firebird-devel
 BuildRoot: %{_tmppath}/%{name}-%{version}-build
+%if 0%{?rhel} && 0%{?rhel} >= 8
+Requires: libfbclient2
+%else
 Requires: firebird-libfbclient
+%endif
 
 %description
 A wrapper library for the Firebird C API, loosely based on libpq for PostgreSQL.
