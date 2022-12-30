@@ -8,6 +8,13 @@
  *
  * Author: Ian Barwick <barwick@gmail.com>
  *
+ * NOTES
+ * -----
+ *
+ * Boolean support: Firebird provides a native boolean datatype from v3;
+ * the presence of this in the build target is checked via the
+ * existence of the "SQL_BOOLEAN" constant (defined in "sqlda_pub.h",
+ * which is included from "ibase.h").
  *----------------------------------------------------------------------
  */
 
