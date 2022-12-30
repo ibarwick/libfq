@@ -70,7 +70,7 @@ static char *_FQdeparseDbKey(const char *db_key);
 static char *_FQparseDbKey(const char *db_key);
 
 static void _FQinitClientEncoding(FBconn *conn);
-static const char *_FQclientEncoding(const FBconn *conn);
+static const char *_FQclientEncoding(FBconn *conn);
 
 static int _FQdspstrlen_line(FQresTupleAtt *att, short encoding_id);
 
@@ -188,7 +188,7 @@ FQconnectdbParams(const char * const *keywords,
 	conn->engine_version = NULL;
 	conn->client_min_messages = DEBUG1;
 	conn->client_encoding = NULL;
-	conn->client_encoding_id = -1;	/* indicate the server-parsed value has not yet been retrieved */
+	conn->client_encoding_id = FBENC_UNKNOWN;	/* indicate the server-parsed value has not yet been retrieved */
 	conn->get_dsp_len = false;
 	conn->uname = NULL;
 	conn->upass = NULL;
@@ -233,10 +233,20 @@ FQconnectdbParams(const char * const *keywords,
 		conn->upass[upass_len] = '\0';
 	}
 
-	/* set client encoding */
+	/*
+	 * Set client encoding.
+	 *
+	 * Note that the encoding string and corresponding ID will be cached in the
+	 * connection object the first time FQclientEncodingId() is called.
+	 */
 	if (client_encoding == NULL)
 	{
-		/* reasonably sensible default - but maybe "NONE" better? */
+		/*
+		 * Default to UTF8; apps should provide a way of overriding this
+		 * if necessary. It would be nice to parse the LC_TYPE environment
+		 * variable etc. along the lines of PostgreSQL's internal function
+		 * pg_get_encoding_from_local().
+		 */
 		client_encoding = "UTF8";
 	}
 
@@ -457,7 +467,7 @@ FQstatus(FBconn *conn)
  */
 
 extern const char *
-FQparameterStatus(const FBconn *conn, const char *paramName)
+FQparameterStatus(FBconn *conn, const char *paramName)
 {
 	if (conn == NULL)
 		return NULL;
@@ -586,18 +596,30 @@ int
 FQclientEncodingId(FBconn *conn)
 {
 	if (conn == NULL)
-		return -1;
+		return FBENC_UNKNOWN;
 
-	if (conn->client_encoding_id == -1)
+	if (conn->client_encoding_id == FBENC_UNKNOWN)
 		_FQinitClientEncoding(conn);
-
-	/* in case we still couldn't get a valid encoding */
-	if (conn->client_encoding_id == -1)
-		return -1;
 
 	return conn->client_encoding_id;
 }
 
+
+/**
+ * _FQclientEncoding()
+ *
+ */
+static const char *
+_FQclientEncoding(FBconn *conn)
+{
+	if (conn == NULL)
+		return "n/a";
+
+	if (conn->client_encoding_id == FBENC_UNKNOWN)
+		_FQinitClientEncoding(conn);
+
+	return conn->client_encoding;
+}
 
 /**
  * _FQinitClientEncoding()
@@ -644,6 +666,8 @@ _FQinitClientEncoding(FBconn *conn)
 
 	return;
 }
+
+
 
 /**
  * FQlibVersion()
@@ -4011,13 +4035,3 @@ _FQdspstrlen_line(FQresTupleAtt *att, short encoding_id)
 	return max_len ? max_len : cur_len;
 }
 
-
-/**
- * _FQclientEncoding()
- *
- */
-static const char *
-_FQclientEncoding(const FBconn *conn)
-{
-	return conn->client_encoding;
-}

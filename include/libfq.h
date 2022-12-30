@@ -112,7 +112,10 @@ typedef uint32 bits32;                  /* >= 32 bits */
 #define SQL_DB_KEY                       16384
 #define FB_DB_KEY_LEN                       16
 
-
+/*
+ * These values are defined in "src/intl/charsets.h", but are not exported
+ * publicly, so we'll maintain them here as well.
+ */
 #define FBENC_ASCII                           2
 #define FBENC_BIG_5                           56
 #define FBENC_CP943C                          68
@@ -165,6 +168,9 @@ typedef uint32 bits32;                  /* >= 32 bits */
 #define FBENC_WIN1256                         59
 #define FBENC_WIN1257                         60
 #define FBENC_WIN1258                         65
+
+/* pseudo-encoding  for convenience */
+#define FBENC_UNKNOWN                         -1
 
 #define BLOB_SEGMENT_LEN 80
 
@@ -336,7 +342,7 @@ extern void FQfinish(FBconn *conn);
 
 extern FBconnStatusType FQstatus(FBconn *conn);
 
-extern const char *FQparameterStatus(const FBconn *conn, const char *paramName);
+extern const char *FQparameterStatus(FBconn *conn, const char *paramName);
 
 extern const char *FQdb_path(const FBconn *conn);
 
