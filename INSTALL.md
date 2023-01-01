@@ -12,7 +12,7 @@ need to be installed as separate packages (e.g. `firebird-devel`).
     make
     make install
 
-The standard configuration options can be specified.
+The standard configuration options can be specified. For debian/ubuntu family will be useful `./configure --prefix='/usr'` for usual `/usb/lib` location.
 
 Additionally two custom options are available
 
