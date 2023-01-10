@@ -13,7 +13,7 @@
  * Note that this library relies on vsnprintf() and will not work if a
  * suitable implementation is not available.
  *
- * Copyright (c) 2013-2020 Ian Barwick
+ * Copyright (c) 2013-2023 Ian Barwick
  *
  * This software is released under the PostgreSQL Licence
  *

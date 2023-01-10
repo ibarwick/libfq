@@ -2,7 +2,7 @@
  *
  * libfq - C API wrapper for Firebird
  *
- * Copyright (c) 2013-2020 Ian Barwick
+ * Copyright (c) 2013-2023 Ian Barwick
  *
  * This software is released under the PostgreSQL Licence
  *
