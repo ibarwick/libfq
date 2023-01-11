@@ -3342,7 +3342,10 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 	char		  *p;
 	VARY2		  *vary2;
 	struct tm	   times;
-	char		   date_buffer[FB_TIMESTAMP_LEN + 1];
+	char		   format_buffer[1024];
+	char		   pad_buffer[1024];
+	bool		   format_error = false;
+	int		   	   s;
 
 	tuple_att = (FQresTupleAtt *)malloc(sizeof(FQresTupleAtt));
 	tuple_att->value = NULL;
@@ -3384,6 +3387,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			ISC_INT64	value = 0;
 			short		field_width = 0;
 			short		dscale;
+			int			buflen;
 
 			switch (datatype)
 			{
@@ -3401,8 +3405,10 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 					break;
 			}
 
-
 			dscale = var->sqlscale;
+
+			buflen = field_width - 1 + dscale + 1;
+
 			if (dscale < 0)
 			{
 				ISC_INT64	tens;
@@ -3414,32 +3420,39 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 
 				if (value >= 0)
 				{
-					p = (char *)malloc(field_width - 1 + dscale + 1);
-					sprintf (p, "%lld.%0*lld",
-							 (ISC_INT64) value / tens,
-							 -dscale,
-							 (ISC_INT64) value % tens
-						);
+					p = (char *)malloc(buflen);
+					sprintf(p, "%lld.%0*lld",
+							(ISC_INT64) value / tens,
+							-dscale,
+							(ISC_INT64) value % tens);
 				}
 				else if ((value / tens) != 0)
 				{
-					p = (char *)malloc(field_width - 1 + dscale + 1);
-
-					sprintf (p, "%lld.%0*lld",
-							 (ISC_INT64) (value / tens),
-							 -dscale,
-							 (ISC_INT64) - (value % tens)
-						);
+					s = snprintf(format_buffer, sizeof(format_buffer), "%lld.%0*lld",
+								 (ISC_INT64) (value / tens),
+								 -dscale,
+								 (ISC_INT64) - (value % tens));
+					if (s)
+					{
+						p = (char *)malloc(buflen);
+						memset(p, '\0', buflen);
+						memcpy(p, format_buffer, buflen - 1);
+					}
 				}
 				else
 				{
-					p = (char *)malloc(field_width - 1 + dscale + 1);
+					s = snprintf(format_buffer, sizeof(format_buffer),
+								 "%s.%0*lld",
+								 "-0",
+								 -dscale,
+								 (ISC_INT64) - (value % tens));
 
-					sprintf (p, "%s.%0*lld",
-							 "-0",
-							 -dscale,
-							 (ISC_INT64) - (value % tens)
-						);
+					if (s)
+					{
+						p = (char *)malloc(buflen);
+						memset(p, '\0', buflen);
+						memcpy(p, format_buffer, buflen - 1);
+					}
 				}
 			}
 			else if (dscale)
@@ -3471,38 +3484,99 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			break;
 
 		case SQL_TIMESTAMP:
-			p = (char *)malloc(FB_TIMESTAMP_LEN + 1);
 			isc_decode_timestamp((ISC_TIMESTAMP *)var->sqldata, &times);
-			sprintf(date_buffer, "%04d-%02d-%02d %02d:%02d:%02d.%04d",
-					times.tm_year + 1900,
-					times.tm_mon+1,
-					times.tm_mday,
-					times.tm_hour,
-					times.tm_min,
-					times.tm_sec,
+			s = snprintf(format_buffer, sizeof(format_buffer),
+						 "%04d-%02d-%02d %02d:%02d:%02d.%04d",
+						 times.tm_year + 1900,
+						 times.tm_mon+1,
+						 times.tm_mday,
+						 times.tm_hour,
+						 times.tm_min,
+						 times.tm_sec,
 					((ISC_TIMESTAMP *)var->sqldata)->timestamp_time % 10000);
-			sprintf(p, "%*s", FB_TIMESTAMP_LEN, date_buffer);
+
+			if (s < 0)
+			{
+				format_error = true;
+			}
+			else
+			{
+				s = snprintf(pad_buffer, sizeof(pad_buffer),
+							 "%*s", FB_TIMESTAMP_LEN,
+							 format_buffer);
+				if (s < 0)
+				{
+					format_error = true;
+				}
+				else
+				{
+					int l = strlen(pad_buffer);
+					p = (char *)malloc(l + 1);
+					memset(p, '\0', l + 1);
+					memcpy(p, pad_buffer, l);
+				}
+			}
 			break;
 
 		case SQL_TYPE_DATE:
-			p = (char *)malloc(FB_DATE_LEN + 1);
 			isc_decode_sql_date((ISC_DATE *)var->sqldata, &times);
-			sprintf(date_buffer, "%04d-%02d-%02d",
-					times.tm_year + 1900,
-					times.tm_mon+1,
-					times.tm_mday);
-			sprintf(p, "%*s", FB_DATE_LEN, date_buffer);
+			s = snprintf(format_buffer, sizeof(format_buffer),
+						 "%04d-%02d-%02d",
+						 times.tm_year + 1900,
+						 times.tm_mon+1,
+						 times.tm_mday);
+			if (s < 0)
+			{
+				format_error = true;
+			}
+			else
+			{
+				s = snprintf(pad_buffer, sizeof(pad_buffer),
+							 "%*s", FB_DATE_LEN,
+							 format_buffer);
+				if (s < 0)
+				{
+					format_error = true;
+				}
+				else
+				{
+					int l = strlen(pad_buffer);
+					p = (char *)malloc(l + 1);
+					memset(p, '\0', l + 1);
+					memcpy(p, pad_buffer, l);
+				}
+			}
 			break;
 
 		case SQL_TYPE_TIME:
-			p = (char *)malloc(FB_TIME_LEN + 1);
 			isc_decode_sql_time((ISC_TIME *)var->sqldata, &times);
-			sprintf(date_buffer, "%02d:%02d:%02d.%04d",
-					times.tm_hour,
-					times.tm_min,
-					times.tm_sec,
-					(*((ISC_TIME *)var->sqldata)) % 10000);
-			sprintf(p, "%*s", FB_TIME_LEN, date_buffer);
+			s = snprintf(format_buffer, sizeof(format_buffer),
+						 "%02d:%02d:%02d.%04d",
+						 times.tm_hour,
+						 times.tm_min,
+						 times.tm_sec,
+						 (*((ISC_TIME *)var->sqldata)) % 10000);
+			if (s < 0)
+			{
+				format_error = true;
+			}
+			else
+			{
+				s = snprintf(pad_buffer, sizeof(pad_buffer),
+							 "%*s", FB_TIME_LEN,
+							 format_buffer);
+				if (s < 0)
+				{
+					format_error = true;
+				}
+				else
+				{
+					int l = strlen(pad_buffer);
+					p = (char *)malloc(l + 1);
+					memset(p, '\0', l + 1);
+					memcpy(p, pad_buffer, l);
+				}
+			}
 			break;
 
         /* BLOBs are tricky...*/
@@ -3582,7 +3656,11 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 
 		default:
 			p = (char *)malloc(64);
-			sprintf(p, "Unhandled datatype %i", datatype);
+
+			if (format_error)
+				sprintf(p, "Error formatting datatype %i", datatype);
+			else
+				sprintf(p, "Unhandled datatype %i", datatype);
 	}
 
 	tuple_att->value = p;
