@@ -3432,7 +3432,11 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 								 (ISC_INT64) (value / tens),
 								 -dscale,
 								 (ISC_INT64) - (value % tens));
-					if (s)
+					if (s < 0)
+					{
+						format_error = true;
+					}
+					else
 					{
 						p = (char *)malloc(buflen);
 						memset(p, '\0', buflen);
@@ -3447,7 +3451,11 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 								 -dscale,
 								 (ISC_INT64) - (value % tens));
 
-					if (s)
+					if (s < 0)
+					{
+						format_error = true;
+					}
+					else
 					{
 						p = (char *)malloc(buflen);
 						memset(p, '\0', buflen);
