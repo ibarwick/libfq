@@ -81,6 +81,9 @@ static const char *_FQclientEncoding(FBconn *conn);
 
 static int _FQdspstrlen_line(FQresTupleAtt *att, short encoding_id);
 
+static int check_tuple_field_number(const FBresult *res,
+									int row_number, int column_number);
+
 /* keep this in same order as FQexecStatusType in libfq.h */
 char *const fbresStatus[] = {
 	"FBRES_NO_ACTION",
@@ -2515,6 +2518,22 @@ FQnfields(const FBresult *res)
 	return res->ncols;
 }
 
+static int
+check_tuple_field_number(const FBresult *res,
+						 int row_number, int column_number)
+{
+	if (!res)
+		return false;
+
+	if (row_number < 0 || row_number >= res->ntups)
+		return false;
+
+	if (column_number < 0 || column_number >= res->ncols)
+		return false;
+
+	return true;
+}
+
 
 /**
  * FQgetvalue()
@@ -2533,17 +2552,12 @@ FQgetvalue(const FBresult *res,
            int row_number,
            int column_number)
 {
-	if (!res)
-		return NULL;
-
-	if (row_number >= res->ntups)
-		return NULL;
-
-	if (column_number >= res->ncols)
+	if (!check_tuple_field_number(res, row_number, column_number))
 		return NULL;
 
 	return res->tuples[row_number]->values[column_number]->value;
 }
+
 
 /**
  * FQgetisnull()
@@ -2561,8 +2575,8 @@ FQgetisnull(const FBresult *res,
             int row_number,
             int column_number)
 {
-	if (!res)
-		return 0;
+	if (!check_tuple_field_number(res, row_number, column_number))
+		return 1;				/* pretend it is null */
 
 	if (res->tuples[row_number]->values[column_number]->has_null == true)
 		return 1;
@@ -2581,10 +2595,7 @@ FQgetlines(const FBresult *res,
 			int row_number,
 			int column_number)
 {
-	if (!res)
-		return -1;
-
-	if (row_number >= res->ntups)
+	if (!check_tuple_field_number(res, row_number, column_number))
 		return -1;
 
 	return res->tuples[row_number]->values[column_number]->lines;
@@ -2597,13 +2608,12 @@ FQgetlines(const FBresult *res,
  * Return max number of lines in row
  */
 int
-FQrgetlines(const FBresult *res,
-			int row_number)
+FQrgetlines(const FBresult *res, int row_number)
 {
 	if (!res)
 		return -1;
 
-	if (row_number >= res->ntups)
+	if (row_number < 0 || row_number >= res->ntups)
 		return -1;
 
 	return res->tuples[row_number]->max_lines;
@@ -2625,7 +2635,7 @@ FQfhasNull(const FBresult *res, int column_number)
 	if (!res)
 		return false;
 
-	if (column_number >= res->ncols)
+	if (column_number < 0 || column_number >= res->ncols)
 		return false;
 
 	return res->header[column_number]->has_null;
@@ -2643,11 +2653,14 @@ FQfmaxwidth(const FBresult *res, int column_number)
 {
 	int max_width;
 
-	if (!res || !res->header)
-		return 0;
+	if (!res)
+		return -1;
 
-	if (column_number >= res->ncols)
-		return 0;
+	if (column_number < 0 || column_number >= res->ncols)
+		return -1;
+
+	if (!res->header)
+		return -1;
 
 	if (res->header[column_number]->alias_len)
 		max_width = res->header[column_number]->att_max_len > res->header[column_number]->alias_dsplen
@@ -2673,7 +2686,10 @@ FQfname(const FBresult *res, int column_number)
 	if (!res)
 		return NULL;
 
-	if (column_number >= res->ncols)
+	if (column_number < 0 || column_number >= res->ncols)
+		return NULL;
+
+	if (!res->header)
 		return NULL;
 
 	/* return alias, if set */
@@ -2694,13 +2710,7 @@ FQgetlength(const FBresult *res,
             int row_number,
             int column_number)
 {
-	if (!res)
-		return -1;
-
-	if (row_number >= res->ntups)
-		return -1;
-
-	if (column_number >= res->ncols)
+	if (!check_tuple_field_number(res, row_number, column_number))
 		return -1;
 
 	return res->tuples[row_number]->values[column_number]->len;
@@ -2720,13 +2730,8 @@ FQgetdsplen(const FBresult *res,
             int row_number,
             int column_number)
 {
-	if (!res)
-		return -1;
 
-	if (row_number >= res->ntups)
-		return -1;
-
-	if (column_number >= res->ncols)
+	if (!check_tuple_field_number(res, row_number, column_number))
 		return -1;
 
 	return res->tuples[row_number]->values[column_number]->dsplen;
@@ -2752,7 +2757,7 @@ FQfformat(const FBresult *res, int column_number)
 	if (!res)
 		return -1;
 
-	if (column_number >= res->ncols)
+	if (column_number < 0 || column_number >= res->ncols)
 		return -1;
 
 	switch(FQftype(res, column_number))
@@ -2786,13 +2791,11 @@ FQftype(const FBresult *res, int column_number)
 	if (!res)
 		return SQL_INVALID_TYPE;
 
-	if (column_number >= res->ncols)
+	if (column_number < 0 || column_number >= res->ncols)
 		return SQL_INVALID_TYPE;
 
 	return res->header[column_number]->type;
 }
-
-
 
 
 /*
@@ -3732,13 +3735,7 @@ FQformatDbKey(const FBresult *res,
 {
 	char *value = NULL;
 
-	if (!res)
-		return NULL;
-
-	if (row_number >= res->ntups)
-		return NULL;
-
-	if (column_number >= res->ncols)
+	if (!check_tuple_field_number(res, row_number, column_number))
 		return NULL;
 
 	if (FQgetisnull(res, row_number, column_number))
