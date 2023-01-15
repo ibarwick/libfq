@@ -635,41 +635,44 @@ _FQclientEncoding(FBconn *conn)
 static void
 _FQinitClientEncoding(FBconn *conn)
 {
-	const char *sql = \
+	const char *query = \
 "    SELECT TRIM(rdb$character_set_name) AS client_encoding, " \
 "           mon$character_set_id AS client_encoding_id " \
 "      FROM mon$attachments " \
 "INNER JOIN rdb$character_sets " \
 "        ON mon$character_set_id = rdb$character_set_id "\
-"     WHERE mon$remote_pid = %i";
+"     WHERE mon$attachment_id = CURRENT_CONNECTION ";
 
-	char query[1024];
 	FBresult   *res;
+	int client_encoding_len;
 
 	if (_FQstartTransaction(conn, &conn->trans_internal) == TRANS_ERROR)
 		return;
 
-	sprintf(query, sql, getpid());
-
 	res = _FQexec(conn, &conn->trans_internal, query);
 
-	if (FQresultStatus(res) == FBRES_TUPLES_OK && !FQgetisnull(res, 0, 0))
+	if (FQresultStatus(res) != FBRES_TUPLES_OK || !FQntuples(res) || FQgetisnull(res, 0, 0))
 	{
-		int client_encoding_len = strlen(FQgetvalue(res, 0, 0));
+		FQclear(res);
 
-		if (conn->client_encoding != NULL)
-			free(conn->client_encoding);
+		_FQrollbackTransaction(conn, &conn->trans_internal);
 
-		conn->client_encoding =	malloc(client_encoding_len + 1);
-		memset(conn->client_encoding, '\0', client_encoding_len + 1);
-		strncpy(conn->client_encoding, FQgetvalue(res, 0, 0), client_encoding_len);
-		conn->client_encoding[client_encoding_len] = '\0';
-		conn->client_encoding_id = (short)atoi(FQgetvalue(res, 0, 1));
+		return;
 	}
 
-	FQclear(res);
+	client_encoding_len = strlen(FQgetvalue(res, 0, 0));
 
-	_FQcommitTransaction(conn, &conn->trans_internal);
+	if (conn->client_encoding != NULL)
+		free(conn->client_encoding);
+
+	conn->client_encoding =	malloc(client_encoding_len + 1);
+	memset(conn->client_encoding, '\0', client_encoding_len + 1);
+	memcpy(conn->client_encoding, FQgetvalue(res, 0, 0), client_encoding_len);
+
+	/*
+	 * If the query returns a row, this value will never be NULL.
+	 */
+	conn->client_encoding_id = (short)atoi(FQgetvalue(res, 0, 1));
 
 	return;
 }
