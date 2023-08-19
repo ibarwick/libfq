@@ -3382,8 +3382,9 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 		case SQL_VARYING:
 			vary2 = (VARY2*)var->sqldata;
 			p = (char *)malloc(vary2->vary_length + 1);
-			vary2->vary_string[vary2->vary_length] = '\0';
-			memcpy(p, vary2->vary_string, strlen((const char *)vary2->vary_string) + 1);
+			memcpy(p, vary2->vary_string, vary2->vary_length + 1);
+			p[vary2->vary_length] = '\0';
+
 			break;
 
 		case SQL_SHORT:
