@@ -84,6 +84,9 @@ static int _FQdspstrlen_line(FQresTupleAtt *att, short encoding_id);
 static int check_tuple_field_number(const FBresult *res,
 									int row_number, int column_number);
 
+
+static char *_FQformatOctet(char *data, int len);
+
 /* keep this in same order as FQexecStatusType in libfq.h */
 char *const fbresStatus[] = {
 	"FBRES_NO_ACTION",
@@ -3346,7 +3349,6 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 	FQresTupleAtt *tuple_att;
 	short		   datatype;
 	char		  *p;
-	VARY2		  *vary2;
 	struct tm	   times;
 	char		   format_buffer[1024];
 	char		   pad_buffer[1024];
@@ -3373,20 +3375,38 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 	switch (datatype)
 	{
 		case SQL_TEXT:
-			p = (char *)malloc(var->sqllen + 1);
 
-			memcpy(p, var->sqldata, var->sqllen);
-			p[var->sqllen] = '\0';
+			if (var->sqlsubtype == 1)
+			{
+				/* column defined as "CHARACTER SET OCTETS" */
+				p = _FQformatOctet(var->sqldata, var->sqllen);
+			}
+			else
+			{
+				p = (char *)malloc(var->sqllen + 1);
+
+				memcpy(p, var->sqldata, var->sqllen);
+				p[var->sqllen] = '\0';
+			}
 			break;
 
 		case SQL_VARYING:
-			vary2 = (VARY2*)var->sqldata;
-			p = (char *)malloc(vary2->vary_length + 1);
-			memcpy(p, vary2->vary_string, vary2->vary_length + 1);
-			p[vary2->vary_length] = '\0';
+		{
+			VARY2		  *vary2 = (VARY2*)var->sqldata;
 
+			if (var->sqlsubtype == 1)
+			{
+				/* column defined as "CHARACTER SET OCTETS" */
+				p = _FQformatOctet(vary2->vary_string, vary2->vary_length);
+			}
+			else
+			{
+				p = (char *)malloc(vary2->vary_length + 1);
+				memcpy(p, vary2->vary_string, vary2->vary_length + 1);
+				p[vary2->vary_length] = '\0';
+			}
+		}
 			break;
-
 		case SQL_SHORT:
 		case SQL_LONG:
 		case SQL_INT64:
@@ -3721,6 +3741,41 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 	}
 
 	return tuple_att;
+}
+
+
+/**
+ * _FQformatOctet
+ *
+ * Display an octet string as hex values in upper case.
+ */
+static char *
+_FQformatOctet(char *data, int len)
+{
+	int i;
+	char *p, *q;
+
+
+	p = (char *)malloc((len * 2) + 1);
+	q = p;
+
+	for (i = 0; i < len; i++)
+	{
+		if (data[i])
+		{
+
+			sprintf(q, "%02X", (unsigned int)(data[i] & 0xFF));
+			q += 2;
+		}
+		else
+		{
+			sprintf(q, "00");
+			q += 2;
+		}
+
+	}
+
+	return p;
 }
 
 
