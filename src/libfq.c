@@ -11,10 +11,15 @@
  * NOTES
  * -----
  *
- * Boolean support: Firebird provides a native boolean datatype from v3;
- * the presence of this in the build target is checked via the
- * existence of the "SQL_BOOLEAN" constant (defined in "sqlda_pub.h",
- * which is included from "ibase.h").
+ * Version-dependent datatype support: the presence of datatypes added in
+ * Firebird 3.0 or later is detected based on the existence of the respective
+ * constant (defined in "sqlda_pub.h", which is included from "ibase.h").
+ * This enables libfq to be built against older Firebird versions, if
+ * necessary.
+ *
+ * Currently following version-dependent datatypes are supported
+ * - BOOLEAN (Firebird 3.0; constant: SQL_BOOLEAN)
+ * - INT128  (Firebird 4.0; constant: SQL_INT128)
  *----------------------------------------------------------------------
  */
 
@@ -27,6 +32,7 @@
 #include <time.h>
 #include <math.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #include "ibase.h"
 
@@ -83,6 +89,10 @@ static int _FQdspstrlen_line(FQresTupleAtt *att, short encoding_id);
 
 static int check_tuple_field_number(const FBresult *res,
 									int row_number, int column_number);
+#if defined SQL_INT128
+static int format_int128(__int128 val, char *dst);
+static __int128 convert_int128(const char *s);
+#endif
 
 
 static char *_FQformatOctet(char *data, int len);
@@ -914,6 +924,12 @@ _FQexecInitOutputSQLDA(FBconn *conn, FBresult *result)
 				break;
 #endif
 
+#if defined SQL_INT128
+			/* Firebird 4.0 and later */
+			case SQL_INT128:
+				var->sqldata = (char *)malloc(sizeof(__int128));
+				break;
+#endif
 			default:
 				sprintf(error_message, "Unhandled sqlda_out type: %i", sqltype);
 
@@ -1615,7 +1631,12 @@ _FQexecParams(FBconn *conn,
 				case SQL_INT64:
 					size = sizeof(ISC_INT64);
 					break;
-
+#if defined SQL_INT128
+				/* Firebird 4.0 and later */
+				case SQL_INT128:
+					size = sizeof(__int128);
+					break;
+#endif
 				case SQL_FLOAT:
 					size = sizeof(float);
 					break;
@@ -1859,6 +1880,15 @@ _FQexecParams(FBconn *conn,
 					break;
 				}
 
+#if defined SQL_INT128
+				/* Firebird 4.0 and later */
+				case SQL_INT128:
+					var->sqldata = (char *)malloc(sizeof(__int128));
+					memset(var->sqldata, '\0', sizeof(__int128));
+					*(__int128 *) (var->sqldata) = convert_int128(paramValues[i]);
+					var->sqllen = sizeof(__int128);
+					break;
+#endif
 				case SQL_FLOAT:
 					var->sqldata = (char *)malloc(sizeof(float));
 					var->sqllen = sizeof(float);
@@ -2001,6 +2031,7 @@ _FQexecParams(FBconn *conn,
 
 					break;
 #endif
+
 
 				default:
 					sprintf(error_message, "Unhandled sqlda_in type: %i", dtype);
@@ -3505,8 +3536,20 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 				sprintf (p, "%lld",
 						 (ISC_INT64) value);
 			}
+			break;
 		}
-		break;
+
+#if defined SQL_INT128
+		/* Firebird 4.0 and later */
+		case SQL_INT128:
+		{
+			__int128 value = (__int128) *(__int128 *) var->sqldata;
+
+			p = (char *)malloc(99 + 1); // XXX
+			(void)format_int128((__int128) value, p);
+			break;
+		}
+#endif
 
 		case SQL_FLOAT:
 			p = (char *)malloc(FB_FLOAT_LEN + 1);
@@ -4184,3 +4227,73 @@ _FQdspstrlen_line(FQresTupleAtt *att, short encoding_id)
 	return max_len ? max_len : cur_len;
 }
 
+#if defined SQL_INT128
+#define P10_UINT64 10000000000000000000ULL   /* 19 zeroes */
+#define E10_UINT64 19
+
+#define STRINGIZER(x)
+#define TO_STRING(x)    STRINGIZER(x)
+
+static int
+format_int128(__int128 val, char *dst)
+{
+	int n;
+
+	if (val > INT64_MAX || val < (0 - INT64_MAX))
+    {
+		__int128 leading  = val / P10_UINT64;
+        int64_t trailing = val % P10_UINT64;
+		char buf[99];
+		char *bufptr = buf;
+
+        n = format_int128(leading, dst);
+        sprintf(buf, "%." TO_STRING(E10_UINT64) PRIi64, trailing);
+
+		/* Don't append a second minus sign */
+		if (trailing < 0)
+			bufptr++;
+
+		n += sprintf(dst + n, "%s", bufptr);
+    }
+    else
+    {
+        int64_t i64 = val;
+        n = sprintf(dst, "%" PRIi64, i64);
+    }
+
+	return n;
+}
+
+static __int128
+convert_int128(const char *s)
+{
+    const char *p = s;
+    int neg = 0;
+	__int128 val = 0;
+
+    while (isspace(*p))
+	{
+        p++;
+    }
+
+    if ((*p == '-') || (*p == '+'))
+	{
+        if (*p == '-')
+            neg = 1;
+        p++;
+    }
+
+    while (*p >= '0' && *p <= '9')
+	{
+        if (neg)
+            val = (10 * val) - (*p - '0');
+		else
+            val = (10 * val) + (*p - '0');
+
+        p++;
+    }
+
+    return val;
+}
+
+#endif
