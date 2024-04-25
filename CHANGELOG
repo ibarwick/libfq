@@ -4,6 +4,11 @@ Revision history for libfq
 	- support columns defined with "CHARACTER SET OCTETS"
 	- support for INT128 datatype (Firebird 4 and later)
 
+0.5.1   2024-04-27
+	- Tighten up tuple row/column bounds checking
+	- Fixes for character set/encoding handling
+	- Miscellaneous code cleanup
+
 0.5.0	2022-12-28
 	- Add functions FQprepare() and FQexecPrepared()
 	- Handle errors encountered when executing isc_dsql_fetch()
