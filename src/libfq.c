@@ -1923,7 +1923,7 @@ _FQexecParams(FBconn *conn,
 
 						srcptr = (unsigned char *)_FQdeparseDbKey(paramValues[i]);
 
-						srcptr_parsed = _FQparseDbKey((char *)srcptr);
+						srcptr_parsed = (unsigned char *)_FQparseDbKey((char *)srcptr);
 						FQlog(conn, DEBUG1, "srcptr %s", srcptr_parsed);
 						free(srcptr_parsed);
 
