@@ -15,7 +15,7 @@
   <bookinfo>
     <corpauthor>Ian Barwick</corpauthor>
     <productname>libfq</productname>
-    <productnumber>0.5.1</productnumber>
+    <productnumber>&libfqversion;</productnumber>
 
     <abstract>
       <para>
