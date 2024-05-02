@@ -20,6 +20,7 @@
  * Currently following version-dependent datatypes are supported
  * - BOOLEAN (Firebird 3.0; constant: SQL_BOOLEAN)
  * - INT128  (Firebird 4.0; constant: SQL_INT128)
+ * - TIME[STAMP] WITH TIME ZONE (Firebird 4.0; constant: SQL_TIMESTAMP_TZ)
  *----------------------------------------------------------------------
  */
 
@@ -39,6 +40,14 @@
 #include "libfq-int.h"
 #include "libfq.h"
 #include "libfq-version.h"
+
+/* Available from Firebird 4.0 */
+#ifdef SQL_TIMESTAMP_TZ
+
+#define HAVE_TIMEZONE
+#include "libfq-timezones.h"
+
+#endif
 
 /* Internal utility functions */
 
@@ -94,8 +103,13 @@ static int format_int128(__int128 val, char *dst);
 static __int128 convert_int128(const char *s);
 #endif
 
+#ifdef HAVE_TIMEZONE
+static char *_FQlookupTimeZone(int time_zone_id);
+static char *_FQformatTimeZone(int time_zone_id, int tz_ext_offset, bool time_zone_names);
+#endif
 
 static char *_FQformatOctet(char *data, int len);
+
 
 /* keep this in same order as FQexecStatusType in libfq.h */
 char *const fbresStatus[] = {
@@ -178,6 +192,7 @@ FQconnectdbParams(const char * const *keywords,
 	const char *uname = NULL;
 	const char *upass = NULL;
 	const char *client_encoding = NULL;
+	bool  time_zone_names = false;
 
 	int i = 0;
 
@@ -191,6 +206,9 @@ FQconnectdbParams(const char * const *keywords,
 			upass = values[i];
 		else if (strcmp(keywords[i], "client_encoding") == 0)
 			client_encoding = values[i];
+		else if (strcmp(keywords[i], "time_zone_names") == 0)
+			/* XXX better boolean parsing? */
+			time_zone_names = strncmp(values[i], "true", 5) == 0 ? true : false;
 
 		i++;
 	}
@@ -215,6 +233,7 @@ FQconnectdbParams(const char * const *keywords,
 	conn->get_dsp_len = false;
 	conn->uname = NULL;
 	conn->upass = NULL;
+	conn->time_zone_names = time_zone_names;
 	conn->errMsg = NULL;
 
 	/* Initialise the Firebird parameter buffer */
@@ -309,7 +328,6 @@ FQconnectdbParams(const char * const *keywords,
 				appendFQExpBuffer(&buf, " - %s\n", msg);
 			}
 
-
 			line++;
 		}
 
@@ -329,6 +347,25 @@ FQconnectdbParams(const char * const *keywords,
 	else
 	{
 		_FQinitClientEncoding(conn);
+
+#ifdef HAVE_TIMEZONE
+
+		/*
+		 * With Firebird 4 and later, set time zones to "extended" format so
+		 * we always have the numeric timezone offset available.
+		 *
+		 * Note: in theory something like this (before attaching to the database)
+		 * should work:
+		 *
+		 *   char *bindtest = "TIME ZONE TO EXTENDED";
+		 * 	 isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_set_bind, bindtest, strlen(bindtest));
+		 *
+		 * but doesn't.
+		 */
+
+		if (FQserverVersion(conn) >= 40000)
+			FQexec(conn, "SET BIND OF TIME ZONE TO EXTENDED");
+#endif
 	}
 
 	return conn;
@@ -436,6 +473,18 @@ FQfinish(FBconn *conn)
 }
 
 
+/**
+ * FQsetTimeZoneNames()
+ *
+ * Indicate whether to return time zone names, where available.
+ */
+void
+FQsetTimeZoneNames(FBconn *conn, bool time_zone_names)
+{
+	if (conn != NULL)
+		conn->time_zone_names = time_zone_names;
+}
+
 /*
  * ====================================
  * Database Connection Status Functions
@@ -497,6 +546,9 @@ FQparameterStatus(FBconn *conn, const char *paramName)
 
 	if (strcmp(paramName, "client_encoding") == 0)
 		return _FQclientEncoding(conn);
+
+	if (strcmp(paramName, "time_zone_names") == 0)
+		return conn->time_zone_names == true ? "enabled" : "disabled";
 
 	return NULL;
 }
@@ -903,14 +955,30 @@ _FQexecInitOutputSQLDA(FBconn *conn, FBresult *result)
 				var->sqldata = (char *)malloc(sizeof(double));
 				break;
 
+			case SQL_TYPE_TIME:
+				var->sqldata = (char *)malloc(sizeof(ISC_TIME));
+				break;
+#ifdef HAVE_TIMEZONE
+			case SQL_TIME_TZ:
+				var->sqldata = (char *)malloc(sizeof(ISC_TIME_TZ));
+				break;
+			case SQL_TIME_TZ_EX:
+				var->sqldata = (char *)malloc(sizeof(ISC_TIME_TZ_EX));
+				break;
+#endif
 			case SQL_TIMESTAMP:
 				var->sqldata = (char *)malloc(sizeof(ISC_TIMESTAMP));
 				break;
+#ifdef HAVE_TIMEZONE
+			case SQL_TIMESTAMP_TZ:
+				var->sqldata = (char *)malloc(sizeof(ISC_TIMESTAMP_TZ));
+				break;
+			case SQL_TIMESTAMP_TZ_EX:
+				var->sqldata = (char *)malloc(sizeof(ISC_TIMESTAMP_TZ_EX));
+				break;
+#endif
 			case SQL_TYPE_DATE:
 				var->sqldata = (char *)malloc(sizeof(ISC_DATE));
-				break;
-			case SQL_TYPE_TIME:
-				var->sqldata = (char *)malloc(sizeof(ISC_TIME));
 				break;
 
 			case SQL_BLOB:
@@ -1653,17 +1721,35 @@ _FQexecParams(FBconn *conn,
 					size = 0;
 					break;
 
+				case SQL_TYPE_TIME:
+					size = sizeof(ISC_TIME);
+					break;
+#ifdef HAVE_TIMEZONE
+				case SQL_TIME_TZ:
+					size = sizeof(ISC_TIME_TZ);
+					break;
+
+				case SQL_TIME_TZ_EX:
+					size = sizeof(ISC_TIME_TZ_EX);
+					break;
+#endif
+
 				case SQL_TIMESTAMP:
 					size = sizeof(ISC_TIMESTAMP);
 					break;
+#ifdef HAVE_TIMEZONE
+				case SQL_TIMESTAMP_TZ:
+					size = sizeof(ISC_TIMESTAMP_TZ);
+					break;
 
+				case SQL_TIMESTAMP_TZ_EX:
+					size = sizeof(ISC_TIMESTAMP_TZ_EX);
+					break;
+#endif
 				case SQL_TYPE_DATE:
 					size = sizeof(ISC_DATE);
 					break;
 
-				case SQL_TYPE_TIME:
-					size = sizeof(ISC_TIME);
-					break;
 
 				case SQL_BLOB:
 					size = sizeof(ISC_QUAD);
@@ -1951,9 +2037,17 @@ _FQexecParams(FBconn *conn,
 
 					break;
 
-				case SQL_TIMESTAMP:
-				case SQL_TYPE_DATE:
 				case SQL_TYPE_TIME:
+#ifdef HAVE_TIMEZONE
+				case SQL_TIME_TZ:
+				case SQL_TIME_TZ_EX:
+#endif
+				case SQL_TIMESTAMP:
+#ifdef HAVE_TIMEZONE
+				case SQL_TIMESTAMP_TZ:
+				case SQL_TIMESTAMP_TZ_EX:
+#endif
+				case SQL_TYPE_DATE:
 					/* Here we coerce the time-related column types to CHAR,
 					 * causing Firebird to use its internal parsing mechanisms
 					 * to interpret the supplied literal
@@ -3380,7 +3474,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 	FQresTupleAtt *tuple_att;
 	short		   datatype;
 	char		  *p;
-	struct tm	   times;
+	struct tm	   timestamp_utc;
 	char		   format_buffer[1024];
 	char		   pad_buffer[1024];
 	bool		   format_error = false;
@@ -3561,48 +3655,13 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			sprintf(p, "%f", *(double *) (var->sqldata));
 			break;
 
-		case SQL_TIMESTAMP:
-			isc_decode_timestamp((ISC_TIMESTAMP *)var->sqldata, &times);
-			s = snprintf(format_buffer, sizeof(format_buffer),
-						 "%04d-%02d-%02d %02d:%02d:%02d.%04d",
-						 times.tm_year + 1900,
-						 times.tm_mon+1,
-						 times.tm_mday,
-						 times.tm_hour,
-						 times.tm_min,
-						 times.tm_sec,
-					((ISC_TIMESTAMP *)var->sqldata)->timestamp_time % 10000);
-
-			if (s < 0)
-			{
-				format_error = true;
-			}
-			else
-			{
-				s = snprintf(pad_buffer, sizeof(pad_buffer),
-							 "%*s", FB_TIMESTAMP_LEN,
-							 format_buffer);
-				if (s < 0)
-				{
-					format_error = true;
-				}
-				else
-				{
-					int l = strlen(pad_buffer);
-					p = (char *)malloc(l + 1);
-					memset(p, '\0', l + 1);
-					memcpy(p, pad_buffer, l);
-				}
-			}
-			break;
-
 		case SQL_TYPE_DATE:
-			isc_decode_sql_date((ISC_DATE *)var->sqldata, &times);
+			isc_decode_sql_date((ISC_DATE *)var->sqldata, &timestamp_utc);
 			s = snprintf(format_buffer, sizeof(format_buffer),
 						 "%04d-%02d-%02d",
-						 times.tm_year + 1900,
-						 times.tm_mon+1,
-						 times.tm_mday);
+						 timestamp_utc.tm_year + 1900,
+						 timestamp_utc.tm_mon+1,
+						 timestamp_utc.tm_mday);
 			if (s < 0)
 			{
 				format_error = true;
@@ -3627,13 +3686,66 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			break;
 
 		case SQL_TYPE_TIME:
-			isc_decode_sql_time((ISC_TIME *)var->sqldata, &times);
-			s = snprintf(format_buffer, sizeof(format_buffer),
-						 "%02d:%02d:%02d.%04d",
-						 times.tm_hour,
-						 times.tm_min,
-						 times.tm_sec,
-						 (*((ISC_TIME *)var->sqldata)) % 10000);
+#ifdef HAVE_TIMEZONE
+		case SQL_TIME_TZ:
+		case SQL_TIME_TZ_EX:
+#endif
+			isc_decode_sql_time((ISC_TIME *)var->sqldata, &timestamp_utc);
+
+			if (datatype == SQL_TYPE_TIME)
+			{
+				s = snprintf(format_buffer, sizeof(format_buffer),
+							 "%02d:%02d:%02d.%04d",
+							 timestamp_utc.tm_hour,
+							 timestamp_utc.tm_min,
+							 timestamp_utc.tm_sec,
+							 (*((ISC_TIME *)var->sqldata)) % 10000);
+			}
+#ifdef HAVE_TIMEZONE
+			else if (datatype == SQL_TIME_TZ)
+			{
+				ISC_TIME_TZ *ttz = (ISC_TIME_TZ *)(var->sqldata);
+				ISC_USHORT tz = ttz->time_zone;
+				char *tz_desc = _FQlookupTimeZone((int)tz);
+
+				s = snprintf(format_buffer, sizeof(format_buffer),
+							 "%02d:%02d:%02d.%04d %s",
+							 timestamp_utc.tm_hour,
+							 timestamp_utc.tm_min,
+							 timestamp_utc.tm_sec,
+							 (*((ISC_TIME *)var->sqldata)) % 10000,
+							 tz_desc);
+				free(tz_desc);
+			}
+			else
+			{
+				ISC_TIME_TZ_EX *ttz = (ISC_TIME_TZ_EX *)(var->sqldata);
+				ISC_USHORT tz = ttz->time_zone;
+				ISC_SHORT tz_ext_offset = ttz->ext_offset;
+
+				struct tm*	   timestamp_local;
+				time_t time_utc;
+				time_t time_local;
+
+				char *tz_desc = NULL;
+
+				time_utc = mktime(&timestamp_utc);
+				time_local = time_utc + (tz_ext_offset * 60);
+				timestamp_local = localtime(&time_local);
+
+				tz_desc = _FQformatTimeZone((int)tz, (int)tz_ext_offset, conn->time_zone_names);
+
+				s = snprintf(format_buffer, sizeof(format_buffer),
+							 "%02d:%02d:%02d.%04d %s",
+							 timestamp_local->tm_hour,
+							 timestamp_local->tm_min,
+							 timestamp_local->tm_sec,
+							 (*((ISC_TIME *)var->sqldata)) % 10000,
+							 tz_desc);
+				free(tz_desc);
+			}
+#endif
+
 			if (s < 0)
 			{
 				format_error = true;
@@ -3656,6 +3768,99 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 				}
 			}
 			break;
+
+		case SQL_TIMESTAMP:
+#ifdef HAVE_TIMEZONE
+		case SQL_TIMESTAMP_TZ:
+		case SQL_TIMESTAMP_TZ_EX:
+#endif
+			isc_decode_timestamp((ISC_TIMESTAMP *)var->sqldata, &timestamp_utc);
+			if (datatype == SQL_TIMESTAMP)
+			{
+				s = snprintf(format_buffer, sizeof(format_buffer),
+							 "%04d-%02d-%02d %02d:%02d:%02d.%04d",
+							 timestamp_utc.tm_year + 1900,
+							 timestamp_utc.tm_mon+1,
+							 timestamp_utc.tm_mday,
+							 timestamp_utc.tm_hour,
+							 timestamp_utc.tm_min,
+							 timestamp_utc.tm_sec,
+							 ((ISC_TIMESTAMP *)var->sqldata)->timestamp_time % 10000);
+			}
+#ifdef HAVE_TIMEZONE
+			else if (datatype == SQL_TIMESTAMP_TZ)
+			{
+				ISC_TIMESTAMP_TZ *tstz = (ISC_TIMESTAMP_TZ *)(var->sqldata);
+				ISC_USHORT tz = tstz->time_zone;
+				char *tz_desc = _FQlookupTimeZone((int)tz);
+
+				s = snprintf(format_buffer, sizeof(format_buffer),
+							 "%04d-%02d-%02d %02d:%02d:%02d.%04d %s",
+							 timestamp_utc.tm_year + 1900,
+							 timestamp_utc.tm_mon+1,
+							 timestamp_utc.tm_mday,
+							 timestamp_utc.tm_hour,
+							 timestamp_utc.tm_min,
+							 timestamp_utc.tm_sec,
+							 tstz->utc_timestamp.timestamp_time % 10000,
+							 tz_desc);
+				free(tz_desc);
+			}
+			else
+			{
+				ISC_TIMESTAMP_TZ_EX *tstz = (ISC_TIMESTAMP_TZ_EX *)(var->sqldata);
+				ISC_USHORT tz = tstz->time_zone;
+				ISC_SHORT tz_ext_offset = tstz->ext_offset;
+
+				struct tm*	   timestamp_local;
+				time_t time_utc;
+				time_t time_local;
+
+				char *tz_desc = NULL;
+
+				time_utc = mktime(&timestamp_utc);
+				time_local = time_utc + (tz_ext_offset * 60);
+				timestamp_local = localtime(&time_local);
+
+				tz_desc = _FQformatTimeZone(tz, tz_ext_offset, conn->time_zone_names);
+
+				s = snprintf(format_buffer, sizeof(format_buffer),
+							 "%04d-%02d-%02d %02d:%02d:%02d.%04d %s",
+							 timestamp_local->tm_year + 1900,
+							 timestamp_local->tm_mon+1,
+							 timestamp_local->tm_mday,
+							 timestamp_local->tm_hour,
+							 timestamp_local->tm_min,
+							 timestamp_local->tm_sec,
+							 tstz->utc_timestamp.timestamp_time % 10000,
+							 tz_desc);
+
+				free(tz_desc);
+			}
+#endif
+			if (s < 0)
+			{
+				format_error = true;
+			}
+			else
+			{
+				s = snprintf(pad_buffer, sizeof(pad_buffer),
+							 "%*s", FB_TIMESTAMP_LEN,
+							 format_buffer);
+				if (s < 0)
+				{
+					format_error = true;
+				}
+				else
+				{
+					int l = strlen(pad_buffer);
+					p = (char *)malloc(l + 1);
+					memset(p, '\0', l + 1);
+					memcpy(p, pad_buffer, l);
+				}
+			}
+			break;
+
 
         /* BLOBs are tricky...*/
 		case SQL_BLOB:
@@ -4227,6 +4432,7 @@ _FQdspstrlen_line(FQresTupleAtt *att, short encoding_id)
 	return max_len ? max_len : cur_len;
 }
 
+
 #if defined SQL_INT128
 #define P10_UINT64 10000000000000000000ULL   /* 19 zeroes */
 #define E10_UINT64 19
@@ -4296,4 +4502,168 @@ convert_int128(const char *s)
     return val;
 }
 
+#endif
+
+#ifdef HAVE_TIMEZONE
+
+/**
+ * _FQlookupTimeZone()
+ *
+ * Given the "time_zone" value from one of the following structs:
+ *
+ *  - ISC_TIME_TZ
+ *  - ISC_TIME_TZ_EX
+ *  - ISC_TIMESTAMP_TZ
+ *  - ISC_TIMESTAMP_TZ_EX
+ *
+ * returns the time zone as either the time zone name or the time zone offset.
+ *
+ * Caller should free the returned string.
+ */
+static char *
+_FQlookupTimeZone(int time_zone_id)
+{
+	int i = 0;
+	struct tz_entry tz;
+	char *tz_desc;
+
+	/*
+	 * "time_zone_id" is a time zone offset.
+	 */
+	if (time_zone_id <= (FB_TIMEZONE_OFFSET_BASE + FB_TIMEZONE_OFFSET_MAX_MINUTES)
+	&&  time_zone_id >= (FB_TIMEZONE_OFFSET_BASE - FB_TIMEZONE_OFFSET_MAX_MINUTES))
+	{
+		bool offset_positive;
+		int offset_raw;
+		int offset_hours;
+		int offset_minutes;
+
+		if (time_zone_id >= FB_TIMEZONE_OFFSET_BASE)
+		{
+			offset_positive = true;
+			offset_raw = time_zone_id - FB_TIMEZONE_OFFSET_BASE;
+		}
+		else
+		{
+			offset_positive = false;
+			offset_raw = FB_TIMEZONE_OFFSET_BASE - time_zone_id;
+		}
+
+		offset_hours = offset_raw / 60;
+		offset_minutes = offset_raw - (offset_hours * 60);
+
+		/*
+		 * If we don't do this, the compiler might think that "offset_minutes" could
+		 * be in the range [-840, 840]. Which it can't be.
+		 *
+		 * The alternative would be to write the "offset_minutes" calculation as:
+		 *
+		 *   offset_raw - ((offset_raw / 60) * 60);
+		 */
+		if (offset_minutes < 0 || offset_minutes > 59)
+			offset_minutes = 0;
+
+		tz_desc = (char *)malloc(FB_TIMEZONE_OFFSET_STRLEN + 1);
+		snprintf(tz_desc,
+				 FB_TIMEZONE_OFFSET_STRLEN + 1,
+				 "%c%02d:%02d",
+				 offset_positive ? '+' : '-',
+				 offset_hours,
+				 offset_minutes);
+
+		return tz_desc;
+	}
+
+	/*
+	 * Scan list of time zone names for time_zone_id.
+	 */
+	for (;;)
+	{
+		tz = timezones[i];
+
+		if (tz.id == time_zone_id)
+		{
+			int len = strlen(tz.name);
+			tz_desc = (char *)malloc(len + 1);
+			memset(tz_desc, '\0', len + 1);
+			memcpy(tz_desc, tz.name, len);
+
+			return tz_desc;
+		}
+
+		/*
+		 * A named time zone was not found, so exit the loop and
+		 * return an error.
+		 */
+		if (tz.id == 0)
+			break;
+
+		i++;
+	}
+
+	/*
+	 * The provided identifier is neither an offset nor a known named time zone.
+	 */
+	tz_desc = (char *)malloc(64);
+	snprintf(tz_desc,
+			 64,
+			 "unexpected time_zone value %i",
+			 time_zone_id);
+	return tz_desc;
+}
+
+/**
+ * _FQformatTimeZone()
+ *
+ * If "time_zone_names" is true, formats the time zone as Firebird does normally
+ * (i.e. as the time zone name if it was specified, or the time zone offset),
+ * otherwise formats the time zone as an offset.
+ *
+ * Caller should free the returned string.
+ */
+static char *
+_FQformatTimeZone(int time_zone_id, int tz_ext_offset, bool time_zone_names)
+{
+	char *tz_desc;
+	bool offset_positive;
+	int offset_raw;
+	int offset_hours;
+	int offset_minutes;
+
+	if (time_zone_names == true)
+		return _FQlookupTimeZone(time_zone_id);
+
+	if (tz_ext_offset >= 0)
+	{
+		offset_positive = true;
+		offset_raw = tz_ext_offset;
+	}
+	else
+	{
+		offset_positive = false;
+		offset_raw = abs(tz_ext_offset);
+	}
+
+	offset_hours = offset_raw / 60;
+	offset_minutes = offset_raw - (offset_hours * 60);
+
+	/*
+	 * Sanity checks to keep the compiler happy.
+	 */
+	if (offset_minutes < 0 || offset_minutes > 59)
+		offset_minutes = 0;
+
+	if (offset_hours < -14 || offset_hours > 14)
+		offset_hours = 0;
+
+	tz_desc = (char *)malloc(FB_TIMEZONE_OFFSET_STRLEN + 1);
+	snprintf(tz_desc,
+			 FB_TIMEZONE_OFFSET_STRLEN + 1,
+			 "%c%02d:%02d",
+			 offset_positive ? '+' : '-',
+			 offset_hours,
+			 offset_minutes);
+
+	return tz_desc ;
+}
 #endif

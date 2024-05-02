@@ -72,6 +72,9 @@ FBconn *FQconnectdbParams(const char * const *keywords,
             <listitem>
               <simpara><literal>client_encoding</literal></simpara>
             </listitem>
+            <listitem>
+              <simpara><literal>time_zone_names</literal></simpara>
+            </listitem>
           </itemizedlist>
           <para>
             To determine if the connection was successful, call <xref linkend="libfq-fqstatus">.
@@ -99,6 +102,22 @@ void FQfinish(FBconn *conn);
 
         </listitem>
       </varlistentry>
+
+      <varlistentry id="libfq-fqsettimezonenames">
+        <term><function>FQsetTimeZoneNames</function><indexterm><primary>FQsetTimeZoneNames</primary></indexterm></term>
+        <listitem>
+          <para>
+            Specify whether time zones stored in <literal>TIME WITH TIME ZONE</literal> and
+            <literal>TIMESTAMP WITH TIME ZONE</literal> columns should be returned as-is (e.g.
+            <literal>Asia/Tokyo</literal> or as numeric time zone offsets (e.g. <literal>+09:00</literal>).
+<synopsis>
+void FQsetTimeZoneNames(FBconn *conn, bool time_zone_names);
+</synopsis>
+          </para>
+
+        </listitem>
+      </varlistentry>
+
 	</variablelist>
   </sect1>
 
@@ -192,11 +211,14 @@ const char *FQparameterStatus(const FBconn *conn, const char *paramName);
 </synopsis>
           </para>
           <para>
-            Currently the only supported parameter is:
+            Currently the only supported parameters are:
           </para>
           <itemizedlist spacing="compact" mark="bullet">
             <listitem>
               <simpara><literal>client_encoding</literal></simpara>
+            </listitem>
+            <listitem>
+              <simpara><literal>time_zone_names</literal></simpara>
             </listitem>
           </itemizedlist>
 		  <para>

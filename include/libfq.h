@@ -226,6 +226,7 @@ typedef struct FBconn {
 	short		   client_min_messages;
 	short		   client_encoding_id;	  /* corresponds to MON$ATTACHMENTS.MON$CHARACTER_SET_ID */
 	char		  *client_encoding;		  /* client encoding, default UTF8 */
+	bool		   time_zone_names;		  /* whether to emit time zones as names or numeric offsets */
 	bool		   get_dsp_len;			  /* calculate display length in single characters of each datum */
 	char		  *errMsg;		  		  /* most recently generated error message */
 } FBconn;
@@ -333,6 +334,8 @@ extern FBconn *FQconnectdbParams(const char * const *keywords, const char * cons
 extern FBconn *FQreconnect(FBconn *conn);
 
 extern void FQfinish(FBconn *conn);
+
+extern void FQsetTimeZoneNames(FBconn *conn, bool time_zone_names);
 
 /*
  * ====================================
