@@ -18,4 +18,6 @@
 <!ENTITY installation    SYSTEM "installation.sgml">
 <!ENTITY functions       SYSTEM "functions.sgml">
 
+<!ENTITY appendix-release-notes  SYSTEM "appendix-release-notes.sgml">
+
 <!ENTITY bookindex  SYSTEM "bookindex.sgml">

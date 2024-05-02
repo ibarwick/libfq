@@ -1,0 +1,312 @@
+<appendix id="appendix-release-notes">
+  <title>Release notes</title>
+  <indexterm>
+    <primary>Release notes</primary>
+  </indexterm>
+
+  <para>
+    Changes to each &libfq; release are documented in the release notes.
+  </para>
+
+  <sect1 id="release-0.5.1">
+    <title id="release-current">Release 0.5.1</title>
+    <para><emphasis>Saturday 27 April, 2024</emphasis></para>
+    <para>
+      &libfq; 0.5.1 is a minor release providing following fixes:
+      <itemizedlist>
+        <listitem>
+          <para>
+            Tighten up tuple row/column bounds checking.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Fixes for character set/encoding handling.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Miscellaneous code cleanup.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+    </para>
+  </sect1>
+
+  <sect1 id="release-0.5.0">
+    <title>Release 0.5.0</title>
+    <para><emphasis>Wednesday 28 December, 2022</emphasis></para>
+    <para>
+      &libfq; 0.5.0 is a feature release providing following improvements and fixes:
+      <itemizedlist>
+        <listitem>
+          <para>
+            Add functions FQprepare() and FQexecPrepared().
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Handle errors encountered when executing isc_dsql_fetch().
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Ensure FBconn objects are initialized correctly.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+    </para>
+  </sect1>
+  <sect1 id="release-0.4.3">
+    <title>Release 0.4.3</title>
+    <para><emphasis>Sunday 22 February, 2022</emphasis></para>
+    <para>
+      &libfq; 0.4.3 is a minor release providing following fix:
+      <itemizedlist>
+        <listitem>
+          <para>
+            Fix NULL value handling in FQexecParams()
+          </para>
+        </listitem>
+
+      </itemizedlist>
+    </para>
+  </sect1>
+  <sect1 id="release-0.4.2">
+    <title>Release 0.4.2</title>
+    <para><emphasis>Saturday 17 October, 2020</emphasis></para>
+    <para>
+      &libfq; 0.4.2 is a minor release providing following improvements and fixes:
+      <itemizedlist>
+        <listitem>
+          <para>
+            Add configure option "--with-fbclient".
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Fix FQexplainStatement() output.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+    </para>
+  </sect1>
+  <sect1 id="release-0.4.1">
+    <title>Release 0.4.1</title>
+    <para><emphasis>Friday 31 May, 2019</emphasis></para>
+    <para>
+      &libfq; 0.4.1 is a minor release providing following fixes:
+      <itemizedlist>
+        <listitem>
+          <para>
+            Fix some potential resource leaks.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+    </para>
+  </sect1>
+  <sect1 id="release-0.4.0">
+    <title>Release 0.4.0</title>
+    <para><emphasis>Friday 9 November, 2018</emphasis></para>
+    <para>
+      &libfq; 0.6.0 is a feature release providing following additional functionality and fixes:
+      <itemizedlist>
+        <listitem>
+          <para>
+            Support BOOLEAN datatype (Firebird 3 and later).
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Store table name in result header information.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+    </para>
+  </sect1>
+  <sect1 id="release-0.3.0">
+    <title>Release 0.3.0</title>
+    <para><emphasis>Friday 28 September, 2018</emphasis></para>
+    <para>
+      &libfq; 0.3.0 is a feature release providing following additional functionality and fixes:
+      <itemizedlist>
+        <listitem>
+          <para>
+            Add initial support for retrieving text BLOBs.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Refactor FQexecParams() result handling.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Clean up memory handling.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Add initial support for retrieving text BLOBs.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+    </para>
+  </sect1>
+  <sect1 id="release-0.2.0">
+    <title>Release 0.2.0</title>
+    <para><emphasis>Saturday 21 April, 2018</emphasis></para>
+    <para>
+      &libfq; 0.2.0 is a feature release providing following additional functionality and fixes:
+      <itemizedlist>
+        <listitem>
+          <para>
+            Add DocBook reference documentation
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Add functions to return libfq version information.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Add function FQreconnect(). Note this may be modified.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Have FQstatus() actually check whether the provided connection is active.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Improve error message handling.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Improve memory handling.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Fix "too many open handles to database" errors
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Rename FQconn and FQresult structs to FBconn and FBresult
+	        respectively, for consistency with PostgreSQL's libpq naming
+	        conventions.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+    </para>
+  </sect1>
+  <sect1 id="release-0.1.4">
+    <title>Release 0.1.4</title>
+    <para><emphasis>Tuesday 9 February, 2014</emphasis></para>
+    <para>
+      &libfq; 0.1.4 is a minor release providing following improvements:
+      <itemizedlist>
+        <listitem>
+          <para>
+            Improve non-ASCII character handling (mainly for the benefit of fbsql).
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Add RPM spec files for Redhat, CentOS etc.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+    </para>
+  </sect1>
+  <sect1 id="release-0.1.3">
+    <title>Release 0.1.3</title>
+    <para><emphasis>Sunday 9 February, 2014</emphasis></para>
+    <para>
+      &libfq; 0.1.3 is a minor release providing improvements to connection functionality.
+      <itemizedlist>
+        <listitem>
+          <para>
+            New connection function FQconnectdbParams().
+          </para>
+          <para>
+            This was added to enable explicit setting of the client encoding
+	        (isc_dpb_lc_ctype), but which will hopefully be expanded with
+	        further options.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+    </para>
+  </sect1>
+  <sect1 id="release-0.1.2">
+    <title>Release 0.1.2</title>
+    <para><emphasis>Sunday 2 February, 2024</emphasis></para>
+    <para>
+      &libfq; 0.1.2 is a minor release with following changes:
+      <itemizedlist>
+        <listitem>
+          <para>
+            consolidate header files
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            add RPM SPEC file
+          </para>
+        </listitem>
+
+      </itemizedlist>
+    </para>
+  </sect1>
+  <sect1 id="release-0.1.1">
+    <title>Release 0.1.1</title>
+    <para><emphasis>Sunday 2 February, 2014</emphasis></para>
+    <para>
+      &libfq; 0.1.1 is a bugfix release, providing the following fixes:
+      <itemizedlist>
+        <listitem>
+          <para>
+            fix TIMESTAMP/DATE/TIME parsing in FQexecParams()
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            add FQserverVersionString()
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            various bugfixes and tweaks
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            move source files to src/ directory
+          </para>
+        </listitem>
+
+      </itemizedlist>
+    </para>
+  </sect1>
+  <sect1 id="release-0.1.0">
+    <title>Release 0.1.0</title>
+    <para><emphasis>Wed 1 January, 2014</emphasis></para>
+    <para>
+      Initial public release of &libfq;.
+    </para>
+  </sect1>
+
+</appendix>
