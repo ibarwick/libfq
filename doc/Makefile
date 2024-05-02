@@ -18,6 +18,7 @@ ALLSGML := $(wildcard $(srcdir)/*.sgml)
 ALMOSTALLSGML := $(filter-out %bookindex.sgml,$(ALLSGML))
 GENERATED_SGML = version.sgml bookindex.sgml
 
+LIBFQ_VERSION_STRING=$(shell awk '/^\#define LIBFQ_VERSION_STRING / { print $3; }' $(libfq_top_builddir)/include/libfq-version.h | cut -d '"' -f 2)
 
 all: html
 
@@ -34,8 +35,8 @@ libfq.html: libfq.sgml $(ALLSGML) $(GENERATED_SGML) stylesheet.dsl website-docs.
 (define nochunks  #t)' <stylesheet.dsl >nochunks.dsl
 	$(JADE.html.call) -d nochunks.dsl -i include-index $< >libfq.html
 
-version.sgml: ${libfq_top_builddir}/include/libfq-version.h
-	{ \
+version.sgml: $(libfq_top_builddir)/include/libfq-version.h
+		{ \
 	  echo "<!ENTITY libfqversion \"$(LIBFQ_VERSION_STRING)\">"; \
 	} > $@
 
