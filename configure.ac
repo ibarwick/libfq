@@ -1,7 +1,7 @@
 # libfq - configure.ac
 
 
-AC_INIT([libfq], [0.5.1], [barwick@gmail.com])
+AC_INIT([libfq], [0.6.0], [barwick@gmail.com])
 
 AM_MAINTAINER_MODE([disable])
 
