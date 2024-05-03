@@ -174,6 +174,12 @@ typedef uint32 bits32;                  /* >= 32 bits */
 
 #define BLOB_SEGMENT_LEN 80
 
+/*
+ * Maximum number of connection parameters supported by
+ * FQconnectdbParams()
+ */
+#define FBCONN_MAX_PARAMS 5
+
 typedef enum
 {
 	CONNECTION_OK = 0,

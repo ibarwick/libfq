@@ -57,6 +57,10 @@ FBconn *FQconnectdbParams(const char * const *keywords,
             for each keyword.
           </para>
           <para>
+            The constant <literal>FBCONN_MAX_PARAMS</literal> defines the maximum number
+            of parameters supported by <function>FQconnectdbParams</function>.
+          </para>
+          <para>
             Following keywords are currently supported:
           </para>
           <itemizedlist spacing="compact" mark="bullet">

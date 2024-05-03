@@ -174,8 +174,11 @@ FQconnect(const char *db_path, const char *uname, const char *upass)
  *  user
  *  password
  *  client_encoding
+ *  time_zone_names
  *
  * This list may change in the future.
+ *
+ * The number of supported parameters is defined in FBCONN_MAX_PARAMS.
  */
 FBconn *
 FQconnectdbParams(const char * const *keywords,
