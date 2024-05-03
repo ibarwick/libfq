@@ -1,0 +1,157 @@
+<chapter id="libfq-data-types">
+  <title>libfq data type support</title>
+  <para>
+    This chapter describes data type support in &libfq;.
+  </para>
+  <para>
+    Firebird reference documentation: <ulink url="https://firebirdsql.org/file/documentation/chunk/en/refdocs/fblangref50/fblangref50-datatypes.html">Data Types and Subtypes</ulink>.
+  </para>
+  <table id="libfq-data-type-support-overview">
+    <title>Overview of Firebird data type support in libfq</title>
+    <tgroup cols="3">
+      <thead>
+        <row>
+          <entry>Data type</entry>
+          <entry>Firebird version</entry>
+          <entry>Supported?</entry>
+          <entry>Notes</entry>
+        </row>
+      </thead>
+      <tbody>
+        <row>
+          <entry>BIGINT</entry>
+          <entry></entry>
+          <entry>yes</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>BINARY(n)</entry>
+          <entry></entry>
+          <entry>partial</entry>
+          <entry>read-only</entry>
+        </row>
+        <row>
+          <entry>BLOB</entry>
+          <entry></entry>
+          <entry>partial</entry>
+          <entry>subtype <literal>TEXT</literal> only</entry>
+        </row>
+        <row>
+          <entry>BOOLEAN</entry>
+          <entry>3.0</entry>
+          <entry>yes</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>CHAR(N)</entry>
+          <entry></entry>
+          <entry>yes</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>DATE</entry>
+          <entry></entry>
+          <entry>yes</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>DECFLOAT</entry>
+          <entry>4.0</entry>
+          <entry>no</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>DECIMAL</entry>
+          <entry></entry>
+          <entry>yes</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>DOUBLE PRECISION</entry>
+          <entry></entry>
+          <entry>incomplete</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>FLOAT</entry>
+          <entry></entry>
+          <entry>incomplete</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>FLOAT(bin_prec)</entry>
+          <entry></entry>
+          <entry>incomplete</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>INT</entry>
+          <entry></entry>
+          <entry>yes</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>INT128</entry>
+          <entry>4.0</entry>
+          <entry>yes</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>NUMERIC</entry>
+          <entry></entry>
+          <entry>yes</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>REAL</entry>
+          <entry></entry>
+          <entry>incomplete</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>SMALLINT</entry>
+          <entry></entry>
+          <entry>yes</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>TIME [WITHOUT TIME ZONE]</entry>
+          <entry></entry>
+          <entry>yes</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>TIME WITH TIME ZONE</entry>
+          <entry>4.0</entry>
+          <entry>yes</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>TIMESTAMP [WITHOUT TIME ZONE]</entry>
+          <entry></entry>
+          <entry>yes</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>TIMESTAMP WITH TIME ZONE</entry>
+          <entry>4.0</entry>
+          <entry>yes</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>VARBINARY</entry>
+          <entry></entry>
+          <entry>unknown</entry>
+          <entry></entry>
+        </row>
+        <row>
+          <entry>VARCHAR</entry>
+          <entry></entry>
+          <entry>yes</entry>
+          <entry></entry>
+        </row>
+      </tbody>
+    </tgroup>
+  </table>
+
+</chapter>

@@ -17,6 +17,7 @@
 <!ENTITY background      SYSTEM "background.sgml">
 <!ENTITY installation    SYSTEM "installation.sgml">
 <!ENTITY functions       SYSTEM "functions.sgml">
+<!ENTITY data-types      SYSTEM "data-types.sgml">
 
 <!ENTITY appendix-release-notes  SYSTEM "appendix-release-notes.sgml">
 
