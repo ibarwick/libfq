@@ -3476,7 +3476,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 {
 	FQresTupleAtt *tuple_att;
 	short		   datatype;
-	char		  *p;
+	char		  *p = NULL;
 	struct tm	   timestamp_utc;
 	char		   format_buffer[1024];
 	char		   pad_buffer[1024];
@@ -3942,11 +3942,21 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 
 		default:
 			p = (char *)malloc(64);
+			snprintf(p, 64, "Unhandled datatype %i", datatype);
+			break;
+	}
 
-			if (format_error)
-				sprintf(p, "Error formatting datatype %i", datatype);
-			else
-				sprintf(p, "Unhandled datatype %i", datatype);
+	/*
+	 * We weren't able to format the Datum  due to an error.
+	 * It's unlikely this case will be triggered.
+	 */
+	if (p == NULL)
+	{
+		p = (char *)malloc(64);
+		if (format_error)
+			snprintf(p, 64, "Error formatting datatype %i", datatype);
+		else
+			snprintf(p, 64, "Unknown issue formatting datatype %i", datatype);
 	}
 
 	tuple_att->value = p;
