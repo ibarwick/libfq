@@ -5,14 +5,13 @@ libfq - C API wrapper for Firebird
 wrappers around the native Firebird C API, which is cumbersome to use.
 
 It is loosely based on PostgreSQL's `libpq` and provides a subset of
-that API's functions - names beginning with `FQ` rather than `PQ`
-of course - with more-or-less identical function signatures.
-It also provides a small number of Firebird-specific functions.
+that API's functions - names beginning with `FQ` rather than `PQ` -
+with more-or-less identical function signatures.
+It also provides some Firebird-specific functions.
 
 While basically functional, `libfq` is still work-in-progress and
-the API definitions may change in an incompatible way.
+the API definitions may change between releases in an incompatible way.
 *USE AT YOUR OWN RISK*.
-
 
 Requirements and compatibility
 ------------------------------
@@ -20,10 +19,8 @@ Requirements and compatibility
 `libfq` should work on any reasonably POSIX-like system; see the
 [INSTALL.md](INSTALL.md) file for details.
 
-It has been developed against Firebird 2.5 and Firebird 3, and should
-work with Firebird 2.1 and later. It supports the `BOOLEAN` datatype
-introduced in Firebird 3.
-
+It has been developed against Firebird 3 ~ Firebird 5, and should
+work with Firebird 2.5 and later.
 
 Installation
 ------------
