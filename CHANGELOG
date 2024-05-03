@@ -5,6 +5,7 @@ Revision history for libfq
 	- support for INT128 datatype (Firebird 4 and later)
 	- support TIME WITH TIME ZONE and TIMESTAMP WITH TIME ZONE datatypes
 	- Add constant FBCONN_MAX_PARAMS
+	- Improve control over log output
 
 0.5.1   2024-04-27
 	- Tighten up tuple row/column bounds checking

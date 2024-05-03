@@ -85,6 +85,12 @@ typedef uint32 bits32;                  /* >= 32 bits */
 #define PANIC           22   /* Should never happen... */
 #endif
 
+/*
+ * Return values of FQsetXXX() calls
+ */
+#define FQ_SET_NO_DB   -1
+#define FQ_SET_ERROR   -1
+#define FQ_SET_SUCCESS  0
 
 /* From ibase.h */
 #ifndef SQL_TEXT
@@ -186,7 +192,7 @@ typedef uint32 bits32;                  /* >= 32 bits */
  * Maximum number of connection parameters supported by
  * FQconnectdbParams()
  */
-#define FBCONN_MAX_PARAMS 5
+#define FBCONN_MAX_PARAMS 6
 
 typedef enum
 {
@@ -349,7 +355,9 @@ extern FBconn *FQreconnect(FBconn *conn);
 
 extern void FQfinish(FBconn *conn);
 
-extern void FQsetTimeZoneNames(FBconn *conn, bool time_zone_names);
+extern int FQsetTimeZoneNames(FBconn *conn, bool time_zone_names);
+extern int FQsetClientMinMessages(FBconn *conn, int log_level);
+extern int FQsetClientMinMessagesString(FBconn *conn, const char *log_level);
 
 /*
  * ====================================

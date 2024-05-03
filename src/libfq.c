@@ -49,6 +49,28 @@
 
 #endif
 
+
+typedef struct log_level_entry {
+	const char *log_level;
+	int log_level_id;
+} log_level_entry;
+
+struct log_level_entry log_levels[] = {
+	{ "DEBUG5",  DEBUG5 },
+	{ "DEBUG4",  DEBUG4 },
+	{ "DEBUG3",  DEBUG3 },
+	{ "DEBUG2",  DEBUG2 },
+	{ "DEBUG1",  DEBUG1 },
+	{ "INFO",    INFO },
+	{ "NOTICE",  NOTICE },
+	{ "WARNING", WARNING },
+	{ "ERROR",   ERROR },
+	{ "FATAL",   FATAL },
+	{ "PANIC",   PANIC},
+	{ NULL, 0 }
+};
+
+
 /* Internal utility functions */
 
 static void
@@ -98,6 +120,10 @@ static int _FQdspstrlen_line(FQresTupleAtt *att, short encoding_id);
 
 static int check_tuple_field_number(const FBresult *res,
 									int row_number, int column_number);
+
+static int _FQgetLogLevelFromName(const char *log_level);
+static const char*  _FQgetLogLevelName(int log_level);
+
 #if defined SQL_INT128
 static int format_int128(__int128 val, char *dst);
 static __int128 convert_int128(const char *s);
@@ -196,6 +222,7 @@ FQconnectdbParams(const char * const *keywords,
 	const char *upass = NULL;
 	const char *client_encoding = NULL;
 	bool  time_zone_names = false;
+	int client_min_messages = DEBUG1;
 
 	int i = 0;
 
@@ -209,6 +236,8 @@ FQconnectdbParams(const char * const *keywords,
 			upass = values[i];
 		else if (strcmp(keywords[i], "client_encoding") == 0)
 			client_encoding = values[i];
+		else if (strcmp(keywords[i], "client_min_messages") == 0)
+			client_min_messages = _FQgetLogLevelFromName(values[i]);
 		else if (strcmp(keywords[i], "time_zone_names") == 0)
 			/* XXX better boolean parsing? */
 			time_zone_names = strncmp(values[i], "true", 5) == 0 ? true : false;
@@ -230,7 +259,7 @@ FQconnectdbParams(const char * const *keywords,
 	conn->in_user_transaction = false;
 	conn->status = (ISC_STATUS *) malloc(sizeof(ISC_STATUS) * ISC_STATUS_LENGTH);
 	conn->engine_version = NULL;
-	conn->client_min_messages = DEBUG1;
+	conn->client_min_messages = client_min_messages;
 	conn->client_encoding = NULL;
 	conn->client_encoding_id = FBENC_UNKNOWN;	/* indicate the server-parsed value has not yet been retrieved */
 	conn->get_dsp_len = false;
@@ -481,11 +510,48 @@ FQfinish(FBconn *conn)
  *
  * Indicate whether to return time zone names, where available.
  */
-void
+int
 FQsetTimeZoneNames(FBconn *conn, bool time_zone_names)
 {
-	if (conn != NULL)
-		conn->time_zone_names = time_zone_names;
+	if (conn == NULL)
+		return FQ_SET_NO_DB;
+
+	conn->time_zone_names = time_zone_names;
+	return FQ_SET_SUCCESS;
+}
+
+/**
+ * FQsetClientMinMessages()
+ */
+int
+FQsetClientMinMessages(FBconn *conn, int log_level)
+{
+
+	if (conn == NULL)
+		return FQ_SET_NO_DB;
+
+	conn->client_min_messages = log_level;
+	return FQ_SET_SUCCESS;
+
+}
+
+
+int
+FQsetClientMinMessagesString(FBconn *conn, const char *log_level)
+{
+	int log_level_id;
+
+	if (conn == NULL)
+		return FQ_SET_NO_DB;
+
+	log_level_id = _FQgetLogLevelFromName(log_level);
+
+	if (log_level_id == 0)
+		return FQ_SET_ERROR;
+
+	conn->client_min_messages = log_level_id;
+
+	return FQ_SET_SUCCESS;
 }
 
 /*
@@ -552,6 +618,14 @@ FQparameterStatus(FBconn *conn, const char *paramName)
 
 	if (strcmp(paramName, "time_zone_names") == 0)
 		return conn->time_zone_names == true ? "enabled" : "disabled";
+
+
+	if (strcmp(paramName, "client_min_messages") == 0)
+	{
+		const char *log_level = _FQgetLogLevelName(conn->client_min_messages);
+
+		return log_level ? log_level : "unknown log level";
+	}
 
 	return NULL;
 }
@@ -4443,6 +4517,49 @@ _FQdspstrlen_line(FQresTupleAtt *att, short encoding_id)
 	}
 
 	return max_len ? max_len : cur_len;
+}
+
+
+static int
+_FQgetLogLevelFromName(const char *log_level)
+{
+	int i = 0;
+	struct log_level_entry ll;
+
+	for (;;)
+	{
+		ll = log_levels[i];
+
+		if (strcmp(log_level, ll.log_level) == 0)
+			return ll.log_level_id;
+
+		if (ll.log_level == NULL)
+			break;
+		i++;
+	}
+
+	return 0;
+}
+
+static const char*
+_FQgetLogLevelName(int log_level_id)
+{
+	int i = 0;
+	struct log_level_entry ll;
+
+	for (;;)
+	{
+		ll = log_levels[i];
+
+		if (log_level_id == ll.log_level_id)
+			return ll.log_level;
+
+		if (ll.log_level == NULL)
+			break;
+		i++;
+	}
+
+	return NULL;
 }
 
 

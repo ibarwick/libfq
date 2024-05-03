@@ -77,6 +77,9 @@ FBconn *FQconnectdbParams(const char * const *keywords,
               <simpara><literal>client_encoding</literal></simpara>
             </listitem>
             <listitem>
+              <simpara><literal>client_min_messages</literal></simpara>
+            </listitem>
+            <listitem>
               <simpara><literal>time_zone_names</literal></simpara>
             </listitem>
           </itemizedlist>
