@@ -137,6 +137,10 @@ static char *_FQformatTimeZone(int time_zone_id, int tz_ext_offset, bool time_zo
 static char *_FQformatOctet(char *data, int len);
 
 
+inline int32_t MAX(int32_t a, int32_t b) { return((a) > (b) ? a : b); }
+inline int32_t MIN(int32_t a, int32_t b) { return((a) < (b) ? a : b); }
+
+
 /* keep this in same order as FQexecStatusType in libfq.h */
 char *const fbresStatus[] = {
 	"FBRES_NO_ACTION",
@@ -3724,12 +3728,23 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 
 		case SQL_FLOAT:
 			p = (char *)malloc(FB_FLOAT_LEN + 1);
-			sprintf(p, "%g", *(float *) (var->sqldata));
+
+			/*
+			 * See comments here about float output in isql:
+			 * https://github.com/FirebirdSQL/firebird/issues/4293
+			 *
+			 * TODO: add an option to print the value in the same way
+			 * it would be displayed by psql or the Firebird DBD driver.
+			 */
+			sprintf(p, "% #*.*g",
+					FB_FLOAT_LEN,
+					(int) MIN(8, (FB_FLOAT_LEN - 6)) - 1,
+					*(float *) (var->sqldata));
 			break;
 
 		case SQL_DOUBLE:
 			p = (char *)malloc(FB_DOUBLE_LEN + 1);
-			sprintf(p, "%f", *(double *) (var->sqldata));
+			sprintf(p, "%24f", *(double *) (var->sqldata));
 			break;
 
 		case SQL_TYPE_DATE:
