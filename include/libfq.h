@@ -102,6 +102,14 @@ typedef uint32 bits32;                  /* >= 32 bits */
 #define SQL_TYPE_TIME                      560
 #define SQL_TYPE_DATE                      570
 #define SQL_INT64                          580
+#define SQL_TIMESTAMP_TZ_EX              32748
+#define SQL_TIME_TZ_EX                   32750
+#define SQL_INT128                       32752
+#define SQL_TIMESTAMP_TZ                 32754
+#define SQL_TIME_TZ                      32756
+#define SQL_DEC16                        32760
+#define SQL_DEC34                        32762
+#define SQL_BOOLEAN                      32764
 #define SQL_NULL                         32766
 #endif
 
