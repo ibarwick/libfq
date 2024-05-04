@@ -6,152 +6,189 @@
   <para>
     Firebird reference documentation: <ulink url="https://firebirdsql.org/file/documentation/chunk/en/refdocs/fblangref50/fblangref50-datatypes.html">Data Types and Subtypes</ulink>.
   </para>
-  <table id="libfq-data-type-support-overview">
-    <title>Overview of Firebird data type support in libfq</title>
-    <tgroup cols="3">
-      <thead>
-        <row>
-          <entry>Data type</entry>
-          <entry>Firebird version</entry>
-          <entry>Supported?</entry>
-          <entry>Notes</entry>
-        </row>
-      </thead>
-      <tbody>
-        <row>
-          <entry>BIGINT</entry>
-          <entry></entry>
-          <entry>yes</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>BINARY(n)</entry>
-          <entry></entry>
-          <entry>partial</entry>
-          <entry>read-only</entry>
-        </row>
-        <row>
-          <entry>BLOB</entry>
-          <entry></entry>
-          <entry>partial</entry>
-          <entry>subtype <literal>TEXT</literal> only</entry>
-        </row>
-        <row>
-          <entry>BOOLEAN</entry>
-          <entry>3.0</entry>
-          <entry>yes</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>CHAR(N)</entry>
-          <entry></entry>
-          <entry>yes</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>DATE</entry>
-          <entry></entry>
-          <entry>yes</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>DECFLOAT</entry>
-          <entry>4.0</entry>
-          <entry>no</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>DECIMAL</entry>
-          <entry></entry>
-          <entry>yes</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>DOUBLE PRECISION</entry>
-          <entry></entry>
-          <entry>incomplete</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>FLOAT</entry>
-          <entry></entry>
-          <entry>yes</entry>
-          <entry>output matches that of <application>isql</application></entry>
-        </row>
-        <row>
-          <entry>FLOAT(bin_prec)</entry>
-          <entry></entry>
-          <entry>incomplete</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>INT</entry>
-          <entry></entry>
-          <entry>yes</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>INT128</entry>
-          <entry>4.0</entry>
-          <entry>yes</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>NUMERIC</entry>
-          <entry></entry>
-          <entry>yes</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>REAL</entry>
-          <entry></entry>
-          <entry>incomplete</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>SMALLINT</entry>
-          <entry></entry>
-          <entry>yes</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>TIME [WITHOUT TIME ZONE]</entry>
-          <entry></entry>
-          <entry>yes</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>TIME WITH TIME ZONE</entry>
-          <entry>4.0</entry>
-          <entry>yes</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>TIMESTAMP [WITHOUT TIME ZONE]</entry>
-          <entry></entry>
-          <entry>yes</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>TIMESTAMP WITH TIME ZONE</entry>
-          <entry>4.0</entry>
-          <entry>yes</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>VARBINARY</entry>
-          <entry></entry>
-          <entry>unknown</entry>
-          <entry></entry>
-        </row>
-        <row>
-          <entry>VARCHAR</entry>
-          <entry></entry>
-          <entry>yes</entry>
-          <entry></entry>
-        </row>
-      </tbody>
-    </tgroup>
-  </table>
+  <sect1 id="libfq-supported-data-types">
+    <title>Supported data types</title>
 
+    <table id="libfq-data-type-support-overview">
+      <title>Overview of Firebird data type support in libfq</title>
+      <tgroup cols="3">
+        <thead>
+          <row>
+            <entry>Data type</entry>
+            <entry>Firebird version</entry>
+            <entry>Supported?</entry>
+            <entry>Notes</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>BIGINT</entry>
+            <entry></entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>BINARY(n)</entry>
+            <entry></entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>BLOB</entry>
+            <entry></entry>
+            <entry>partial</entry>
+            <entry>subtype <literal>TEXT</literal> only</entry>
+          </row>
+          <row>
+            <entry>BOOLEAN</entry>
+            <entry>3.0</entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>CHAR(n)</entry>
+            <entry></entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>DATE</entry>
+            <entry></entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>DECFLOAT</entry>
+            <entry>4.0</entry>
+            <entry>no</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>DECIMAL</entry>
+            <entry></entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>DOUBLE PRECISION</entry>
+            <entry></entry>
+            <entry>incomplete</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>FLOAT</entry>
+            <entry></entry>
+            <entry>yes</entry>
+            <entry>output matches that of <application>isql</application></entry>
+          </row>
+
+          <row>
+            <entry>INT</entry>
+            <entry></entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>INT128</entry>
+            <entry>4.0</entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>NUMERIC</entry>
+            <entry></entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+
+          <row>
+            <entry>SMALLINT</entry>
+            <entry></entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>TIME [WITHOUT TIME ZONE]</entry>
+            <entry></entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>TIME WITH TIME ZONE</entry>
+            <entry>4.0</entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>TIMESTAMP [WITHOUT TIME ZONE]</entry>
+            <entry></entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>TIMESTAMP WITH TIME ZONE</entry>
+            <entry>4.0</entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>VARBINARY(n)</entry>
+            <entry></entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+          <row>
+            <entry>VARCHAR</entry>
+            <entry></entry>
+            <entry>yes</entry>
+            <entry></entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+    <para>
+      The following data types are synonyms for another type. Refer to the base type's entry in the preceding
+      table for information about their support status.
+    </para>
+    <table id="libfq-data-type-synonyms-overview">
+      <title>Synonym data types</title>
+      <tgroup cols="3">
+        <thead>
+          <row>
+            <entry>Data type</entry>
+            <entry>Firebird version</entry>
+            <entry>Synonym for</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>FLOAT(bin_prec)</entry>
+            <entry></entry>
+            <entry>FLOAT or DOUBLE PRECISION</entry>
+          </row>
+          <row>
+            <entry>REAL</entry>
+            <entry></entry>
+            <entry>FLOAT</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <sect2 id="libfq-exec-array-support">
+      <title>Array support</title>
+      <para>
+        The Firebird <ulink url="https://firebirdsql.org/file/documentation/chunk/en/refdocs/fblangref50/fblangref50-datatypes-array.html">array documentation chapter</ulink> states:
+        <blockquote>
+          <para>
+            Firebird does not offer much in the way of language or tools for
+            working with the contents of arrays, and there are no plans to improve
+            this. This limits the usefulness and accessibility of array
+            types. Therefore, the general advice is: do not use arrays.
+          </para>
+        </blockquote>
+        Given this statement, array support in &libfq; is not considered a priority.
+      </para>
+    </sect2>
+  </sect1>
 </chapter>
