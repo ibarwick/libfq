@@ -72,8 +72,8 @@
           <row>
             <entry>DOUBLE PRECISION</entry>
             <entry></entry>
-            <entry>incomplete</entry>
-            <entry></entry>
+            <entry>yes</entry>
+            <entry>output matches that of <application>isql</application></entry>
           </row>
           <row>
             <entry>FLOAT</entry>
