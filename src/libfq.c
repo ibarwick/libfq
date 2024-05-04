@@ -3728,7 +3728,13 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 #endif
 
 		case SQL_FLOAT:
+		{
+			float value = *(float *) (var->sqldata);
 			p = (char *)malloc(FB_FLOAT_LEN + 1);
+
+			/* NaN, Infinity or -Infinity */
+			if (_FQcheckSpecialValue(p, FB_FLOAT_LEN, value))
+				break;
 
 			/*
 			 * See comments here about float output in isql:
@@ -3740,9 +3746,9 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			sprintf(p, "% #*.*g",
 					FB_FLOAT_LEN,
 					(int) MIN(8, (FB_FLOAT_LEN - 6)) - 1,
-					*(float *) (var->sqldata));
+					value);
 			break;
-
+		}
 		case SQL_DOUBLE:
 		{
 			double	 value = *(double *) (var->sqldata);
