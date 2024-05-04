@@ -7,6 +7,7 @@ Revision history for libfq
 	- Add constant FBCONN_MAX_PARAMS
 	- Improve control over log output
 	- Make FLOAT output the same as in isql
+	- Make DOUBLE PRECISION output the same as in isql
 
 0.5.1   2024-04-27
 	- Tighten up tuple row/column bounds checking

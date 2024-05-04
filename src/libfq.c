@@ -134,6 +134,7 @@ static char *_FQlookupTimeZone(int time_zone_id);
 static char *_FQformatTimeZone(int time_zone_id, int tz_ext_offset, bool time_zone_names);
 #endif
 
+static bool _FQcheckSpecialValue(char *p, const int length, const double value);
 static char *_FQformatOctet(char *data, int len);
 
 
@@ -3743,10 +3744,44 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			break;
 
 		case SQL_DOUBLE:
-			p = (char *)malloc(FB_DOUBLE_LEN + 1);
-			sprintf(p, "%24f", *(double *) (var->sqldata));
-			break;
+		{
+			double	 value = *(double *) (var->sqldata);
+			short 	 dscale = var->sqlscale;
+			int		 length = FB_DOUBLE_LEN;
+			unsigned rounded = 0;
 
+			p = (char *)malloc(length + 1);
+
+			/* NaN, Infinity or -Infinity */
+			if (_FQcheckSpecialValue(p, length, value))
+				break;
+
+			if (dscale &&
+				(!value ||
+				 (rounded = (unsigned int) (ceil(fabs(log10(fabs(value)))))) < length - 10))
+			{
+				unsigned precision = 0;
+				if (value > 1)
+					/* nnn.nnn */
+					precision = length - rounded - 1;
+				else if (value >= 0)
+					/* 0.nnn */
+					precision = length - 2;
+				else if (value >= -1)
+					/* -0.nnn */
+					precision = length - 3;
+				else
+					/* -nnn.nnn */
+					precision = length - rounded - 2;
+
+				sprintf(p, "%*.*f", length, precision, value);
+			}
+			else
+			{
+				sprintf(p, "% #*.*g", length, (int) MIN(16, (length - 7)), value);
+			}
+			break;
+		}
 		case SQL_TYPE_DATE:
 			isc_decode_sql_date((ISC_DATE *)var->sqldata, &timestamp_utc);
 			s = snprintf(format_buffer, sizeof(format_buffer),
@@ -4093,6 +4128,23 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 	return tuple_att;
 }
 
+
+static bool
+_FQcheckSpecialValue(char *p, const int length, const double value)
+{
+	const char *t = NULL;
+
+	if (isnan(value))
+		t = "NaN";
+	else if (!isfinite(value))
+		t = (value == -INFINITY) ? "-Infinity" : "Infinity";
+	else
+		return false;
+
+	sprintf(p, "%*.*s", length, length, t);
+
+	return true;
+}
 
 /**
  * _FQformatOctet
