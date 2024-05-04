@@ -3721,7 +3721,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 		{
 			__int128 value = (__int128) *(__int128 *) var->sqldata;
 
-			p = (char *)malloc(99 + 1); // XXX
+			p = (char *)malloc(FB_INT128_LEN + 1);
 			(void)format_int128((__int128) value, p);
 			break;
 		}

@@ -8,6 +8,7 @@ typedef unsigned int fb_wchar;
 
 #define FB_FLOAT_LEN 16
 #define FB_DOUBLE_LEN 25
+#define FB_INT128_LEN 46
 #define FB_DATE_LEN 10
 #define FB_TIME_LEN 13
 #define FB_TIMESTAMP_LEN 24
