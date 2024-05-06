@@ -1048,7 +1048,6 @@ _FQexecInitOutputSQLDA(FBconn *conn, FBresult *result)
 {
 	XSQLVAR *var;
 	short	 sqltype, i;
-	char	 error_message[1024];
 
 	for (i = 0, var = result->sqlda_out->sqlvar; i < result->ncols; var++, i++)
 	{
@@ -1123,17 +1122,23 @@ _FQexecInitOutputSQLDA(FBconn *conn, FBresult *result)
 				break;
 #endif
 			default:
-				sprintf(error_message, "Unhandled sqlda_out type: %i", sqltype);
+			{
+				FQExpBufferData error_message_buf;
+
+				initFQExpBuffer(&error_message_buf);
+				appendFQExpBuffer(&error_message_buf,
+								  "Unhandled sqlda_out type: %i", sqltype);
 
 				_FQsetResultError(conn, result);
-				_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message);
+				_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message_buf.data);
 
 				result->resultStatus = FBRES_FATAL_ERROR;
 
 				_FQexecClearResult(result);
+				termFQExpBuffer(&error_message_buf);
 
 				return;
-
+			}
 		}
 		if (var->sqltype & 1)
 		{
@@ -1741,7 +1746,6 @@ _FQexecParams(FBconn *conn,
 
 	ISC_STATUS    retcode;
 	int			  exec_result;
-	char		  error_message[1024];
 
 
 	if (isc_dsql_describe_bind(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_in))
@@ -1880,14 +1884,21 @@ _FQexecParams(FBconn *conn,
 #endif
 
 				default:
-					sprintf(error_message, "Unhandled sqlda_in type: %i", dtype);
+				{
+					FQExpBufferData error_message_buf;
+
+					initFQExpBuffer(&error_message_buf);
+					appendFQExpBuffer(&error_message_buf,
+									  "Unhandled sqlda_in type: %i", dtype);
 
 					_FQsetResultError(conn, result);
-					_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message);
+					_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message_buf.data);
 
 					result->resultStatus = FBRES_FATAL_ERROR;
 
 					_FQexecClearResult(result);
+					termFQExpBuffer(&error_message_buf);
+				}
 			}
 
 			/* var->sqldata remains NULL to indicate NULL */
@@ -2245,15 +2256,22 @@ _FQexecParams(FBconn *conn,
 
 
 				default:
-					sprintf(error_message, "Unhandled sqlda_in type: %i", dtype);
+				{
+					FQExpBufferData error_message_buf;
+
+					initFQExpBuffer(&error_message_buf);
+					appendFQExpBuffer(&error_message_buf,
+									  "Unhandled sqlda_in type: %i", dtype);
 
 					_FQsetResultError(conn, result);
-					_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message);
+					_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message_buf.data);
 
 					result->resultStatus = FBRES_FATAL_ERROR;
 
 					_FQexecClearResult(result);
+					termFQExpBuffer(&error_message_buf);
 					return result;
+				}
 			}
 		}
 
@@ -2369,7 +2387,7 @@ _FQexecParams(FBconn *conn,
 	if (0 && isc_dsql_set_cursor_name(conn->status, &result->stmt_handle, "dyn_cursor", 0))
 	{
 		_FQsetResultError(conn, result);
-		_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message);
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "unable to set cursor name");
 
 		result->resultStatus = FBRES_FATAL_ERROR;
 
