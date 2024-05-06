@@ -874,6 +874,23 @@ FQlibVersionString(void)
 	return LIBFQ_VERSION_STRING;
 }
 
+/**
+ * FQfirebirdApiVersion()
+ *
+ * Returns FB_API_VER, as defined in "ibase.h".
+ *
+ * This is mainly for determining which Firebird version libfq was
+ * built against.
+ */
+int
+FQfirebirdApiVersion(void)
+{
+#ifdef FB_API_VER
+	return FB_API_VER;
+#else
+	return 0;
+#endif
+}
 
 
 /**

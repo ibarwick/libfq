@@ -383,10 +383,6 @@ extern char *FQserverVersionString(FBconn *conn);
 
 extern int FQclientEncodingId(FBconn *conn);
 
-extern int FQlibVersion(void);
-
-extern const char *FQlibVersionString(void);
-
 /*
  * ===========================
  * Command Execution Functions
@@ -544,6 +540,16 @@ FQresultErrorField(const FBresult *res, FQdiagType fieldcode);
 extern char *
 FQresultErrorFieldsAsString(const FBresult *res, char *prefix);
 
+/*
+ * ===========================
+ * libfq information functions
+ * ===========================
+ */
+extern int FQlibVersion(void);
+
+extern const char *FQlibVersionString(void);
+
+extern int FQfirebirdApiVersion(void);
 
 /*
  * =======================
@@ -556,6 +562,7 @@ FQexplainStatement(FBconn *conn, const char *stmt);
 
 extern void
 FQlog(FBconn *conn, short loglevel, const char *msg, ...);
+
 
 /* handling for character/encoding */
 

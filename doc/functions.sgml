@@ -305,38 +305,6 @@ int FQclientEncodingId(FBconn *conn);
 
 
 
-      <varlistentry id="libfq-libversion">
-        <term>
-          <function>FQlibVersion</function>
-          <indexterm><primary>FQlibVersion</primary></indexterm>
-        </term>
-        <listitem>
-          <para>
-			Returns the integer value for the &libfq; version with which
-			the current connection is being made.
-<synopsis>
-int FQlibVersion(void);
-</synopsis>
-          </para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry id="libfq-libversionstring">
-        <term>
-          <function>FQlibVersionString</function>
-          <indexterm><primary>FQlibVersionString</primary></indexterm>
-        </term>
-        <listitem>
-          <para>
-			Returns the string value for the &libfq; version with which
-			the current connection is being made.
-<synopsis>
-char *FQlibVersionString(void);
-</synopsis>
-          </para>
-        </listitem>
-      </varlistentry>
-
       <varlistentry id="libfq-serverversion">
         <term>
           <function>FQserverVersion</function>
@@ -1302,6 +1270,63 @@ char *FQresultErrorFieldsAsString(const FBresult *res, char *prefix);
 		</variablelist>
 	  </para>
 	</sect2>
+  </sect1>
+  <sect1 id="libfq-information">
+	<title>libfq Information Functions</title>
+    <para>
+      The following functions provide information about &libfq; itself,
+      mainly version-related details.
+    </para>
+	<para>
+	  <variablelist>
+
+        <varlistentry id="libfq-libversion">
+          <term>
+            <function>FQlibVersion</function>
+            <indexterm><primary>FQlibVersion</primary></indexterm>
+          </term>
+          <listitem>
+            <para>
+		      Returns the &libfq; version as an integer.
+<synopsis>
+int FQlibVersion(void);
+</synopsis>
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry id="libfq-libversionstring">
+          <term>
+            <function>FQlibVersionString</function>
+            <indexterm><primary>FQlibVersionString</primary></indexterm>
+          </term>
+          <listitem>
+            <para>
+		      Returns the &libfq; version as a string.
+<synopsis>
+char *FQlibVersionString(void);
+</synopsis>
+            </para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry id="libfq-firebirdapiversion">
+          <term>
+            <function>FQfirebirdApiVersion</function>
+            <indexterm><primary>FQfirebirdApiVersion</primary></indexterm>
+          </term>
+          <listitem>
+            <para>
+		      Returns the Firebird API version against which &libfq; was built. This
+              is the value defined by <literal>FB_API_VER</literal> in <filename>ibase.h</filename>.
+<synopsis>
+extern int FQfirebirdApiVersion(void);
+</synopsis>
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </para>
   </sect1>
 
 </chapter>
