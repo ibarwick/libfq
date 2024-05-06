@@ -73,13 +73,13 @@
             <entry>DOUBLE PRECISION</entry>
             <entry></entry>
             <entry>yes</entry>
-            <entry>output matches that of <application>isql</application></entry>
+            <entry></entry>
           </row>
           <row>
             <entry>FLOAT</entry>
             <entry></entry>
             <entry>yes</entry>
-            <entry>output matches that of <application>isql</application></entry>
+            <entry></entry>
           </row>
 
           <row>
@@ -174,7 +174,6 @@
         </tbody>
       </tgroup>
     </table>
-
     <sect2 id="libfq-exec-array-support">
       <title>Array support</title>
       <para>
@@ -190,5 +189,44 @@
         Given this statement, array support in &libfq; is not considered a priority.
       </para>
     </sect2>
+    <sect2 id="libfq-isql-compatible-output">
+      <title>isql-compatible output</title>
+      <para>
+        For (presumably) historical reasons, <application>isql</application> displays <literal>FLOAT</literal> and
+        <literal>DOUBLE PRECISION</literal> data types slightly differently to other clients, e.g.:
+      </para>
+      <programlisting>
+SQL> CREATE TABLE isql_output (
+CON>   float_val FLOAT,
+CON>   double_precision_val DOUBLE PRECISION
+CON> );
+SQL> INSERT INTO isql_output VALUES (1245.678911111222222, 999.1);
+SQL> SELECT * FROM isql_output;
+
+     FLOAT_VAL    DOUBLE_PRECISION_VAL
+============== =======================
+     1245.6790       999.1000000000000
+      </programlisting>
+      <para>
+        &libfq, and some other Firebird clients such as the Perl DBD::Firebird driver,
+        would output these values as:
+      </para>
+      <programlisting>
+        float_val |       double_precision_val
+------------------+----------------------------
+ 1245.67895507812 |                      999.1
+      </programlisting>
+      <para>
+        If required, &libfq; can be configured to emit output in the same way as <application>isql</application> by either
+        calling <link linkend="libfq-fqconnectdbparams">FQconnectdbParams()</link> with <varname>isql_values</varname>
+        set to <literal>true</literal>, or executing the function <link linkend="libfq-fqsetisqlvalue">FQsetIsqlValues()</link>.
+      </para>
+      <para>
+        Note that floating point output is a tricky field of endeavour and
+        the &libfq; implementation may contain errors and/or be subject to
+        change in future releases.
+      </para>
+    </sect2>
+
   </sect1>
 </chapter>

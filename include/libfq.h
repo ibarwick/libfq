@@ -192,7 +192,7 @@ typedef uint32 bits32;                  /* >= 32 bits */
  * Maximum number of connection parameters supported by
  * FQconnectdbParams()
  */
-#define FBCONN_MAX_PARAMS 6
+#define FBCONN_MAX_PARAMS 7
 
 typedef enum
 {
@@ -247,6 +247,7 @@ typedef struct FBconn {
 	short		   client_encoding_id;	  /* corresponds to MON$ATTACHMENTS.MON$CHARACTER_SET_ID */
 	char		  *client_encoding;		  /* client encoding, default UTF8 */
 	bool		   time_zone_names;		  /* whether to emit time zones as names or numeric offsets */
+	bool		   isql_values;			  /* whether to mimic ISQL-style value output */
 	bool		   get_dsp_len;			  /* calculate display length in single characters of each datum */
 	char		  *errMsg;		  		  /* most recently generated error message */
 } FBconn;
@@ -356,6 +357,7 @@ extern FBconn *FQreconnect(FBconn *conn);
 extern void FQfinish(FBconn *conn);
 
 extern int FQsetTimeZoneNames(FBconn *conn, bool time_zone_names);
+extern int FQsetIsqlValues(FBconn *conn, bool isql_values);
 extern int FQsetClientMinMessages(FBconn *conn, int log_level);
 extern int FQsetClientMinMessagesString(FBconn *conn, const char *log_level);
 

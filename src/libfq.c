@@ -31,6 +31,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <time.h>
+#include <float.h>
 #include <math.h>
 #include <unistd.h>
 #include <ctype.h>
@@ -228,6 +229,7 @@ FQconnectdbParams(const char * const *keywords,
 	const char *client_encoding = NULL;
 	bool  time_zone_names = false;
 	int client_min_messages = DEBUG1;
+	bool isql_values = false;
 
 	int i = 0;
 
@@ -246,6 +248,9 @@ FQconnectdbParams(const char * const *keywords,
 		else if (strcmp(keywords[i], "time_zone_names") == 0)
 			/* XXX better boolean parsing? */
 			time_zone_names = strncmp(values[i], "true", 5) == 0 ? true : false;
+		else if (strcmp(keywords[i], "isql_values") == 0)
+			/* XXX better boolean parsing? */
+			isql_values = strncmp(values[i], "true", 5) == 0 ? true : false;
 
 		i++;
 	}
@@ -271,6 +276,7 @@ FQconnectdbParams(const char * const *keywords,
 	conn->uname = NULL;
 	conn->upass = NULL;
 	conn->time_zone_names = time_zone_names;
+	conn->isql_values = isql_values;
 	conn->errMsg = NULL;
 
 	/* Initialise the Firebird parameter buffer */
@@ -526,6 +532,23 @@ FQsetTimeZoneNames(FBconn *conn, bool time_zone_names)
 }
 
 /**
+ * FQsetIsqlValues()
+ *
+ * Indicate whether to emit certain datatypes, e.g. FLOAT, in
+ * the same format as ISQL would emit them.
+ */
+int
+FQsetIsqlValues(FBconn *conn, bool isql_values)
+{
+	if (conn == NULL)
+		return FQ_SET_NO_DB;
+
+	conn->isql_values = isql_values;
+	return FQ_SET_SUCCESS;
+}
+
+
+/**
  * FQsetClientMinMessages()
  */
 int
@@ -622,8 +645,10 @@ FQparameterStatus(FBconn *conn, const char *paramName)
 		return _FQclientEncoding(conn);
 
 	if (strcmp(paramName, "time_zone_names") == 0)
-		return conn->time_zone_names == true ? "enabled" : "disabled";
+		return conn->time_zone_names == true ? "true" : "false";
 
+	if (strcmp(paramName, "isql_values") == 0)
+		return conn->isql_values == true ? "true" : "false";
 
 	if (strcmp(paramName, "client_min_messages") == 0)
 	{
@@ -3730,33 +3755,47 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 		case SQL_FLOAT:
 		{
 			float value = *(float *) (var->sqldata);
-			p = (char *)malloc(FB_FLOAT_LEN + 1);
+			int length = conn->isql_values
+				? FB_FLOAT_LEN + 1
+				: (DBL_DIG * 2) + 2;
+
+			p = (char *)malloc(length);
 
 			/* NaN, Infinity or -Infinity */
-			if (_FQcheckSpecialValue(p, FB_FLOAT_LEN, value))
+			if (_FQcheckSpecialValue(p, length, value))
 				break;
 
 			/*
 			 * See comments here about float output in isql:
 			 * https://github.com/FirebirdSQL/firebird/issues/4293
-			 *
-			 * TODO: add an option to print the value in the same way
-			 * it would be displayed by psql or the Firebird DBD driver.
 			 */
-			sprintf(p, "% #*.*g",
-					FB_FLOAT_LEN,
-					(int) MIN(8, (FB_FLOAT_LEN - 6)) - 1,
-					value);
+			if (conn->isql_values)
+			{
+				snprintf(p, length,
+						 "% #*.*g",
+						 FB_FLOAT_LEN,
+						 (int) MIN(9, (FB_FLOAT_LEN - 6)) - 1,
+						 *(float *) (var->sqldata));
+			}
+			else
+			{
+				snprintf(p, length,
+						 "%*.*g",
+						 DBL_DIG,
+						 DBL_DIG,
+						 value);
+			}
+
 			break;
 		}
 		case SQL_DOUBLE:
 		{
+			int length = FB_DOUBLE_LEN + 1;
 			double	 value = *(double *) (var->sqldata);
 			short 	 dscale = var->sqlscale;
-			int		 length = FB_DOUBLE_LEN;
 			unsigned rounded = 0;
 
-			p = (char *)malloc(length + 1);
+			p = (char *)malloc(length);
 
 			/* NaN, Infinity or -Infinity */
 			if (_FQcheckSpecialValue(p, length, value))
@@ -3782,10 +3821,15 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 
 				sprintf(p, "%*.*f", length, precision, value);
 			}
+			else if (conn->isql_values)
+			{
+				sprintf(p, "%#*.*g", length, (int) MIN(16, (length - 7)), value);
+			}
 			else
 			{
-				sprintf(p, "% #*.*g", length, (int) MIN(16, (length - 7)), value);
+				sprintf(p, "%*.*g", length, (int) MIN(16, (length - 7)), value);
 			}
+
 			break;
 		}
 		case SQL_TYPE_DATE:

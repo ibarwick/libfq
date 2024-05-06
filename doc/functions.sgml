@@ -82,6 +82,9 @@ FBconn *FQconnectdbParams(const char * const *keywords,
             <listitem>
               <simpara><literal>time_zone_names</literal></simpara>
             </listitem>
+            <listitem>
+              <simpara><literal>isql_values</literal></simpara>
+            </listitem>
           </itemizedlist>
           <para>
             To determine if the connection was successful, call <xref linkend="libfq-fqstatus">.
@@ -121,10 +124,21 @@ void FQfinish(FBconn *conn);
 void FQsetTimeZoneNames(FBconn *conn, bool time_zone_names);
 </synopsis>
           </para>
-
         </listitem>
       </varlistentry>
 
+      <varlistentry id="libfq-fqsetisqlvalue">
+        <term><function>FQsetIsqlValues</function><indexterm><primary>FQsetIsqlValues</primary></indexterm></term>
+        <listitem>
+          <para>
+            Specify whether certain data types should be displayed in the same way <application>isql</application>
+            would display them.
+<synopsis>
+void FQsetIsqlValues(FBconn *conn, bool isql_values);
+</synopsis>
+          </para>
+        </listitem>
+      </varlistentry>
 	</variablelist>
   </sect1>
 
