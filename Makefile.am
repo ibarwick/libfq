@@ -9,10 +9,8 @@ SUBDIRS = src
 AM_CPPFLAGS        = -I$(top_builddir)/include -I$(ibase)
 AM_LDFLAGS         = -lfbclient -L$(fbclient)
 
-include_HEADERS = include/libfq-expbuffer.h include/libfq.h include/libfq-int.h
+include_HEADERS = include/libfq-expbuffer.h include/libfq.h include/libfq-version.h
 
 lib_LTLIBRARIES = libfq.la
 libfq_la_SOURCES = src/libfq.c src/fqexpbuffer.c src/fqmultibyte.c
 libfq_la_LDFLAGS = -release 0.7.0 -lfbclient -L$(fbclient)
-
-

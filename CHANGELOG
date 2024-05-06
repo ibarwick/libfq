@@ -4,6 +4,7 @@ Revision history for libfq
 
 0.6.1	2024-0?-??
 	- fix log level name parsing
+	- install "libfq-version.h"
 
 0.6.0	2024-05-06
 	- support columns defined with "CHARACTER SET OCTETS"
