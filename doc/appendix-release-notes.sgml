@@ -7,6 +7,13 @@
   <para>
     Changes to each &libfq; release are documented in the release notes.
   </para>
+  <sect1 id="release-0.7.0">
+    <title>Release 0.7.0a</title>
+    <para><emphasis>???day ? ???, 2024</emphasis></para>
+    <para>
+      &libfq; 0.7.0 is currently under development.
+    </para>
+  </sect1>
 
   <sect1 id="release-0.6.0">
     <title id="release-current">Release 0.6.0</title>
