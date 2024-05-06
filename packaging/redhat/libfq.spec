@@ -40,6 +40,8 @@ rm -rf $RPM_BUILD_ROOT
 /usr/include/libfq.h
 
 %changelog
+* Mon May 6 2024 Ian Barwick (barwick@gmail.com)
+- libfq 0.6.0
 * Sat Apr 27 2024 Ian Barwick (barwick@gmail.com)
 - libfq 0.5.1
 * Wed Dec 28 2022 Ian Barwick (barwick@gmail.com)

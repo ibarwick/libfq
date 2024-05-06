@@ -1,6 +1,6 @@
 Revision history for libfq
 
-0.6.0	2024-??-??
+0.6.0	2024-05-06
 	- support columns defined with "CHARACTER SET OCTETS"
 	- support for INT128 datatype (Firebird 4 and later)
 	- support TIME WITH TIME ZONE and TIMESTAMP WITH TIME ZONE datatypes
