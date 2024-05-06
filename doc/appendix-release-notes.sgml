@@ -10,22 +10,78 @@
 
   <sect1 id="release-0.6.0">
     <title id="release-current">Release 0.6.0</title>
-    <para><emphasis>???, 2024</emphasis></para>
+    <para><emphasis>Monday 6 May, 2024</emphasis></para>
     <para>
-      &libfq; 0.6.0 is a feature release providing support for the following Firebird data types:
-      <itemizedlist>
-        <listitem>
-          <para>
-   	        columns defined with "<literal>CHARACTER SET OCTETS</literal>"
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-	        <literal>INT128</literal> datatype (Firebird 4 and later)
-          </para>
-        </listitem>
-      </itemizedlist>
+      &libfq; 0.6.0 is a feature release improving support for various Firebird data types.
     </para>
+    <sect2 id="release-0.6.0-data-types">
+      <title>Support for additional data types</title>
+      <para>
+        Support for the following Firebird data types has been added:
+        <itemizedlist>
+          <listitem>
+            <para>
+              Columns defined with <literal>CHARACTER SET OCTETS</literal>.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+	          <literal>INT128</literal> data type (Firebird 4 and later).
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+	          <literal>TIME WITH TIME ZONE</literal> and <literal>TIMESTAMP WITH TIME ZONE</literal> data types
+              (Firebird 4 and later).
+            </para>
+          </listitem>
+        </itemizedlist>
+      </para>
+      <para>
+        Additionally, output of <literal>FLOAT</literal> and <literal>DOUBLE PRECISION</literal> data type values
+        has been improved.
+      </para>
+    </sect2>
+    <sect2 id="release-0.6.0-connection-control">
+      <title>Database connection control improvements</title>
+      <para>
+        Following additional parameters can be provided to <link linkend="libfq-fqconnectdbparams">FQconnectdbParams()</link>:
+        <itemizedlist>
+          <listitem>
+            <simpara><literal>client_min_messages</literal> - specifies the minimum level of log messages emitted by &libfq;</simpara>
+            </listitem>
+          <listitem>
+            <simpara><literal>time_zone_names</literal> - whether to display time zone names as-is or as time zone offsets</simpara>
+          </listitem>
+          <listitem>
+            <simpara>
+              <literal>isql_values</literal> - option to display <literal>FLOAT</literal> and <literal>DOUBLE PRECISION</literal> values
+              in the same way <application>isql</application> would display them.
+            </simpara>
+          </listitem>
+        </itemizedlist>
+        Additionally, the constant <literal>FBCONN_MAX_PARAMS</literal> has been provided to define the maximum number
+        of parameters supported by <function>FQconnectdbParams</function>.
+      </para>
+      <para>
+        Following functions are provided to dynamically modify the above settings for an existing connection:
+        <itemizedlist>
+          <listitem>
+            <simpara><link linkend="libfq-fqsetclientminmessages">FQsetClientMinMessages</link></simpara>
+          </listitem>
+          <listitem>
+            <simpara><link linkend="libfq-fqsetclientminmessagesstring">FQsetClientMinMessagesString</link></simpara>
+          </listitem>
+          <listitem>
+            <simpara><link linkend="libfq-fqsettimezonenames">FQsetTimeZoneNames</link></simpara>
+          </listitem>
+          <listitem>
+            <simpara><link linkend="libfq-fqsetisqlvalue">FQsetIsqlValues</link></simpara>
+          </listitem>
+
+        </itemizedlist>
+      </para>
+    </sect2>
   </sect1>
 
   <sect1 id="release-0.5.1">

@@ -113,28 +113,68 @@ void FQfinish(FBconn *conn);
         </listitem>
       </varlistentry>
 
+
+      <varlistentry id="libfq-fqsetclientminmessages">
+        <term>
+          <function>FQsetClientMinMessages</function>
+          <indexterm><primary>FQsetClientMinMessages</primary></indexterm>
+        </term>
+        <listitem>
+          <para>
+            Sets the minimum log level (e.g. <literal>DEBUG1</literal>).
+            See <filename>src/libfq.h</filename> for a list of valid log level constants.
+<synopsis>
+int FQsetClientMinMessages(FBconn *conn, int log_level)
+</synopsis>
+          </para>
+        </listitem>
+      </varlistentry>
+
+
+      <varlistentry id="libfq-fqsetclientminmessagesstring">
+        <term>
+          <function>FQsetClientMinMessagesString</function>
+          <indexterm><primary>FQsetClientMinMessagesString</primary></indexterm>
+        </term>
+        <listitem>
+          <para>
+            Sets the minimum log level specified by string literal (e.g. <literal>"DEBUG1"</literal>).
+            See <filename>src/libfq.h</filename> for a list of valid log level constants.
+<synopsis>
+int FQsetClientMinMessagesString(FBconn *conn, const char *log_level);
+</synopsis>
+          </para>
+        </listitem>
+      </varlistentry>
+
       <varlistentry id="libfq-fqsettimezonenames">
-        <term><function>FQsetTimeZoneNames</function><indexterm><primary>FQsetTimeZoneNames</primary></indexterm></term>
+        <term>
+          <function>FQsetTimeZoneNames</function>
+          <indexterm><primary>FQsetTimeZoneNames</primary></indexterm>
+        </term>
         <listitem>
           <para>
             Specify whether time zones stored in <literal>TIME WITH TIME ZONE</literal> and
-            <literal>TIMESTAMP WITH TIME ZONE</literal> columns should be returned as-is (e.g.
+            <literal>TIMESTAMP WITH TIME ZONE</literal> columns as time zone names should be returned as-is (e.g.
             <literal>Asia/Tokyo</literal> or as numeric time zone offsets (e.g. <literal>+09:00</literal>).
 <synopsis>
-void FQsetTimeZoneNames(FBconn *conn, bool time_zone_names);
+int FQsetTimeZoneNames(FBconn *conn, bool time_zone_names);
 </synopsis>
           </para>
         </listitem>
       </varlistentry>
 
       <varlistentry id="libfq-fqsetisqlvalue">
-        <term><function>FQsetIsqlValues</function><indexterm><primary>FQsetIsqlValues</primary></indexterm></term>
+        <term>
+          <function>FQsetIsqlValues</function>
+          <indexterm><primary>FQsetIsqlValues</primary></indexterm>
+        </term>
         <listitem>
           <para>
-            Specify whether certain data types should be displayed in the same way <application>isql</application>
-            would display them.
+            Specify whether certain data types (currently: <literal>FLOAT</literal> and <literal>DOUBLE PRECISION</literal>)
+            should be displayed in the same way <application>isql</application> would display them.
 <synopsis>
-void FQsetIsqlValues(FBconn *conn, bool isql_values);
+int FQsetIsqlValues(FBconn *conn, bool isql_values);
 </synopsis>
           </para>
         </listitem>
