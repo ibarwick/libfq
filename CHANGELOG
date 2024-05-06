@@ -1,5 +1,8 @@
 Revision history for libfq
 
+0.6.1	2024-0?-??
+	- fix log level name parsing
+
 0.6.0	2024-05-06
 	- support columns defined with "CHARACTER SET OCTETS"
 	- support for INT128 datatype (Firebird 4 and later)

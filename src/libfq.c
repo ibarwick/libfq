@@ -4647,11 +4647,12 @@ _FQgetLogLevelFromName(const char *log_level)
 	{
 		ll = log_levels[i];
 
+		if (ll.log_level == NULL)
+			break;
+
 		if (strcmp(log_level, ll.log_level) == 0)
 			return ll.log_level_id;
 
-		if (ll.log_level == NULL)
-			break;
 		i++;
 	}
 

@@ -89,7 +89,7 @@ typedef uint32 bits32;                  /* >= 32 bits */
  * Return values of FQsetXXX() calls
  */
 #define FQ_SET_NO_DB   -1
-#define FQ_SET_ERROR   -1
+#define FQ_SET_ERROR    1
 #define FQ_SET_SUCCESS  0
 
 /* From ibase.h */
