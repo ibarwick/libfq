@@ -3666,7 +3666,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 
 			dscale = var->sqlscale;
 
-			buflen = field_width - 1 + dscale + 1;
+			buflen = field_width - 1 + abs(dscale) + 1;
 
 			if (dscale < 0)
 			{
