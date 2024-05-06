@@ -1765,6 +1765,9 @@ _FQexecParams(FBconn *conn,
 			conn->in_user_transaction = true;
 	}
 
+	/*
+	 * Expand the input XSQLDA, if required.
+	 */
 	if (result->sqlda_in->sqld > result->sqlda_in->sqln)
 	{
 		int sqln = result->sqlda_in->sqld;
@@ -1778,16 +1781,6 @@ _FQexecParams(FBconn *conn,
 
 		FQlog(conn, DEBUG1, "%lu; sqln now %i %i", XSQLDA_LENGTH(sqln), sqln, result->sqlda_in->sqld );
 	}
-
-	/* from dbdimp.c - not sure what it's about, but note here
-	 * in case we encounter a similiar issue */
-	/* workaround for date problem (bug #429820)
-	if (dtype == SQL_TEXT)
-	{
-		if (ivar->sqlsubtype == 0x77)
-			dtype = SQL_TIMESTAMP;
-	}
-	*/
 
 	FQlog(conn, DEBUG1, "_FQexecParams: sqld %i", result->sqlda_in->sqld);
 
