@@ -36,10 +36,12 @@ rm -rf $RPM_BUILD_ROOT
 /usr/lib64/libfq.so
 /usr/lib64/libfq-%version.so
 /usr/include/libfq-expbuffer.h
-/usr/include/libfq-int.h
+/usr/include/libfq-version.h
 /usr/include/libfq.h
 
 %changelog
+* Sat May 11 2024 Ian Barwick (barwick@gmail.com)
+- libfq 0.6.1
 * Mon May 6 2024 Ian Barwick (barwick@gmail.com)
 - libfq 0.6.0
 * Sat Apr 27 2024 Ian Barwick (barwick@gmail.com)
