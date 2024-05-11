@@ -3,9 +3,11 @@ Revision history for libfq
 0.7.0	2024-??-??
 	- Add function FQfirebirdApiVersion()
 
-0.6.1	2024-0?-??
+
+0.6.1	2024-05-11
 	- fix log level name parsing
 	- install "libfq-version.h"
+	- Improve FLOAT/DOUBLE PRECISION output formatting
 
 0.6.0	2024-05-06
 	- support columns defined with "CHARACTER SET OCTETS"
