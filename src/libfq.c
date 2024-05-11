@@ -135,7 +135,7 @@ static char *_FQlookupTimeZone(int time_zone_id);
 static char *_FQformatTimeZone(int time_zone_id, int tz_ext_offset, bool time_zone_names);
 #endif
 
-static bool _FQcheckSpecialValue(char *p, const int length, const double value);
+static bool _FQcheckSpecialValue(FQExpBufferData *buf, const int length, const double value);
 static char *_FQformatOctet(char *data, int len);
 
 
@@ -3787,32 +3787,38 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 				? FB_FLOAT_LEN + 1
 				: (DBL_DIG * 2) + 2;
 
-			p = (char *)malloc(length);
+			FQExpBufferData float_output;
+			initFQExpBuffer(&float_output);
 
 			/* NaN, Infinity or -Infinity */
-			if (_FQcheckSpecialValue(p, length, value))
-				break;
-
+			if (_FQcheckSpecialValue(&float_output, length, value))
+			{
+				/* NOP */
+			}
 			/*
 			 * See comments here about float output in isql:
 			 * https://github.com/FirebirdSQL/firebird/issues/4293
 			 */
-			if (conn->isql_values)
+			else if (conn->isql_values)
 			{
-				snprintf(p, length,
-						 "% #*.*g",
-						 FB_FLOAT_LEN,
-						 (int) MIN(9, (FB_FLOAT_LEN - 6)) - 1,
-						 *(float *) (var->sqldata));
+				appendFQExpBuffer(&float_output,
+								  "% #*.*g",
+								  FB_FLOAT_LEN,
+								  (int) MIN(9, (FB_FLOAT_LEN - 6)) - 1,
+								  *(float *) (var->sqldata));
 			}
 			else
 			{
-				snprintf(p, length,
-						 "%*.*g",
-						 DBL_DIG,
-						 DBL_DIG,
-						 value);
+				appendFQExpBuffer(&float_output,
+								  "%*.*g",
+								  DBL_DIG,
+								  DBL_DIG,
+								  value);
 			}
+
+			p = (char *)malloc(float_output.len);
+			memcpy(p, float_output.data, float_output.len);
+			termFQExpBuffer(&float_output);
 
 			break;
 		}
@@ -3823,17 +3829,20 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			short 	 dscale = var->sqlscale;
 			unsigned rounded = 0;
 
-			p = (char *)malloc(length);
+			FQExpBufferData double_output;
+			initFQExpBuffer(&double_output);
 
 			/* NaN, Infinity or -Infinity */
-			if (_FQcheckSpecialValue(p, length, value))
-				break;
-
-			if (dscale &&
+			if (_FQcheckSpecialValue(&double_output, length, value))
+			{
+				/* NOP */
+			}
+			else if (dscale &&
 				(!value ||
 				 (rounded = (unsigned int) (ceil(fabs(log10(fabs(value)))))) < length - 10))
 			{
 				unsigned precision = 0;
+
 				if (value > 1)
 					/* nnn.nnn */
 					precision = length - rounded - 1;
@@ -3847,16 +3856,32 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 					/* -nnn.nnn */
 					precision = length - rounded - 2;
 
-				sprintf(p, "%*.*f", length, precision, value);
+				appendFQExpBuffer(&double_output,
+								  "%*.*f",
+								  length,
+								  precision,
+								  value);
 			}
 			else if (conn->isql_values)
 			{
-				sprintf(p, "%#*.*g", length, (int) MIN(16, (length - 7)), value);
+				appendFQExpBuffer(&double_output,
+								  "%#*.*g",
+								  length,
+								  (int) MIN(16, (length - 7)),
+								  value);
 			}
 			else
 			{
-				sprintf(p, "%*.*g", length, (int) MIN(16, (length - 7)), value);
+				appendFQExpBuffer(&double_output,
+								  "%*.*g",
+								  length,
+								  (int) MIN(16, (length - 7)),
+								  value);
 			}
+
+			p = (char *)malloc(double_output.len);
+			memcpy(p, double_output.data, double_output.len);
+			termFQExpBuffer(&double_output);
 
 			break;
 		}
@@ -4208,7 +4233,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 
 
 static bool
-_FQcheckSpecialValue(char *p, const int length, const double value)
+_FQcheckSpecialValue(FQExpBufferData *buf, const int length, const double value)
 {
 	const char *t = NULL;
 
@@ -4219,7 +4244,11 @@ _FQcheckSpecialValue(char *p, const int length, const double value)
 	else
 		return false;
 
-	sprintf(p, "%*.*s", length, length, t);
+	appendFQExpBuffer(buf,
+					  "%*.*s",
+					  length,
+					  length,
+					  t);
 
 	return true;
 }
