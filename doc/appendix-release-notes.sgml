@@ -8,8 +8,43 @@
     Changes to each &libfq; release are documented in the release notes.
   </para>
 
+  <sect1 id="release-0.6.1">
+    <title id="release-current">Release 0.6.1</title>
+    <para><emphasis>Saturday 11 May, 2024</emphasis></para>
+    <para>
+      &libfq; 0.6.1 is a minor release providing following fixes:
+      <itemizedlist>
+        <listitem>
+          <para>
+            Install <filename>libfq-version.h</filename>.
+          </para>
+          <para>
+            Previously, the &libfq; internal header file <filename>libfq-int.h</filename>
+            was being installed, which is only required for building &libfq;.
+          </para>
+          <para>
+            With <filename>libfq-version.h</filename>, the &libfq; version constants are
+            made available for client applications.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Fix log level name parsing.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Internal improvements to <literal>FLOAT</literal> and <literal>DOUBLE PRECISION</literal>
+            formatting.
+          </para>
+        </listitem>
+
+      </itemizedlist>
+    </para>
+  </sect1>
+
   <sect1 id="release-0.6.0">
-    <title id="release-current">Release 0.6.0</title>
+    <title>Release 0.6.0</title>
     <para><emphasis>Monday 6 May, 2024</emphasis></para>
     <para>
       &libfq; 0.6.0 is a feature release improving support for various Firebird data types.
