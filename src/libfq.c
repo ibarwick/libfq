@@ -135,7 +135,7 @@ static char *_FQlookupTimeZone(int time_zone_id);
 static char *_FQformatTimeZone(int time_zone_id, int tz_ext_offset, bool time_zone_names);
 #endif
 
-static bool _FQcheckSpecialValue(FQExpBufferData *buf, const int length, const double value);
+static bool _FQcheckSpecialValue(char *buf, const int length, const double value, int *s);
 static char *_FQformatOctet(char *data, int len);
 
 
@@ -3759,11 +3759,8 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 				? FB_FLOAT_LEN + 1
 				: (DBL_DIG * 2) + 2;
 
-			FQExpBufferData float_output;
-			initFQExpBuffer(&float_output);
-
 			/* NaN, Infinity or -Infinity */
-			if (_FQcheckSpecialValue(&float_output, length, value))
+			if (_FQcheckSpecialValue(format_buffer, length, value, &s))
 			{
 				/* NOP */
 			}
@@ -3773,25 +3770,32 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			 */
 			else if (conn->isql_values)
 			{
-				appendFQExpBuffer(&float_output,
-								  "% #*.*g",
-								  FB_FLOAT_LEN,
-								  (int) MIN(9, (FB_FLOAT_LEN - 6)) - 1,
-								  *(float *) (var->sqldata));
+				s = snprintf(format_buffer, sizeof(format_buffer),
+							 "% #*.*g",
+							 FB_FLOAT_LEN,
+							 (int) MIN(9, (FB_FLOAT_LEN - 6)) - 1,
+							 *(float *) (var->sqldata));
 			}
 			else
 			{
-				appendFQExpBuffer(&float_output,
-								  "%*.*g",
-								  DBL_DIG,
-								  DBL_DIG,
-								  value);
+				s = snprintf(format_buffer, sizeof(format_buffer),
+							 "%*.*g",
+							 DBL_DIG,
+							 DBL_DIG,
+							 value);
 			}
 
-			p = (char *)malloc(float_output.len);
-			memcpy(p, float_output.data, float_output.len);
-			termFQExpBuffer(&float_output);
-
+			if (s < 0)
+			{
+				format_error = true;
+			}
+			else
+			{
+				int len = strlen(format_buffer);
+				p = (char *)malloc(len);
+				memset(p, '\0', len);
+				memcpy(p, format_buffer, len);
+			}
 			break;
 		}
 		case SQL_DOUBLE:
@@ -3804,10 +3808,12 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			FQExpBufferData double_output;
 			initFQExpBuffer(&double_output);
 
+
 			/* NaN, Infinity or -Infinity */
-			if (_FQcheckSpecialValue(&double_output, length, value))
+			if (_FQcheckSpecialValue(format_buffer, length, value, &s))
 			{
 				/* NOP */
+
 			}
 			else if (dscale &&
 				(!value ||
@@ -3827,33 +3833,39 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 				else
 					/* -nnn.nnn */
 					precision = length - rounded - 2;
-
-				appendFQExpBuffer(&double_output,
-								  "%*.*f",
-								  length,
-								  precision,
-								  value);
+				s = snprintf(format_buffer, sizeof(format_buffer),
+							 "%*.*f",
+							 length,
+							 precision,
+							 value);
 			}
 			else if (conn->isql_values)
 			{
-				appendFQExpBuffer(&double_output,
-								  "%#*.*g",
-								  length,
-								  (int) MIN(16, (length - 7)),
-								  value);
+				s = snprintf(format_buffer, sizeof(format_buffer),
+							 "%#*.*g",
+							 length,
+							 (int) MIN(16, (length - 7)),
+							 value);
 			}
 			else
 			{
-				appendFQExpBuffer(&double_output,
-								  "%*.*g",
-								  length,
-								  (int) MIN(16, (length - 7)),
-								  value);
+				s = snprintf(format_buffer, sizeof(format_buffer),
+							 "%*.*g",
+							 length,
+							 (int) MIN(16, (length - 7)),
+							 value);
 			}
-
-			p = (char *)malloc(double_output.len);
-			memcpy(p, double_output.data, double_output.len);
-			termFQExpBuffer(&double_output);
+			if (s < 0)
+			{
+				format_error = true;
+			}
+			else
+			{
+				int len = strlen(format_buffer);
+				p = (char *)malloc(len);
+				memset(p, '\0', len);
+				memcpy(p, format_buffer, len);
+			}
 
 			break;
 		}
@@ -4205,7 +4217,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 
 
 static bool
-_FQcheckSpecialValue(FQExpBufferData *buf, const int length, const double value)
+_FQcheckSpecialValue(char *buf, const int length, const double value, int *s)
 {
 	const char *t = NULL;
 
@@ -4216,11 +4228,11 @@ _FQcheckSpecialValue(FQExpBufferData *buf, const int length, const double value)
 	else
 		return false;
 
-	appendFQExpBuffer(buf,
-					  "%*.*s",
-					  length,
-					  length,
-					  t);
+	*s = sprintf(buf,
+				 "%*.*s",
+				 length,
+				 length,
+				 t);
 
 	return true;
 }
