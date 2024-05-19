@@ -22,6 +22,25 @@
               Function <link linkend="libfq-firebirdapiversion">FQfirebirdApiVersion</link> added.
             </para>
           </listitem>
+          <listitem>
+            <para>
+              Function <link linkend="libfq-planstatement">FQplanStatement</link> added.
+            </para>
+            <para>
+              This function returns the raw query access plan, previously returned by
+              <link linkend="libfq-explainstatement">FQexplainStatement</link>.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Function <link linkend="libfq-explainstatement">FQexplainStatement</link>
+              now returns the explained query access plan in the explained form.
+            </para>
+            <para>
+              This function returns the query access plan in the explained form.
+            </para>
+          </listitem>
+
         </itemizedlist>
       </para>
     </sect2>

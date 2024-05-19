@@ -138,6 +138,7 @@ static char *_FQformatTimeZone(int time_zone_id, int tz_ext_offset, bool time_zo
 static bool _FQcheckSpecialValue(char *buf, const int length, const double value, int *s);
 static char *_FQformatOctet(char *data, int len);
 
+static char *_FQexplainStatement(FBconn *conn, const char *stmt, char plan_type);
 
 inline int32_t MAX(int32_t a, int32_t b) { return((a) > (b) ? a : b); }
 inline int32_t MIN(int32_t a, int32_t b) { return((a) < (b) ? a : b); }
@@ -4504,6 +4505,18 @@ FQclear(FBresult *result)
 char *
 FQexplainStatement(FBconn *conn, const char *stmt)
 {
+	return _FQexplainStatement(conn, stmt, isc_info_sql_explain_plan);
+}
+
+char *
+FQplanStatement(FBconn *conn, const char *stmt)
+{
+	return _FQexplainStatement(conn, stmt, isc_info_sql_get_plan);
+}
+
+static char *
+_FQexplainStatement(FBconn *conn, const char *stmt, char plan_type)
+{
 	FBresult	  *result;
 
 	char  plan_info[1];
@@ -4541,7 +4554,7 @@ FQexplainStatement(FBconn *conn, const char *stmt)
 		return NULL;
 	}
 
-	plan_info[0] = isc_info_sql_get_plan;
+	plan_info[0] = plan_type;
 
 	if (isc_dsql_sql_info(conn->status, &result->stmt_handle, sizeof(plan_info), plan_info,
 						  sizeof(plan_buffer), plan_buffer))

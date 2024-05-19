@@ -558,6 +558,9 @@ extern int FQfirebirdApiVersion(void);
  */
 
 extern char *
+FQplanStatement(FBconn *conn, const char *stmt);
+
+extern char *
 FQexplainStatement(FBconn *conn, const char *stmt);
 
 extern void

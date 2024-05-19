@@ -681,6 +681,55 @@ void FQclear(FBresult *res);
 		</variablelist>
 	  </para>
 	</sect2>
+	<sect2 id="libfq-plan-info-functions">
+	  <title>Plan Information Functions</title>
+	  <para>
+		<variablelist>
+
+		  <varlistentry id="libfq-planstatement">
+			<term>
+			  <function>FQplanStatement</function>
+			  <indexterm>
+				<primary>FQplanStatement</primary>
+			  </indexterm>
+			</term>
+            <listitem>
+			  <para>
+                Returns the raw query plan for the provided statement.
+<synopsis>
+char *FQplanStatement(FBconn *conn, const char *stmt);
+</synopsis>
+
+              </para>
+              <para>
+                Caller must free the returned string.
+              </para>
+            </listitem>
+          </varlistentry>
+
+		  <varlistentry id="libfq-explainstatement">
+			<term>
+			  <function>FQexplainStatement</function>
+			  <indexterm>
+				<primary>FQexplainStatement</primary>
+			  </indexterm>
+			</term>
+            <listitem>
+			  <para>
+                Returns the explained query plan for the provided statement.
+<synopsis>
+char *FQexplainedStatement(FBconn *conn, const char *stmt);
+</synopsis>
+              </para>
+              <para>
+                Caller must free the returned string.
+              </para>
+            </listitem>
+          </varlistentry>
+
+        </variablelist>
+      </para>
+    </sect2>
 
 	<sect2 id="libfq-exec-results">
 	  <title>Result Handling Functions</title>
