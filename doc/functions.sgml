@@ -805,7 +805,8 @@ int FQsqlCode(const FBresult *res);
 </synopsis>
 			  </para>
               <para>
-                See here for a full list: https://firebirdsql.org/file/documentation/reference_manuals/fblangref25-en/html/fblangref25-appx02-sqlcodes.html
+                A full list of SQL error codes is available at:
+                <ulink url="https://www.firebirdsql.org/file/documentation/chunk/en/refdocs/fblangref50/fblangref50-appx02-errorcodes.html#fblangref50-appx02-sqlstates">SQLSTATE Error Codes and Descriptions</ulink>
               </para>
               <para>
                 In addition, &libfq; defines following additional codes:
