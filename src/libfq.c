@@ -26,6 +26,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <sys/time.h>
@@ -3658,7 +3659,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			if (var->sqlsubtype == 1)
 			{
 				/* column defined as "CHARACTER SET OCTETS" */
-				p = _FQformatOctet(vary2->vary_string, vary2->vary_length);
+				p = _FQformatOctet((char *)vary2->vary_string, vary2->vary_length);
 			}
 			else
 			{
@@ -3708,7 +3709,7 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 
 				if (value >= 0)
 				{
-					p = (char *)malloc(buflen);
+					p = (char *)malloc(buflen + 1);
 					sprintf(p, "%lld.%0*lld",
 							(ISC_INT64) value / tens,
 							-dscale,
