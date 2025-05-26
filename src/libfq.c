@@ -294,8 +294,8 @@ FQconnectdbParams(const char * const *keywords,
 	/* store database path */
 	db_path_len = strlen(db_path);
 	conn->db_path = malloc(db_path_len + 1);
-	strncpy(conn->db_path, db_path, db_path_len);
-	conn->db_path[db_path_len] = '\0';
+	memset(conn->db_path, '\0', db_path_len + 1);
+	strncpy(conn->db_path, db_path, db_path_len + 1);
 
 	/* set and store other parameters */
 	if (uname != NULL)
@@ -305,8 +305,8 @@ FQconnectdbParams(const char * const *keywords,
 		isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_user_name, uname, uname_len);
 
 		conn->uname = malloc(uname_len + 1);
-		strncpy(conn->uname, uname, uname_len);
-		conn->uname[uname_len] = '\0';
+		memset(conn->uname, '\0', uname_len + 1);
+		strncpy(conn->uname, uname, uname_len + 1);
 	}
 
 	if (upass != NULL)
@@ -316,8 +316,8 @@ FQconnectdbParams(const char * const *keywords,
 		isc_modify_dpb(&dpb, &conn->dpb_length, isc_dpb_password, upass, upass_len);
 
 		conn->upass = malloc(upass_len + 1);
-		strncpy(conn->upass, upass, upass_len);
-		conn->upass[upass_len] = '\0';
+		memset(conn->upass, '\0', upass_len + 1);
+		strncpy(conn->upass, upass, upass_len + 1);
 	}
 
 	/*
