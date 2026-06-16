@@ -3835,9 +3835,6 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			short 	 dscale = var->sqlscale;
 			unsigned rounded = 0;
 
-			FQExpBufferData double_output;
-			initFQExpBuffer(&double_output);
-
 
 			/* NaN, Infinity or -Infinity */
 			if (_FQcheckSpecialValue(format_buffer, length, value, &s))
