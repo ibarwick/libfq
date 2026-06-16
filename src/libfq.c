@@ -3822,8 +3822,8 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			else
 			{
 				int len = strlen(format_buffer);
-				p = (char *)malloc(len);
-				memset(p, '\0', len);
+				p = (char *)malloc(len + 1);
+				memset(p, '\0', len + 1);
 				memcpy(p, format_buffer, len);
 			}
 			break;
@@ -3892,8 +3892,8 @@ _FQformatDatum(FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var)
 			else
 			{
 				int len = strlen(format_buffer);
-				p = (char *)malloc(len);
-				memset(p, '\0', len);
+				p = (char *)malloc(len + 1);
+				memset(p, '\0', len + 1);
 				memcpy(p, format_buffer, len);
 			}
 
