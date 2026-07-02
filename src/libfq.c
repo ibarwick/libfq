@@ -86,13 +86,12 @@ static FQtransactionStatusType
 _FQstartTransaction(FBconn *conn, isc_tr_handle *trans);
 
 static FQresTupleAtt *_FQformatDatum (FBconn *conn, FQresTupleAttDesc *att_desc, XSQLVAR *var);
-static FBresult *_FQinitResult(bool init_sqlda_in);
-static void _FQinitResultSqlDa(FBresult *result, bool init_sqlda_in);
+static FBresult *_FQinitResult();
 static void _FQexecClearResult(FBresult *result);
-static void _FQexecClearResultParams(FBconn *conn, FBresult *result, bool free_result_stmt_handle);
-static void _FQexecClearSQLDA(FBresult *result, XSQLDA *sqlda);
+static void _FQexecClearSQLDA(XSQLDA *sqlda);
 static void _FQexecFillTuplesArray(FBresult *result);
-static void _FQexecInitOutputSQLDA(FBconn *conn, FBresult *result);
+static ISC_STATUS __allocate_buffers_to_receive_query_result_row(FBconn *conn, FBresult *result);
+static XSQLDA *___allocate_XSQLDA(ISC_SHORT n_sqlvars);
 static ISC_LONG _FQexecParseStatementType(char *info_buffer);
 
 static FBresult *_FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt);
@@ -107,7 +106,7 @@ static FBresult *_FQexecParams(FBconn *conn,
 							   const int *paramFormats,
 							   int resultFormat);
 
-static void _FQstoreResult(FBresult *result, FBconn *conn, int num_rows);
+static void _FQstoreResult(FBresult *result, FBconn *conn);
 static char *_FQlogLevel(short errlevel);
 static void _FQsetResultError(FBconn *conn, FBresult *res);
 static void _FQsetResultNonFatalError(const FBconn *conn, FBresult *res, short errlevel, char *msg);
@@ -128,7 +127,7 @@ static const char*  _FQgetLogLevelName(int log_level);
 
 #if defined SQL_INT128
 static int format_int128(__int128 val, char *dst);
-static __int128 convert_int128(const char *s);
+static __int128 __parse_int128(const char *s);
 #endif
 
 #ifdef HAVE_TIMEZONE
@@ -917,17 +916,17 @@ FQsetGetdsplen(FBconn *conn, bool get_dsp_len)
  * preallocate in/out SQLDAs.
  */
 static FBresult *
-_FQinitResult(bool init_sqlda_in)
+_FQinitResult()
 {
 	FBresult *result;
 
 	result = malloc(sizeof(FBresult));
 
-	_FQinitResultSqlDa(result, init_sqlda_in);
-
+	result->sqlda_in = NULL;
+	result->sqlda_out = NULL;
 	result->stmt_handle = 0L;
 	result->statement_type = 0L;
-	result->ntups = -1;
+	result->ntups = 0;
 	result->ncols = -1;
 	result->resultStatus = FBRES_NO_ACTION;
 	result->errMsg = NULL;
@@ -935,30 +934,12 @@ _FQinitResult(bool init_sqlda_in)
 	result->fbSQLCODE = -1L;
 	result->errLine = -1;
 	result->errCol = -1;
+	result->tuple_first = NULL;
+	result->tuple_last = NULL;
 
 	return result;
 }
 
-static void
-_FQinitResultSqlDa(FBresult *result, bool init_sqlda_in)
-{
-	if (init_sqlda_in == true)
-	{
-		result->sqlda_in = (XSQLDA *) malloc(XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
-		memset(result->sqlda_in, '\0', XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
-		result->sqlda_in->sqln = FB_XSQLDA_INITLEN;
-		result->sqlda_in->version = SQLDA_VERSION1;
-	}
-	else
-	{
-		result->sqlda_in = NULL;
-	}
-
-	result->sqlda_out = (XSQLDA *) malloc(XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
-	memset(result->sqlda_out, '\0', XSQLDA_LENGTH(FB_XSQLDA_INITLEN));
-	result->sqlda_out->sqln = FB_XSQLDA_INITLEN;
-	result->sqlda_out->version = SQLDA_VERSION1;
-}
 
 /**
  * _FQexecClearResult()
@@ -971,14 +952,14 @@ _FQexecClearResult(FBresult *result)
 {
 	if (result->sqlda_in != NULL)
 	{
-		_FQexecClearSQLDA(result, result->sqlda_in);
+		_FQexecClearSQLDA(result->sqlda_in);
 		free(result->sqlda_in);
 		result->sqlda_in = NULL;
 	}
 
 	if (result->sqlda_out != NULL)
 	{
-		_FQexecClearSQLDA(result, result->sqlda_out);
+		_FQexecClearSQLDA(result->sqlda_out);
 
 		free(result->sqlda_out);
 		result->sqlda_out = NULL;
@@ -987,34 +968,20 @@ _FQexecClearResult(FBresult *result)
 
 
 
-static void
-_FQexecClearResultParams(FBconn *conn, FBresult *result, bool free_result_stmt_handle)
-{
-	_FQexecClearResult(result);
-
-	if (free_result_stmt_handle)
-	{
-		isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
-	}
-	else
-	{
-		_FQinitResultSqlDa(result, true);
-	}
-}
-
-
 /**
  * _FQexecClearSQLDA()
  *
  *
  */
 static
-void _FQexecClearSQLDA(FBresult *result, XSQLDA *sqlda)
+void _FQexecClearSQLDA(XSQLDA *sqlda)
 {
 	XSQLVAR *var;
 	short	 i;
 
-	for (i = 0, var = result->sqlda_out->sqlvar; i < result->ncols; var++, i++)
+	if (sqlda == NULL) return;
+
+	for (i = 0, var = sqlda->sqlvar; i < sqlda->sqln; var++, i++)
 	{
 		if (var->sqldata != NULL)
 		{
@@ -1022,7 +989,7 @@ void _FQexecClearSQLDA(FBresult *result, XSQLDA *sqlda)
 			var->sqldata = NULL;
 		}
 
-		if (var->sqltype & 1 && var->sqlind != NULL)
+		if (var->sqlind != NULL)
 		{
 			/* deallocate NULL status indicator if necessary */
 			free(var->sqlind);
@@ -1032,8 +999,192 @@ void _FQexecClearSQLDA(FBresult *result, XSQLDA *sqlda)
 }
 
 
+static inline signed int __size_to_allocate_for_receiving_XSQLVAR_sqldata(XSQLVAR *var) {
+	const typeof(var->sqltype) is_this_field_nullable_flag = 1;
+	short sqltype = (var->sqltype & ~is_this_field_nullable_flag); /* drop flag bit for now */
+
+	switch(sqltype)
+	{
+		case SQL_VARYING:           return sizeof(ISC_SHORT) + var->sqllen;
+		case SQL_TEXT:              return var->sqllen;
+		case SQL_SHORT:             return sizeof(ISC_SHORT);
+		case SQL_LONG:              return sizeof(ISC_LONG);
+		case SQL_INT64:             return sizeof(ISC_INT64);
+		case SQL_FLOAT:             return sizeof(float);
+		case SQL_DOUBLE:            return sizeof(double);
+		case SQL_TYPE_TIME:         return sizeof(ISC_TIME);
+#ifdef HAVE_TIMEZONE
+		case SQL_TIME_TZ:           return sizeof(ISC_TIME_TZ);
+		case SQL_TIME_TZ_EX:        return sizeof(ISC_TIME_TZ_EX);
+#endif
+		case SQL_TIMESTAMP:         return sizeof(ISC_TIMESTAMP);
+#ifdef HAVE_TIMEZONE
+		case SQL_TIMESTAMP_TZ:      return sizeof(ISC_TIMESTAMP_TZ);
+		case SQL_TIMESTAMP_TZ_EX:   return sizeof(ISC_TIMESTAMP_TZ_EX);
+#endif
+		case SQL_TYPE_DATE:         return sizeof(ISC_DATE);
+		case SQL_BLOB:              return sizeof(ISC_QUAD);
+#if defined SQL_BOOLEAN
+			/* Firebird 3.0 and later */
+		case SQL_BOOLEAN:           return sizeof(FB_BOOLEAN);
+#endif
+
+#if defined SQL_INT128
+			/* Firebird 4.0 and later */
+		case SQL_INT128:            return sizeof(__int128);
+#endif
+		default:                    return -1;
+	}
+}
+
+static signed int __allocate_buffers_of_XSQLVAR(XSQLVAR *var) {
+	signed int size = __size_to_allocate_for_receiving_XSQLVAR_sqldata(var);
+
+	if (size < 0) return size;
+
+	var->sqldata = (char *)malloc(size);
+
+	const typeof(var->sqltype) is_this_field_nullable_flag = 1;
+
+	if (var->sqltype & is_this_field_nullable_flag)
+	{
+		/* allocate variable to hold NULL status */
+		var->sqlind = (short *)malloc(sizeof(short));
+	}
+}
+
+
+static void __report_XSQLVAR_buffer_allocation_error(FBconn *conn, FBresult *result, XSQLVAR *var) {
+	const typeof(var->sqltype) is_this_field_nullable_flag = 1;
+	short sqltype = (var->sqltype & ~is_this_field_nullable_flag); /* drop flag bit for now */
+
+	FQExpBufferData error_message_buf;
+
+	initFQExpBuffer(&error_message_buf);
+	appendFQExpBuffer(&error_message_buf,
+			"Unhandled sqlda_out type: %i", sqltype);
+
+	_FQsetResultError(conn, result);
+	_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message_buf.data);
+
+	result->resultStatus = FBRES_FATAL_ERROR;
+
+	_FQexecClearResult(result);
+	termFQExpBuffer(&error_message_buf);
+}
+
+
+static void __allocate_buffers_for_XSQLVARs_of_XSQLDA(FBconn *conn, FBresult *result, XSQLDA *xsqlda) {
+	XSQLVAR *var;
+	short	i;
+
+	for (i = 0, var = xsqlda->sqlvar; i < xsqlda->sqld; var++, i++)
+	{
+		int allocation_error = __allocate_buffers_of_XSQLVAR(var);
+		if (allocation_error)
+		{
+			__report_XSQLVAR_buffer_allocation_error(conn, result, var);
+			return;
+		}
+	}
+
+}
+
+
+static ISC_STATUS ___perform_describe(FBconn *conn, FBresult *result, bool for_input_parameters, XSQLDA *sqlda) {
+	ISC_STATUS status;
+
+	if (for_input_parameters)
+	{
+		status = isc_dsql_describe_bind(conn->status, &result->stmt_handle, SQL_DIALECT_V6, sqlda);
+	}
+	else
+	{
+		status = isc_dsql_describe(conn->status, &result->stmt_handle, SQL_DIALECT_V6, sqlda);
+	}
+
+	if (status)
+	{
+		if (for_input_parameters)
+		{
+			_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_describe_bind");
+		}
+		else
+		{
+			_FQsaveMessageField(&result, FB_DIAG_DEBUG, "isc_dsql_describe");
+		}
+
+		_FQsetResultError(conn, result);
+
+		result->resultStatus = FBRES_FATAL_ERROR;
+		_FQexecClearResult(result);
+	}
+
+	return status;
+}
+
+static XSQLDA *___allocate_XSQLDA(ISC_SHORT n_sqlvars) {
+	const int size = XSQLDA_LENGTH(n_sqlvars);
+	XSQLDA *new_sqlda = (XSQLDA *) malloc(size);
+
+	if(new_sqlda != NULL) {
+		memset(new_sqlda, '\0', size);
+		new_sqlda->sqln = n_sqlvars;
+		new_sqlda->version = SQLDA_VERSION1;
+	}
+
+	return new_sqlda;
+}
+
+
+static ISC_STATUS __allocate_placeholders_for_fields(FBconn *conn, FBresult *result, bool for_input_parameters) {
+	XSQLDA probing_sqlda;
+
+	const int n_sqlvars_included_in_struct_definition = sizeof(probing_sqlda.sqlvar) / sizeof(probing_sqlda.sqlvar[0]);
+
+	probing_sqlda.version = SQLDA_VERSION1;
+	probing_sqlda.sqln = n_sqlvars_included_in_struct_definition;
+
+	ISC_STATUS status;
+
+	status = ___perform_describe(conn, result, for_input_parameters, &probing_sqlda);
+	if (status)
+		return status;
+
+	const ISC_SHORT n_sqlvars = MAX( probing_sqlda.sqld, n_sqlvars_included_in_struct_definition );
+
+	XSQLDA *new_sqlda = ___allocate_XSQLDA(n_sqlvars);
+
+	status = ___perform_describe(conn, result, for_input_parameters, new_sqlda);
+
+	if (status)
+	{
+		free(new_sqlda);
+		return status;
+	}
+
+	if (for_input_parameters)
+	{
+		_FQexecClearSQLDA(result->sqlda_in);
+		result->sqlda_in = new_sqlda;
+	}
+	else
+	{
+		_FQexecClearSQLDA(result->sqlda_out);
+		result->sqlda_out = new_sqlda;
+	}
+}
+
+static ISC_STATUS __allocate_placeholders_for_output_fields(FBconn *conn, FBresult *result) {
+	__allocate_placeholders_for_fields(conn, result, false);
+}
+
+static ISC_STATUS __allocate_placeholders_for_query_input_parameters(FBconn *conn, FBresult *result) {
+	__allocate_placeholders_for_fields(conn, result, true);
+}
+
 /**
- * _FQexecInitOutputSQLDA()
+ * __allocate_buffers_to_receive_query_result_row()
  *
  * Initialise an output SQLDA to hold a retrieved row
  *
@@ -1045,111 +1196,20 @@ void _FQexecClearSQLDA(FBresult *result, XSQLDA *sqlda)
  * and NULL status indicator to a location in that buffer, but that is
  * somewhat tricky to get right.
  */
-static void
-_FQexecInitOutputSQLDA(FBconn *conn, FBresult *result)
+static ISC_STATUS
+__allocate_buffers_to_receive_query_result_row(FBconn *conn, FBresult *result)
 {
-	XSQLVAR *var;
-	short	 sqltype, i;
+	ISC_STATUS status;
+	status = __allocate_placeholders_for_output_fields(conn, result);
 
-	for (i = 0, var = result->sqlda_out->sqlvar; i < result->ncols; var++, i++)
-	{
-		sqltype = (var->sqltype & ~1); /* drop flag bit for now */
-		switch(sqltype)
-		{
-			case SQL_VARYING:
-				var->sqldata = (char *)malloc(sizeof(char)*var->sqllen + 2);
-				break;
-			case SQL_TEXT:
-				var->sqldata = (char *)malloc(sizeof(char)*var->sqllen);
-				break;
+	if (status)
+		return status;
 
-			case SQL_SHORT:
-				var->sqldata = (char *)malloc(sizeof(ISC_SHORT));
-				break;
-			case SQL_LONG:
-				var->sqldata = (char *)malloc(sizeof(ISC_LONG));
-				break;
-			case SQL_INT64:
-				var->sqldata = (char *)malloc(sizeof(ISC_INT64));
-				break;
+	result->ncols = result->sqlda_out->sqld;
 
-			case SQL_FLOAT:
-				var->sqldata = (char *)malloc(sizeof(float));
-				break;
-			case SQL_DOUBLE:
-				var->sqldata = (char *)malloc(sizeof(double));
-				break;
-
-			case SQL_TYPE_TIME:
-				var->sqldata = (char *)malloc(sizeof(ISC_TIME));
-				break;
-#ifdef HAVE_TIMEZONE
-			case SQL_TIME_TZ:
-				var->sqldata = (char *)malloc(sizeof(ISC_TIME_TZ));
-				break;
-			case SQL_TIME_TZ_EX:
-				var->sqldata = (char *)malloc(sizeof(ISC_TIME_TZ_EX));
-				break;
-#endif
-			case SQL_TIMESTAMP:
-				var->sqldata = (char *)malloc(sizeof(ISC_TIMESTAMP));
-				break;
-#ifdef HAVE_TIMEZONE
-			case SQL_TIMESTAMP_TZ:
-				var->sqldata = (char *)malloc(sizeof(ISC_TIMESTAMP_TZ));
-				break;
-			case SQL_TIMESTAMP_TZ_EX:
-				var->sqldata = (char *)malloc(sizeof(ISC_TIMESTAMP_TZ_EX));
-				break;
-#endif
-			case SQL_TYPE_DATE:
-				var->sqldata = (char *)malloc(sizeof(ISC_DATE));
-				break;
-
-			case SQL_BLOB:
-				var->sqldata = (char *)malloc(sizeof(ISC_QUAD));
-				break;
-
-#if defined SQL_BOOLEAN
-			/* Firebird 3.0 and later */
-			case SQL_BOOLEAN:
-				var->sqldata = (char *)malloc(sizeof(FB_BOOLEAN));
-				break;
-#endif
-
-#if defined SQL_INT128
-			/* Firebird 4.0 and later */
-			case SQL_INT128:
-				var->sqldata = (char *)malloc(sizeof(__int128));
-				break;
-#endif
-			default:
-			{
-				FQExpBufferData error_message_buf;
-
-				initFQExpBuffer(&error_message_buf);
-				appendFQExpBuffer(&error_message_buf,
-								  "Unhandled sqlda_out type: %i", sqltype);
-
-				_FQsetResultError(conn, result);
-				_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message_buf.data);
-
-				result->resultStatus = FBRES_FATAL_ERROR;
-
-				_FQexecClearResult(result);
-				termFQExpBuffer(&error_message_buf);
-
-				return;
-			}
-		}
-		if (var->sqltype & 1)
-		{
-			/* allocate variable to hold NULL status */
-			var->sqlind = (short *)malloc(sizeof(short));
-		}
-	}
-
+	__allocate_buffers_for_XSQLVARs_of_XSQLDA(conn, result, result->sqlda_out);
 }
+
 
 
 /**
@@ -1213,6 +1273,132 @@ FQexec(FBconn *conn, const char *stmt)
 }
 
 
+
+static ISC_STATUS __allocate_statement(FBconn *conn, FBresult *result, bool version2) {
+	ISC_STATUS status;
+
+	if (version2) {
+		status = isc_dsql_alloc_statement2(conn->status, &conn->db, &result->stmt_handle);
+	}
+	else
+	{
+		status = isc_dsql_allocate_statement(conn->status, &conn->db, &result->stmt_handle);
+	}
+
+	if (status)
+	{
+		result->resultStatus = FBRES_FATAL_ERROR;
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_allocate_statement");
+		_FQsetResultError(conn, result);
+	}
+
+	return status;
+}
+
+
+static ISC_STATUS __prepare_statement(FBconn *conn, FBresult *result, isc_tr_handle *trans, const char *stmt, XSQLDA *out) {
+
+	/* An active transaction is required to prepare the statement -
+	 * if no transaction handle was provided by the caller,
+	 * start a temporary transaction
+	 */
+
+	bool		  temp_trans = false;
+
+	if (*trans == 0L)
+	{
+		_FQstartTransaction(conn, trans);
+		temp_trans = true;
+	}
+
+	ISC_STATUS status = isc_dsql_prepare(conn->status, trans, &result->stmt_handle, 0, stmt, SQL_DIALECT_V6, out);
+
+	/* If a temporary transaction was previously created, roll it back; also roll back if an error happened */
+	if (temp_trans || status)
+	{
+		_FQrollbackTransaction(conn, trans);
+	}
+
+	if (status)
+	{
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_prepare");
+		_FQsetResultError(conn, result);
+		result->resultStatus = FBRES_FATAL_ERROR;
+	}
+
+	return status;
+}
+
+
+static ISC_STATUS __determine_sql_statement_type_for_result(FBconn *conn, FBresult *result) {
+	static char	  stmt_info[] = { isc_info_sql_stmt_type };
+	char		  info_buffer[20];
+
+	ISC_STATUS status = isc_dsql_sql_info(conn->status, &result->stmt_handle, sizeof (stmt_info), stmt_info, sizeof (info_buffer), info_buffer);
+
+	if (status)
+	{
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_sql_info");
+		_FQsetResultError(conn, result);
+		result->resultStatus = FBRES_FATAL_ERROR;
+
+		return status;
+	}
+
+	result->statement_type = _FQexecParseStatementType((char *) info_buffer);
+}
+
+
+static ISC_STATUS __load_entire_query_results_into_memory(FBconn *conn, FBresult *result) {
+	ISC_STATUS retcode;
+
+	while ((retcode = isc_dsql_fetch(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out)) == 0)
+	{
+		_FQstoreResult(result, conn);
+	}
+
+	/* we will not receive any more results from this query */
+	_FQexecClearResult(result);
+
+	if (retcode != 100L)
+	{
+		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "isc_dsql_fetch() error");
+		result->resultStatus = FBRES_FATAL_ERROR;
+		_FQsetResultError(conn, result);
+
+		return retcode;
+	}
+
+	/* add an array of tuple pointers for offset-based access */
+	_FQexecFillTuplesArray(result);
+
+	result->resultStatus = FBRES_TUPLES_OK;
+}
+
+
+
+static ISC_STATUS __allocate_and_prepare_statement_and_determine_sql_statement_type(FBconn *conn,
+		FBresult *result,
+		isc_tr_handle *trans,
+		const char* stmt,
+		bool version2,
+		XSQLDA *out
+		)
+{
+	ISC_STATUS error = 0;
+
+	if (!error) error = __allocate_statement(conn, result, version2);
+	if (!error) error = __prepare_statement(conn, result, trans, stmt, out);
+	if (!error) error = __determine_sql_statement_type_for_result(conn, result);
+
+	if (error)
+	{
+		_FQrollbackTransaction(conn, trans);
+	}
+
+	return error;
+}
+
 /**
  * _FQexec()
  *
@@ -1224,81 +1410,19 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 {
 	FBresult	  *result;
 
-	static char	  stmt_info[] = { isc_info_sql_stmt_type };
-	char		  info_buffer[20];
-	int			  statement_type;
+	result = _FQinitResult();
 
-	int			  num_rows = 0;
-	ISC_STATUS    retcode;
+	ISC_STATUS error;
 
-	bool		  temp_trans = false;
-
-	result = _FQinitResult(false);
-
-	/* Allocate a statement. */
-	if (isc_dsql_allocate_statement(conn->status, &conn->db, &result->stmt_handle))
-	{
-		result->resultStatus = FBRES_FATAL_ERROR;
-		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_allocate_statement");
-		_FQsetResultError(conn, result);
-
-		_FQexecClearResult(result);
+	error = __allocate_and_prepare_statement_and_determine_sql_statement_type(conn, result, trans, stmt, false, result->sqlda_out);
+	if (error)
 		return result;
-	}
-
-	/* An active transaction is required to prepare the statement -
-	 * if no transaction handle was provided by the caller,
-	 * start a temporary transaction
-	 */
-	if (*trans == 0L)
-	{
-		_FQstartTransaction(conn, trans);
-		temp_trans = true;
-	}
-
-	/* Prepare the statement. */
-	if (isc_dsql_prepare(conn->status, trans, &result->stmt_handle, 0, stmt, SQL_DIALECT_V6, result->sqlda_out))
-	{
-		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_prepare");
-
-		_FQsetResultError(conn, result);
-
-		_FQrollbackTransaction(conn, trans);
-		result->resultStatus = FBRES_FATAL_ERROR;
-
-		_FQexecClearResult(result);
-
-		return result;
-	}
-
-	/* If a temporary transaction was previously created, roll it back */
-	if (temp_trans == true)
-	{
-		_FQrollbackTransaction(conn, trans);
-		temp_trans = false;
-	}
-
-	/* Determine the statement's type */
-	if (isc_dsql_sql_info(conn->status, &result->stmt_handle, sizeof (stmt_info), stmt_info, sizeof (info_buffer), info_buffer))
-	{
-		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_sql_info");
-
-		_FQsetResultError(conn, result);
-
-		_FQrollbackTransaction(conn, trans);
-		result->resultStatus = FBRES_FATAL_ERROR;
-
-		_FQexecClearResult(result);
-		return result;
-	}
-
-	statement_type = _FQexecParseStatementType((char *) info_buffer);
 
 	/* Query will not return rows */
 	if (!result->sqlda_out->sqld)
 	{
 		/* Handle explicit SET TRANSACTION */
-		if (statement_type == isc_info_sql_stmt_start_trans)
+		if (result->statement_type == isc_info_sql_stmt_start_trans)
 		{
 			if (*trans != 0L)
 			{
@@ -1312,12 +1436,11 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 				result->resultStatus = FBRES_TRANSACTION_START;
 			}
 
-			_FQexecClearResult(result);
 			return result;
 		}
 
 		/* Handle explicit COMMIT */
-		if (statement_type == isc_info_sql_stmt_commit)
+		if (result->statement_type == isc_info_sql_stmt_commit)
 		{
 			 if (*trans == 0L)
 			{
@@ -1335,12 +1458,11 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 			 if (conn->in_user_transaction == true)
 				 conn->in_user_transaction = false;
 
-			_FQexecClearResult(result);
 			return result;
 		}
 
 		/* Handle explit ROLLBACK */
-		if (statement_type == isc_info_sql_stmt_rollback)
+		if (result->statement_type == isc_info_sql_stmt_rollback)
 		{
 			if (*trans == 0L)
 			{
@@ -1357,16 +1479,17 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 			 * command is passed to _FQexec */
 			if (conn->in_user_transaction == true)
 				conn->in_user_transaction = false;
-			_FQexecClearResult(result);
+
 			return result;
 		}
 
 		/* Handle DDL statement */
-		if (statement_type == isc_info_sql_stmt_ddl)
+		if (result->statement_type == isc_info_sql_stmt_ddl)
 		{
 			FQlog(conn, DEBUG1, "statement_type is DDL");
 
-			temp_trans = false;
+			bool temp_trans = false;
+
 			if (*trans == 0L)
 			{
 				_FQstartTransaction(conn, trans);
@@ -1381,7 +1504,6 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 
 				result->resultStatus = FBRES_FATAL_ERROR;
 
-				_FQexecClearResult(result);
 				return result;
 			}
 
@@ -1392,7 +1514,6 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 
 			result->resultStatus = FBRES_COMMAND_OK;
 
-			_FQexecClearResult(result);
 			return result;
 		}
 
@@ -1412,7 +1533,6 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 			_FQsetResultError(conn, result);
 
 			result->resultStatus = FBRES_FATAL_ERROR;
-			_FQexecClearResult(result);
 			return result;
 		}
 
@@ -1422,7 +1542,6 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 		}
 
 		result->resultStatus = FBRES_COMMAND_OK;
-		_FQexecClearResult(result);
 		return result;
 	}
 
@@ -1436,46 +1555,9 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 			conn->in_user_transaction = true;
 	}
 
-	if (isc_dsql_describe(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out))
-	{
-		_FQsetResultError(conn, result);
-		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "isc_dsql_describe");
-
-		result->resultStatus = FBRES_FATAL_ERROR;
-
-		_FQexecClearResult(result);
+	error = __allocate_buffers_to_receive_query_result_row(conn, result);
+	if (error)
 		return result;
-	}
-
-
-
-	/* Expand sqlda to required number of columns */
-	result->ncols = result->sqlda_out->sqld;
-
-	if (result->sqlda_out->sqln < result->ncols) {
-
-		free(result->sqlda_out);
-		result->sqlda_out = (XSQLDA *) malloc(XSQLDA_LENGTH (result->ncols));
-		memset(result->sqlda_out, '\0', XSQLDA_LENGTH (result->ncols));
-
-		result->sqlda_out->version = SQLDA_VERSION1;
-		result->sqlda_out->sqln = result->ncols;
-
-		if (isc_dsql_describe(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out))
-		{
-			_FQsetResultError(conn, result);
-			_FQsaveMessageField(&result, FB_DIAG_DEBUG, "isc_dsql_describe");
-
-			result->resultStatus = FBRES_FATAL_ERROR;
-
-			_FQexecClearResult(result);
-			return result;
-		}
-
-		result->ncols = result->sqlda_out->sqld;
-	}
-
-	_FQexecInitOutputSQLDA(conn, result);
 
 	if (isc_dsql_execute(conn->status, trans, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out))
 	{
@@ -1494,40 +1576,8 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 		return result;
 	}
 
-	/* set up tuple holder */
-
-	result->tuple_first = NULL;
-	result->tuple_last = NULL;
-
-	result->header = malloc(sizeof(FQresTupleAttDesc *) * result->ncols);
-
-	while ((retcode = isc_dsql_fetch(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out)) == 0)
-	{
-		_FQstoreResult(result, conn, num_rows);
-		num_rows++;
-	}
-
-	if (retcode != 100L)
-	{
-		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "isc_dsql_fetch() error");
-		result->resultStatus = FBRES_FATAL_ERROR;
-		_FQsetResultError(conn, result);
-
-		/* if autocommit, and no explicit transaction set, rollback */
-		if (conn->autocommit == true && conn->in_user_transaction == false)
-		{
-			_FQrollbackTransaction(conn, trans);
-		}
-
-		_FQexecClearResult(result);
-		return result;
-	}
-
-	result->resultStatus = FBRES_TUPLES_OK;
-	result->ntups = num_rows;
-
-	/* add an array of tuple pointers for offset-based access */
-	_FQexecFillTuplesArray(result);
+	error = __load_entire_query_results_into_memory(conn, result);
+	/* no error checking because error handling was done inside, so we do the same thing regardless of whether there was an error or not -/
 
 	/* if autocommit, and no explicit transaction set, commit */
 	if (conn->autocommit == true && conn->in_user_transaction == false)
@@ -1536,7 +1586,6 @@ _FQexec(FBconn *conn, isc_tr_handle *trans, const char *stmt)
 	}
 
 	/* clear up internal storage */
-	_FQexecClearResult(result);
 	return result;
 }
 
@@ -1609,70 +1658,16 @@ FQprepare(FBconn *conn,
 		  const int *paramTypes)
 {
 	FBresult	 *result;
-	bool		  temp_trans = false;
 	isc_tr_handle *trans = &conn->trans;
-	char		  info_buffer[20];
-	static char	  stmt_info[] = { isc_info_sql_stmt_type };
 
-	result = _FQinitResult(true);
+	result = _FQinitResult();
 
 	/* Allocate a statement. */
-	if (isc_dsql_alloc_statement2(conn->status, &conn->db, &result->stmt_handle))
-	{
-		result->resultStatus = FBRES_FATAL_ERROR;
-		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_allocate_statement");
-		_FQsetResultError(conn, result);
+	ISC_STATUS error;
 
-		_FQexecClearResult(result);
+	error = __allocate_and_prepare_statement_and_determine_sql_statement_type(conn, result, trans, stmt, true, NULL);
+	if (error)
 		return result;
-	}
-
-	/* An active transaction is required to prepare the statement -
-	 * if no transaction handle was provided by the caller,
-	 * start a temporary transaction
-	 */
-	if (*trans == 0L)
-	{
-		_FQstartTransaction(conn, trans);
-		temp_trans = true;
-	}
-
-	/* Prepare the statement. */
-	if (isc_dsql_prepare(conn->status, trans, &result->stmt_handle, 0, stmt, SQL_DIALECT_V6, NULL))
-	{
-		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_prepare");
-
-		_FQsetResultError(conn, result);
-
-		_FQrollbackTransaction(conn, trans);
-
-		result->resultStatus = FBRES_FATAL_ERROR;
-
-		_FQexecClearResult(result);
-		return result;
-	}
-
-	if (temp_trans == true)
-	{
-		_FQrollbackTransaction(conn, trans);
-		temp_trans = false;
-	}
-
-	/* Determine the statement's type */
-	if (isc_dsql_sql_info(conn->status, &result->stmt_handle, sizeof (stmt_info), stmt_info, sizeof (info_buffer), info_buffer))
-	{
-		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_sql_info");
-
-		_FQsetResultError(conn, result);
-
-		_FQrollbackTransaction(conn, trans);
-		result->resultStatus = FBRES_FATAL_ERROR;
-
-		_FQexecClearResult(result);
-		return result;
-	}
-
-	result->statement_type = _FQexecParseStatementType((char *) info_buffer);
 
 	FQlog(conn, DEBUG1, "statement_type: %i", result->statement_type);
 
@@ -1694,7 +1689,6 @@ FQprepare(FBconn *conn,
 			_FQrollbackTransaction(conn, trans);
 			result->resultStatus = FBRES_FATAL_ERROR;
 
-			_FQexecClearResult(result);
 			return result;
 	}
 
@@ -1721,6 +1715,502 @@ FQexecPrepared(FBconn *conn,
 						 resultFormat);
 }
 
+
+static inline signed int __size_to_allocate_for_null_input_XSQLVAR_sqldata(XSQLVAR *var) {
+	int dtype = (var->sqltype & ~1); /* drop flag bit for now */
+
+	switch(dtype)
+	{
+		case SQL_SHORT:           return sizeof(ISC_SHORT);
+		case SQL_LONG:            return sizeof(ISC_LONG);
+		case SQL_INT64:           return sizeof(ISC_INT64);
+#if defined SQL_INT128
+			/* Firebird 4.0 and later */
+		case SQL_INT128:          return sizeof(__int128);
+#endif
+		case SQL_FLOAT:           return sizeof(float);
+		case SQL_DOUBLE:          return sizeof(double);
+		case SQL_VARYING:         return 0;
+		case SQL_TEXT:            return 0;
+		case SQL_TYPE_TIME:       return sizeof(ISC_TIME);
+#ifdef HAVE_TIMEZONE
+		case SQL_TIME_TZ:         return sizeof(ISC_TIME_TZ);
+		case SQL_TIME_TZ_EX:      return sizeof(ISC_TIME_TZ_EX);
+#endif
+		case SQL_TIMESTAMP:       return sizeof(ISC_TIMESTAMP);
+#ifdef HAVE_TIMEZONE
+		case SQL_TIMESTAMP_TZ:    return sizeof(ISC_TIMESTAMP_TZ);
+		case SQL_TIMESTAMP_TZ_EX: return sizeof(ISC_TIMESTAMP_TZ_EX);
+#endif
+		case SQL_TYPE_DATE:       return sizeof(ISC_DATE);
+		case SQL_BLOB:            return sizeof(ISC_QUAD);
+#if defined SQL_BOOLEAN
+			/* Firebird 3.0 and later */
+		case SQL_BOOLEAN:         return sizeof(FB_BOOLEAN);
+#endif
+		default:                  return -1;
+	}
+}
+
+
+/* FIXME: would be nice to have bounds checking and error reporting */
+static long __parse_short_or_long(FBconn *conn, XSQLVAR *var, const char *input_string) {
+	char format[64];
+	long p, q, r, result;
+	const char *svalue;
+	int len;
+
+	p = q = r = (long) 0;
+	svalue = input_string;
+	len = strlen(svalue);
+
+	/* with decimals? */
+	if (var->sqlscale < 0)
+	{
+		/* NUMERIC(?,?) */
+		int	 scale = (int) (pow(10.0, (double) -var->sqlscale));
+		int	 dscale;
+		char *tmp;
+		char *neg;
+
+		FQlog(conn, DEBUG1, "sqlscale < 0; scale is %i", scale);
+
+		sprintf(format, "%%ld.%%%dld%%1ld", -var->sqlscale);
+
+		/* negative -0.x hack */
+		neg = strchr(svalue, '-');
+		if (neg)
+		{
+			svalue = neg + 1;
+			len = strlen(svalue);
+		}
+
+		if (!sscanf(svalue, format, &p, &q, &r))
+		{
+			/* here we handle values such as .78 passed as string */
+			sprintf(format, ".%%%dld%%1ld", -var->sqlscale);
+			if (!sscanf(svalue, format, &q, &r) )
+				FQlog(conn, DEBUG1, "problem parsing SQL_SHORT/SQL_LONG type");
+		}
+
+		/* Round up if r is 5 or greater */
+		if (r >= 5)
+		{
+			q++;			/* round q up by one */
+			p += q / scale; /* round p up by one if q overflows */
+			q %= scale;		/* modulus if q overflows */
+		}
+
+		/* decimal scaling */
+		tmp	   = strchr(svalue, '.');
+		dscale = (tmp)
+			? -var->sqlscale - (len - (int) (tmp - svalue)) + 1
+			: 0;
+
+		if (dscale < 0) dscale = 0;
+
+		/* final result */
+		result = (long) (p * scale + q * (int) (pow(10.0, (double) dscale))) * (neg ? -1 : 1);
+		FQlog(conn, DEBUG1, "SQL_SHORT/LONG: decimal result is %li", result);
+	}
+	else
+	{
+		/* numeric(?,0): scan for one decimal and do rounding*/
+
+		sprintf(format, "%%ld.%%1ld");
+
+		if (!sscanf(svalue, format, &p, &r))
+		{
+			sprintf(format, ".%%1ld");
+			if (!sscanf(svalue, format, &r))
+				FQlog(conn, DEBUG1, "problem parsing SQL_SHORT/SQL_LONG type");
+		}
+
+		/* rounding */
+		if (r >= 5)
+		{
+			if (p < 0) p--; else p++;
+		}
+
+		result = (long) p;
+	}
+
+	return result;
+}
+
+
+/* FIXME: would be nice to have bounds checking and error reporting */
+static ISC_INT64 __parse_int64(FBconn *conn, XSQLVAR *var, const char *input_string) {
+	const char	   *svalue;
+	char	 format[64];
+	ISC_INT64 p, q, r;
+	int len;
+
+	p = q = r = (ISC_INT64) 0;
+	svalue = input_string;
+	len = strlen(svalue);
+
+	FQlog(conn, DEBUG1, "INT64");
+
+	/* with decimals? */
+	if (var->sqlscale < 0)
+	{
+		/* numeric(?,?) */
+		int	 scale = (int) (pow(10.0, (double) -var->sqlscale));
+		int	 dscale;
+		char *tmp;
+		char *neg;
+
+		sprintf(format, S_INT64_FULL, -var->sqlscale);
+
+		/* negative -0.x hack */
+		neg = strchr(svalue, '-');
+		if (neg)
+		{
+			svalue = neg + 1;
+			len = strlen(svalue);
+		}
+
+		if (!sscanf(svalue, format, &p, &q, &r))
+		{
+			/* here we handle values such as .78 passed as string */
+			sprintf(format, S_INT64_DEC_FULL, -var->sqlscale);
+			if (!sscanf(svalue, format, &q, &r))
+				FQlog(conn, DEBUG1, "problem parsing SQL_INT64 type");
+		}
+
+		/* Round up if r is 5 or greater */
+		if (r >= 5)
+		{
+			q++;			/* round q up by one */
+			p += q / scale; /* round p up by one if q overflows */
+			q %= scale;		/* modulus if q overflows */
+		}
+
+		/* decimal scaling */
+		tmp	   = strchr(svalue, '.');
+		dscale = (tmp)
+			? -var->sqlscale - (len - (int) (tmp - svalue)) + 1
+			: 0;
+
+		if (dscale < 0)
+			dscale = 0;
+
+		return (ISC_INT64) (p * scale + q * (int) (pow(10.0, (double) dscale))) * (neg? -1: 1);
+	}
+	else
+	{
+		/* NUMERIC(?,0): scan for one decimal and do rounding */
+
+		sprintf(format, S_INT64_NOSCALE);
+
+		if (!sscanf(svalue, format, &p, &r))
+		{
+			sprintf(format, S_INT64_DEC_NOSCALE);
+			if (!sscanf(svalue, format, &r))
+				FQlog(conn, DEBUG1, "problem parsing SQL_INT64 type");
+		}
+
+		/* rounding */
+		if (r >= 5)
+		{
+			if (p < 0) p--; else p++;
+		}
+
+		return p;
+	}
+
+}
+
+static signed int __fill_in_sqlvar_from_input_string(FBconn *conn, FBresult *result, XSQLVAR *var, const char *input_string, bool parse_db_key) {
+	int dtype = (var->sqltype & ~1); /* drop flag bit for now */
+	int len;
+
+	switch(dtype)
+	{
+		case SQL_SHORT:
+		case SQL_LONG:
+			{
+				long result = __parse_short_or_long(conn, var, input_string);
+
+				if (dtype == SQL_SHORT)
+				{
+					var->sqldata = (char *)malloc(sizeof(ISC_SHORT));
+					var->sqllen = sizeof(ISC_SHORT);
+					*(ISC_SHORT *) (var->sqldata) = (ISC_SHORT) result;
+				}
+				else
+				{
+					var->sqldata = (char *)malloc(sizeof(ISC_LONG));
+					var->sqllen = sizeof(ISC_LONG);
+					*(ISC_LONG *) (var->sqldata) = (ISC_LONG) result;
+				}
+
+				break;
+			}
+
+		case SQL_INT64:
+			{
+				var->sqldata = (char *)malloc(sizeof(ISC_INT64));
+				memset(var->sqldata, '\0', sizeof(ISC_INT64));
+				*(ISC_INT64 *) (var->sqldata) = (ISC_INT64) __parse_int64(conn, var, input_string);
+				var->sqllen = sizeof(ISC_INT64);
+
+				break;
+			}
+
+#if defined SQL_INT128
+			/* Firebird 4.0 and later */
+		case SQL_INT128:
+			var->sqldata = (char *)malloc(sizeof(__int128));
+			memset(var->sqldata, '\0', sizeof(__int128));
+			*(__int128 *) (var->sqldata) = __parse_int128(input_string);
+			var->sqllen = sizeof(__int128);
+			break;
+#endif
+		case SQL_FLOAT:
+			var->sqldata = (char *)malloc(sizeof(float));
+			var->sqllen = sizeof(float);
+			*(float *)(var->sqldata) = (float)atof(input_string);
+			break;
+
+		case SQL_DOUBLE:
+			var->sqldata = (char *)malloc(sizeof(double));
+			var->sqllen = sizeof(double);
+			*(double *) (var->sqldata) = atof(input_string);
+			break;
+
+		case SQL_VARYING:
+			var->sqltype = SQL_TEXT; /* need this */
+			len = strlen(input_string);
+
+			var->sqllen = len; /* need this */
+			var->sqldata = (char *)malloc(sizeof(char)*var->sqllen);
+			memcpy(var->sqldata, input_string, len);
+			break;
+
+		case SQL_TEXT:
+
+			/* convert RDB$DB_KEY hex value to raw bytes if requested */
+			if (parse_db_key)
+			{
+				unsigned char *sqlptr;
+				unsigned char *srcptr;
+				unsigned char *srcptr_ix;
+				unsigned char *srcptr_parsed;
+				int ix = 0;
+
+				srcptr = (unsigned char *)_FQdeparseDbKey(input_string);
+
+				srcptr_parsed = (unsigned char *)_FQparseDbKey((char *)srcptr);
+				FQlog(conn, DEBUG1, "srcptr %s", srcptr_parsed);
+				free(srcptr_parsed);
+
+				len = 8;
+				var->sqllen = len;
+				var->sqldata = (char *)malloc(len);
+
+				sqlptr = (unsigned char *)var->sqldata ;
+				srcptr_ix = srcptr;
+
+				for (ix = 0; ix < len; ix++)
+				{
+					*sqlptr++ = *srcptr_ix++;
+				}
+
+				free(srcptr);
+			}
+			else
+			{
+				len = strlen(input_string);
+				var->sqldata = (char *)malloc(sizeof(char) * len);
+				var->sqllen = len;
+				memcpy(var->sqldata, input_string, len);
+			}
+
+			break;
+
+		case SQL_TYPE_TIME:
+#ifdef HAVE_TIMEZONE
+		case SQL_TIME_TZ:
+		case SQL_TIME_TZ_EX:
+#endif
+		case SQL_TIMESTAMP:
+#ifdef HAVE_TIMEZONE
+		case SQL_TIMESTAMP_TZ:
+		case SQL_TIMESTAMP_TZ_EX:
+#endif
+		case SQL_TYPE_DATE:
+			/* Here we coerce the time-related column types to CHAR,
+			 * causing Firebird to use its internal parsing mechanisms
+			 * to interpret the supplied literal
+			 */
+			len = strlen(input_string);
+			/* From dbimp.c: "workaround for date problem (bug #429820)" */
+			var->sqltype = SQL_TEXT;
+			var->sqlsubtype = 0x77;
+			var->sqllen = len;
+			var->sqldata = (char *)malloc(sizeof(char)*len);
+			memcpy(var->sqldata, input_string, len);
+
+			break;
+
+		case SQL_BLOB:
+			{
+				/* must be initialised to 0 */
+				isc_blob_handle blob_handle = 0;
+				char *ptr = (char *)input_string;
+
+				len = strlen(input_string);
+				var->sqldata = (char *)malloc(sizeof(ISC_QUAD));
+				var->sqllen = sizeof(ISC_QUAD);
+
+				isc_create_blob2(
+						conn->status,
+						&conn->db,
+						&conn->trans,
+						&blob_handle,
+						(ISC_QUAD *)var->sqldata,
+						0,		 /* Blob Parameter Buffer length = 0; no filter will be used */
+						NULL	 /* NULL Blob Parameter Buffer, since no filter will be used */
+						);
+				while (ptr < input_string + len)
+				{
+					int seg_len = BLOB_SEGMENT_LEN;
+
+					if (ptr + seg_len > (input_string + len))
+					{
+						seg_len = (input_string + len) - ptr;
+					}
+
+					isc_put_segment(
+							conn->status,
+							&blob_handle,
+							seg_len,
+							ptr);
+
+					ptr += BLOB_SEGMENT_LEN;
+				}
+				isc_close_blob(conn->status, &blob_handle);
+				break;
+			}
+
+#if defined SQL_BOOLEAN
+			/* Firebird 3.0 and later */
+		case SQL_BOOLEAN:
+			var->sqldata = (char *)malloc(sizeof(FB_BOOLEAN));
+			var->sqllen = sizeof(FB_BOOLEAN);
+
+			if (strncasecmp(input_string, "0", 1) == 0)
+				*var->sqldata = FB_FALSE;
+			else if (strncasecmp(input_string, "1", 1) == 0)
+				*var->sqldata = FB_TRUE;
+			else if (strncasecmp(input_string, "false", 5) == 0)
+				*var->sqldata = FB_FALSE;
+			else if (strncasecmp(input_string, "f", 1) == 0)
+				*var->sqldata = FB_FALSE;
+			else if (strncasecmp(input_string, "true", 4) == 0)
+				*var->sqldata = FB_TRUE;
+			else if (strncasecmp(input_string, "t", 1) == 0)
+				*var->sqldata = FB_TRUE;
+			else
+				*var->sqldata = FB_FALSE;
+
+			break;
+#endif
+
+
+		default:
+			{
+				FQExpBufferData error_message_buf;
+
+				initFQExpBuffer(&error_message_buf);
+				appendFQExpBuffer(&error_message_buf,
+						"Unhandled sqlda_in type: %i", dtype);
+
+				_FQsetResultError(conn, result);
+				_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message_buf.data);
+
+				result->resultStatus = FBRES_FATAL_ERROR;
+
+				_FQexecClearResult(result);
+				termFQExpBuffer(&error_message_buf);
+
+				return -1;
+			}
+	}
+
+}
+
+
+static signed int __fill_in_query_input_parameters(FBconn *conn,
+		FBresult *result,
+		const char * const *paramValues,
+		const int *paramFormats
+		)
+{
+	XSQLVAR		 *var;
+	int			  i;
+
+	for (i = 0, var = result->sqlda_in->sqlvar; i < result->sqlda_in->sqld; i++, var++)
+	{
+		int dtype = (var->sqltype & ~1); /* drop flag bit for now */
+
+		int len = 0;
+
+		FQlog(conn, DEBUG1, "_FQexecParams: here %i", i);
+
+		var->sqldata = NULL;
+		var->sqllen = 0;
+
+		if (paramFormats != NULL)
+			FQlog(conn, DEBUG1, "%i: %s", i, paramValues[i]);
+
+		/* For NULL values, initialise empty sqldata/sqllen */
+		if (paramValues[i] == NULL)
+		{
+			int size = __size_to_allocate_for_null_input_XSQLVAR_sqldata(var);
+
+			if (size < 0)
+				{
+					FQExpBufferData error_message_buf;
+
+					initFQExpBuffer(&error_message_buf);
+					appendFQExpBuffer(&error_message_buf,
+									  "Unhandled sqlda_in type: %i", dtype);
+
+					_FQsetResultError(conn, result);
+					_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message_buf.data);
+
+					result->resultStatus = FBRES_FATAL_ERROR;
+
+					_FQexecClearResult(result);
+					termFQExpBuffer(&error_message_buf);
+				}
+
+			/* var->sqldata remains NULL to indicate NULL */
+			if (size >= 0)
+				var->sqllen = size;
+		}
+		else
+		{
+			bool parse_db_key = paramFormats != NULL && paramFormats[i] == -1;
+
+			int error = __fill_in_sqlvar_from_input_string(conn, result, var, paramValues[i], parse_db_key);
+			if (error)
+				return error;
+		}
+
+		if (var->sqltype & 1)
+		{
+			/* allocate variable to hold NULL status */
+
+			var->sqlind = (short *)malloc(sizeof(short));
+			*(short *)var->sqlind = (paramValues[i] == NULL) ? -1 : 0;
+		}
+	}
+}
+
 /**
  * _FQexecParams()
  *
@@ -1743,24 +2233,9 @@ _FQexecParams(FBconn *conn,
 			  int resultFormat
 	)
 {
-	XSQLVAR		 *var;
-	int			  i;
-
 	ISC_STATUS    retcode;
 	int			  exec_result;
 
-
-	if (isc_dsql_describe_bind(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_in))
-	{
-		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_describe_bind");
-		_FQsetResultError(conn, result);
-		result->resultStatus = FBRES_FATAL_ERROR;
-
-		_FQrollbackTransaction(conn, trans);
-
-		_FQexecClearResult(result);
-		return result;
-	}
 
 	if (*trans == 0L)
 	{
@@ -1771,533 +2246,26 @@ _FQexecParams(FBconn *conn,
 			conn->in_user_transaction = true;
 	}
 
-	/*
-	 * Expand the input XSQLDA, if required.
-	 */
-	if (result->sqlda_in->sqld > result->sqlda_in->sqln)
+	ISC_STATUS error;
+	error = __allocate_placeholders_for_query_input_parameters(conn, result);
+	if (error)
 	{
-		int sqln = result->sqlda_in->sqld;
-
-		free(result->sqlda_in);
-		result->sqlda_in = (XSQLDA *)malloc(XSQLDA_LENGTH(sqln));
-		memset(result->sqlda_in, '\0', XSQLDA_LENGTH(sqln));
-		result->sqlda_in->sqln = sqln;
-		result->sqlda_in->version = SQLDA_VERSION1;
-		isc_dsql_describe_bind(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_in);
-
-		FQlog(conn, DEBUG1, "%lu; sqln now %i %i", XSQLDA_LENGTH(sqln), sqln, result->sqlda_in->sqld );
+		return result;
 	}
 
 	FQlog(conn, DEBUG1, "_FQexecParams: sqld %i", result->sqlda_in->sqld);
 
-	for (i = 0, var = result->sqlda_in->sqlvar; i < result->sqlda_in->sqld; i++, var++)
+	error = __fill_in_query_input_parameters(conn, result, paramValues, paramFormats);
+	if(error)
 	{
-		int dtype = (var->sqltype & ~1); /* drop flag bit for now */
-
-		int len = 0;
-
-		FQlog(conn, DEBUG1, "_FQexecParams: here %i", i);
-
-		var->sqldata = NULL;
-		var->sqllen = 0;
-
-		if (paramFormats != NULL)
-			FQlog(conn, DEBUG1, "%i: %s", i, paramValues[i]);
-
-		/* For NULL values, initialise empty sqldata/sqllen */
-		if (paramValues[i] == NULL)
-		{
-			int size = -1;
-
-			switch(dtype)
-			{
-				case SQL_SHORT:
-					size = sizeof(ISC_SHORT);
-					break;
-
-				case SQL_LONG:
-					size = sizeof(ISC_LONG);
-					break;
-
-				case SQL_INT64:
-					size = sizeof(ISC_INT64);
-					break;
-#if defined SQL_INT128
-				/* Firebird 4.0 and later */
-				case SQL_INT128:
-					size = sizeof(__int128);
-					break;
-#endif
-				case SQL_FLOAT:
-					size = sizeof(float);
-					break;
-
-				case SQL_DOUBLE:
-					size = sizeof(double);
-					break;
-
-				case SQL_VARYING:
-					size = 0;
-					break;
-
-				case SQL_TEXT:
-					size = 0;
-					break;
-
-				case SQL_TYPE_TIME:
-					size = sizeof(ISC_TIME);
-					break;
-#ifdef HAVE_TIMEZONE
-				case SQL_TIME_TZ:
-					size = sizeof(ISC_TIME_TZ);
-					break;
-
-				case SQL_TIME_TZ_EX:
-					size = sizeof(ISC_TIME_TZ_EX);
-					break;
-#endif
-
-				case SQL_TIMESTAMP:
-					size = sizeof(ISC_TIMESTAMP);
-					break;
-#ifdef HAVE_TIMEZONE
-				case SQL_TIMESTAMP_TZ:
-					size = sizeof(ISC_TIMESTAMP_TZ);
-					break;
-
-				case SQL_TIMESTAMP_TZ_EX:
-					size = sizeof(ISC_TIMESTAMP_TZ_EX);
-					break;
-#endif
-				case SQL_TYPE_DATE:
-					size = sizeof(ISC_DATE);
-					break;
-
-
-				case SQL_BLOB:
-					size = sizeof(ISC_QUAD);
-					break;
-
-#if defined SQL_BOOLEAN
-				/* Firebird 3.0 and later */
-				case SQL_BOOLEAN:
-					size = sizeof(FB_BOOLEAN);
-					break;
-#endif
-
-				default:
-				{
-					FQExpBufferData error_message_buf;
-
-					initFQExpBuffer(&error_message_buf);
-					appendFQExpBuffer(&error_message_buf,
-									  "Unhandled sqlda_in type: %i", dtype);
-
-					_FQsetResultError(conn, result);
-					_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message_buf.data);
-
-					result->resultStatus = FBRES_FATAL_ERROR;
-
-					_FQexecClearResult(result);
-					termFQExpBuffer(&error_message_buf);
-				}
-			}
-
-			/* var->sqldata remains NULL to indicate NULL */
-			if (size >= 0)
-				var->sqllen = size;
-		}
-		else
-		{
-			switch(dtype)
-			{
-				case SQL_SHORT:
-				case SQL_LONG:
-				{
-					char format[64];
-					long p, q, r, result;
-					const char *svalue;
-
-					p = q = r = (long) 0;
-					svalue = paramValues[i];
-					len = strlen(svalue);
-
-					/* with decimals? */
-					if (var->sqlscale < 0)
-					{
-						/* NUMERIC(?,?) */
-						int	 scale = (int) (pow(10.0, (double) -var->sqlscale));
-						int	 dscale;
-						char *tmp;
-						char *neg;
-
-						FQlog(conn, DEBUG1, "sqlscale < 0; scale is %i", scale);
-
-						sprintf(format, "%%ld.%%%dld%%1ld", -var->sqlscale);
-
-						/* negative -0.x hack */
-						neg = strchr(svalue, '-');
-						if (neg)
-						{
-							svalue = neg + 1;
-							len = strlen(svalue);
-						}
-
-						if (!sscanf(svalue, format, &p, &q, &r))
-						{
-							/* here we handle values such as .78 passed as string */
-							sprintf(format, ".%%%dld%%1ld", -var->sqlscale);
-							if (!sscanf(svalue, format, &q, &r) )
-								FQlog(conn, DEBUG1, "problem parsing SQL_SHORT/SQL_LONG type");
-						}
-
-						/* Round up if r is 5 or greater */
-						if (r >= 5)
-						{
-							q++;			/* round q up by one */
-							p += q / scale; /* round p up by one if q overflows */
-							q %= scale;		/* modulus if q overflows */
-						}
-
-						/* decimal scaling */
-						tmp	   = strchr(svalue, '.');
-						dscale = (tmp)
-							? -var->sqlscale - (len - (int) (tmp - svalue)) + 1
-							: 0;
-
-						if (dscale < 0) dscale = 0;
-
-						/* final result */
-						result = (long) (p * scale + q * (int) (pow(10.0, (double) dscale))) * (neg ? -1 : 1);
-						FQlog(conn, DEBUG1, "SQL_SHORT/LONG: decimal result is %li", result);
-					}
-					else
-					{
-						/* numeric(?,0): scan for one decimal and do rounding*/
-
-						sprintf(format, "%%ld.%%1ld");
-
-						if (!sscanf(svalue, format, &p, &r))
-						{
-							sprintf(format, ".%%1ld");
-							if (!sscanf(svalue, format, &r))
-								FQlog(conn, DEBUG1, "problem parsing SQL_SHORT/SQL_LONG type");
-						}
-
-						/* rounding */
-						if (r >= 5)
-						{
-							if (p < 0) p--; else p++;
-						}
-
-						result = (long) p;
-					}
-
-					if (dtype == SQL_SHORT)
-					{
-						var->sqldata = (char *)malloc(sizeof(ISC_SHORT));
-						var->sqllen = sizeof(ISC_SHORT);
-						*(ISC_SHORT *) (var->sqldata) = (ISC_SHORT) result;
-					}
-					else
-					{
-						var->sqldata = (char *)malloc(sizeof(ISC_LONG));
-						var->sqllen = sizeof(ISC_LONG);
-						*(ISC_LONG *) (var->sqldata) = (ISC_LONG) result;
-					}
-
-					break;
-				}
-
-				case SQL_INT64:
-				{
-					const char	   *svalue;
-					char	 format[64];
-					ISC_INT64 p, q, r;
-
-					FQlog(conn, DEBUG1, "INT64");
-					var->sqldata = (char *)malloc(sizeof(ISC_INT64));
-					memset(var->sqldata, '\0', sizeof(ISC_INT64));
-
-					p = q = r = (ISC_INT64) 0;
-					svalue = paramValues[i];
-					len = strlen(svalue);
-
-					/* with decimals? */
-					if (var->sqlscale < 0)
-					{
-						/* numeric(?,?) */
-						int	 scale = (int) (pow(10.0, (double) -var->sqlscale));
-						int	 dscale;
-						char *tmp;
-						char *neg;
-
-						sprintf(format, S_INT64_FULL, -var->sqlscale);
-
-						/* negative -0.x hack */
-						neg = strchr(svalue, '-');
-						if (neg)
-						{
-							svalue = neg + 1;
-							len = strlen(svalue);
-						}
-
-						if (!sscanf(svalue, format, &p, &q, &r))
-						{
-							/* here we handle values such as .78 passed as string */
-							sprintf(format, S_INT64_DEC_FULL, -var->sqlscale);
-							if (!sscanf(svalue, format, &q, &r))
-								FQlog(conn, DEBUG1, "problem parsing SQL_INT64 type");
-						}
-
-						/* Round up if r is 5 or greater */
-						if (r >= 5)
-						{
-							q++;			/* round q up by one */
-							p += q / scale; /* round p up by one if q overflows */
-							q %= scale;		/* modulus if q overflows */
-						}
-
-						/* decimal scaling */
-						tmp	   = strchr(svalue, '.');
-						dscale = (tmp)
-							? -var->sqlscale - (len - (int) (tmp - svalue)) + 1
-							: 0;
-
-						if (dscale < 0)
-							dscale = 0;
-
-						*(ISC_INT64 *) (var->sqldata) = (ISC_INT64) (p * scale + q * (int) (pow(10.0, (double) dscale))) * (neg? -1: 1);
-						var->sqllen = sizeof(ISC_INT64);
-					}
-					else
-					{
-						/* NUMERIC(?,0): scan for one decimal and do rounding */
-
-						sprintf(format, S_INT64_NOSCALE);
-
-						if (!sscanf(svalue, format, &p, &r))
-						{
-							sprintf(format, S_INT64_DEC_NOSCALE);
-							if (!sscanf(svalue, format, &r))
-								FQlog(conn, DEBUG1, "problem parsing SQL_INT64 type");
-						}
-
-						/* rounding */
-						if (r >= 5)
-						{
-							if (p < 0) p--; else p++;
-						}
-
-						*(ISC_INT64 *) (var->sqldata) = (ISC_INT64) p;
-						var->sqllen = sizeof(ISC_INT64);
-					}
-
-					break;
-				}
-
-#if defined SQL_INT128
-				/* Firebird 4.0 and later */
-				case SQL_INT128:
-					var->sqldata = (char *)malloc(sizeof(__int128));
-					memset(var->sqldata, '\0', sizeof(__int128));
-					*(__int128 *) (var->sqldata) = convert_int128(paramValues[i]);
-					var->sqllen = sizeof(__int128);
-					break;
-#endif
-				case SQL_FLOAT:
-					var->sqldata = (char *)malloc(sizeof(float));
-					var->sqllen = sizeof(float);
-					*(float *)(var->sqldata) = (float)atof(paramValues[i]);
-					break;
-
-				case SQL_DOUBLE:
-					var->sqldata = (char *)malloc(sizeof(double));
-					var->sqllen = sizeof(double);
-					*(double *) (var->sqldata) = atof(paramValues[i]);
-					break;
-
-				case SQL_VARYING:
-					var->sqltype = SQL_TEXT; /* need this */
-					len = strlen(paramValues[i]);
-
-					var->sqllen = len; /* need this */
-					var->sqldata = (char *)malloc(sizeof(char)*var->sqllen);
-					memcpy(var->sqldata, paramValues[i], len);
-					break;
-
-				case SQL_TEXT:
-
-					/* convert RDB$DB_KEY hex value to raw bytes if requested */
-					if (paramFormats != NULL && paramFormats[i] == -1)
-					{
-						unsigned char *sqlptr;
-						unsigned char *srcptr;
-						unsigned char *srcptr_ix;
-						unsigned char *srcptr_parsed;
-						int ix = 0;
-
-						srcptr = (unsigned char *)_FQdeparseDbKey(paramValues[i]);
-
-						srcptr_parsed = (unsigned char *)_FQparseDbKey((char *)srcptr);
-						FQlog(conn, DEBUG1, "srcptr %s", srcptr_parsed);
-						free(srcptr_parsed);
-
-						len = 8;
-						var->sqllen = len;
-						var->sqldata = (char *)malloc(len);
-
-						sqlptr = (unsigned char *)var->sqldata ;
-						srcptr_ix = srcptr;
-
-						for (ix = 0; ix < len; ix++)
-						{
-							*sqlptr++ = *srcptr_ix++;
-						}
-
-						free(srcptr);
-					}
-					else
-					{
-						len = strlen(paramValues[i]);
-						var->sqldata = (char *)malloc(sizeof(char) * len);
-						var->sqllen = len;
-						memcpy(var->sqldata, paramValues[i], len);
-					}
-
-					break;
-
-				case SQL_TYPE_TIME:
-#ifdef HAVE_TIMEZONE
-				case SQL_TIME_TZ:
-				case SQL_TIME_TZ_EX:
-#endif
-				case SQL_TIMESTAMP:
-#ifdef HAVE_TIMEZONE
-				case SQL_TIMESTAMP_TZ:
-				case SQL_TIMESTAMP_TZ_EX:
-#endif
-				case SQL_TYPE_DATE:
-					/* Here we coerce the time-related column types to CHAR,
-					 * causing Firebird to use its internal parsing mechanisms
-					 * to interpret the supplied literal
-					 */
-					len = strlen(paramValues[i]);
-					/* From dbimp.c: "workaround for date problem (bug #429820)" */
-					var->sqltype = SQL_TEXT;
-					var->sqlsubtype = 0x77;
-					var->sqllen = len;
-					var->sqldata = (char *)malloc(sizeof(char)*len);
-					memcpy(var->sqldata, paramValues[i], len);
-
-					break;
-
-				case SQL_BLOB:
-				{
-					/* must be initialised to 0 */
-					isc_blob_handle blob_handle = 0;
-					char *ptr = (char *)paramValues[i];
-
-					len = strlen(paramValues[i]);
-					var->sqldata = (char *)malloc(sizeof(ISC_QUAD));
-					var->sqllen = sizeof(ISC_QUAD);
-
-					isc_create_blob2(
-						conn->status,
-						&conn->db,
-						&conn->trans,
-						&blob_handle,
-						(ISC_QUAD *)var->sqldata,
-						0,		 /* Blob Parameter Buffer length = 0; no filter will be used */
-						NULL	 /* NULL Blob Parameter Buffer, since no filter will be used */
-						);
-					while (ptr < paramValues[i] + len)
-					{
-						int seg_len = BLOB_SEGMENT_LEN;
-
-						if (ptr + seg_len > (paramValues[i] + len))
-						{
-							seg_len = (paramValues[i] + len) - ptr;
-						}
-
-						isc_put_segment(
-							conn->status,
-							&blob_handle,
-							seg_len,
-							ptr);
-
-						ptr += BLOB_SEGMENT_LEN;
-					}
-					isc_close_blob(conn->status, &blob_handle);
-					break;
-				}
-
-#if defined SQL_BOOLEAN
-				/* Firebird 3.0 and later */
-				case SQL_BOOLEAN:
-					var->sqldata = (char *)malloc(sizeof(FB_BOOLEAN));
-					var->sqllen = sizeof(FB_BOOLEAN);
-
-					if (strncasecmp(paramValues[i], "0", 1) == 0)
-						*var->sqldata = FB_FALSE;
-					else if (strncasecmp(paramValues[i], "1", 1) == 0)
-						*var->sqldata = FB_TRUE;
-					else if (strncasecmp(paramValues[i], "false", 5) == 0)
-						*var->sqldata = FB_FALSE;
-					else if (strncasecmp(paramValues[i], "f", 1) == 0)
-						*var->sqldata = FB_FALSE;
-					else if (strncasecmp(paramValues[i], "true", 4) == 0)
-						*var->sqldata = FB_TRUE;
-					else if (strncasecmp(paramValues[i], "t", 1) == 0)
-						*var->sqldata = FB_TRUE;
-					else
-						*var->sqldata = FB_FALSE;
-
-					break;
-#endif
-
-
-				default:
-				{
-					FQExpBufferData error_message_buf;
-
-					initFQExpBuffer(&error_message_buf);
-					appendFQExpBuffer(&error_message_buf,
-									  "Unhandled sqlda_in type: %i", dtype);
-
-					_FQsetResultError(conn, result);
-					_FQsaveMessageField(&result, FB_DIAG_DEBUG, error_message_buf.data);
-
-					result->resultStatus = FBRES_FATAL_ERROR;
-
-					_FQexecClearResult(result);
-					termFQExpBuffer(&error_message_buf);
-					return result;
-				}
-			}
-		}
-
-		if (var->sqltype & 1)
-		{
-			/* allocate variable to hold NULL status */
-
-			var->sqlind = (short *)malloc(sizeof(short));
-			*(short *)var->sqlind = (paramValues[i] == NULL) ? -1 : 0;
-		}
-	}
-
-	if (isc_dsql_describe(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out))
-	{
-		_FQsetResultError(conn, result);
-		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "isc_dsql_describe");
-
-		result->resultStatus = FBRES_FATAL_ERROR;
-		_FQexecClearResult(result);
 		return result;
 	}
 
-	/* Expand output sqlda to required number of columns */
-	result->ncols = result->sqlda_out->sqld;
+	error = __allocate_buffers_to_receive_query_result_row(conn, result);
+	if(error)
+	{
+		return result;
+	}
 
 	FQlog(conn, DEBUG2, "_FQexecParams(): ncols is %i", result->ncols);
 
@@ -2319,7 +2287,12 @@ _FQexecParams(FBconn *conn,
 				_FQrollbackTransaction(conn, trans);
 			}
 
-			_FQexecClearResultParams(conn, result, free_result_stmt_handle);
+			_FQexecClearResult(result);
+
+			if (free_result_stmt_handle)
+			{
+				isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+			}
 
 			return result;
 		}
@@ -2332,25 +2305,15 @@ _FQexecParams(FBconn *conn,
 			_FQcommitTransaction(conn, trans);
 		}
 
-		_FQexecClearResultParams(conn, result, free_result_stmt_handle);
+		_FQexecClearResult(result);
+
+		if (free_result_stmt_handle)
+		{
+			isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+		}
 
 		return result;
 	}
-
-	if (result->sqlda_out->sqln < result->ncols) {
-		free(result->sqlda_out);
-		result->sqlda_out = (XSQLDA *) malloc(XSQLDA_LENGTH (result->ncols));
-		memset(result->sqlda_out, '\0', XSQLDA_LENGTH (result->ncols));
-
-		result->sqlda_out->version = SQLDA_VERSION1;
-		result->sqlda_out->sqln = result->ncols;
-
-		isc_dsql_describe(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out);
-
-		result->ncols = result->sqlda_out->sqld;
-	}
-
-	_FQexecInitOutputSQLDA(conn, result);
 
 	/* "isc_info_sql_stmt_exec_procedure" also covers "RETURNING ..." statements */
 	if (result->statement_type == isc_info_sql_stmt_exec_procedure)
@@ -2379,12 +2342,6 @@ _FQexecParams(FBconn *conn,
 		return result;
 	}
 
-	/* set up tuple holder */
-	result->tuple_first = NULL;
-	result->tuple_last = NULL;
-
-	result->header = malloc(sizeof(FQresTupleAttDesc *) * result->ncols);
-
 	/* XXX TODO: only needed for "SELECT ... FOR UPDATE " */
 	if (0 && isc_dsql_set_cursor_name(conn->status, &result->stmt_handle, "dyn_cursor", 0))
 	{
@@ -2393,48 +2350,43 @@ _FQexecParams(FBconn *conn,
 
 		result->resultStatus = FBRES_FATAL_ERROR;
 
-		_FQexecClearResultParams(conn, result, free_result_stmt_handle);
+		_FQexecClearResult(result);
+
+		if (free_result_stmt_handle)
+		{
+			isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+		}
 
 		return result;
 	}
 
 	if (result->statement_type == isc_info_sql_stmt_exec_procedure)
 	{
-		_FQstoreResult(result, conn, 0);
-		result->ntups = 1;
+		_FQstoreResult(result, conn);
+
+		_FQexecClearResult(result);
+
+		result->resultStatus = FBRES_TUPLES_OK;
+
+		/* add an array for offset-based access */
+		_FQexecFillTuplesArray(result);
 	}
 	else
 	{
-		int num_rows = 0;
-
-		while ((retcode = isc_dsql_fetch(conn->status, &result->stmt_handle, SQL_DIALECT_V6, result->sqlda_out)) == 0)
+		error = __load_entire_query_results_into_memory(conn, result);
+		if (error)
 		{
-			_FQstoreResult(result, conn, num_rows);
-			num_rows ++;
-		}
-
-		if (retcode != 100L)
-		{
-			_FQsaveMessageField(&result, FB_DIAG_DEBUG, "isc_dsql_fetch() error");
-
-			result->resultStatus = FBRES_FATAL_ERROR;
-			_FQsetResultError(conn, result);
-
 			/* if autocommit, and no explicit transaction set, rollback */
 			if (conn->autocommit == true && conn->in_user_transaction == false)
 			{
 				_FQrollbackTransaction(conn, trans);
 			}
 
-			_FQexecClearResult(result);
-
 			if (free_result_stmt_handle)
 				isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
 
 			return result;
 		}
-
-		result->ntups = num_rows;
 	}
 
 	/*
@@ -2454,7 +2406,12 @@ _FQexecParams(FBconn *conn,
 		_FQrollbackTransaction(conn, trans);
 		result->resultStatus = FBRES_FATAL_ERROR;
 
-		_FQexecClearResultParams(conn, result, free_result_stmt_handle);
+		_FQexecClearResult(result);
+
+		if (free_result_stmt_handle)
+		{
+			isc_dsql_free_statement(conn->status, &result->stmt_handle, DSQL_drop);
+		}
 
 		return result;
 	}
@@ -2475,90 +2432,95 @@ _FQexecParams(FBconn *conn,
 		}
 	}
 
-	/* add an array for offset-based access */
-	_FQexecFillTuplesArray(result);
-
-	result->resultStatus = FBRES_TUPLES_OK;
-
 	/* if autocommit, and no explicit transaction set, commit */
 	if (conn->autocommit == true && conn->in_user_transaction == false)
 	{
 		_FQcommitTransaction(conn, trans);
 	}
 
-	/*
-	 * Clear up internal storage; we already freed the statement handle,
-	 * if required.
-	 */
-	_FQexecClearResult(result);
-
 	return result;
 }
 
+
+static void ___fill_in_FQresTupleAttDesc_from_sqlvar(FBconn *conn, FQresTupleAttDesc *desc, XSQLVAR *var) {
+	desc->desc_len = var->sqlname_length;
+	desc->desc = (char *)malloc(desc->desc_len + 1);
+	memcpy(desc->desc, var->sqlname, desc->desc_len + 1);
+	desc->desc_dsplen = FQdspstrlen(desc->desc, FQclientEncodingId(conn));
+
+	if (var->aliasname_length == var->sqlname_length
+			&& strncmp(var->aliasname, var->sqlname, var->aliasname_length ) == 0)
+	{
+		desc->alias_len = 0;
+		desc->alias = NULL;
+	}
+	else
+	{
+		desc->alias_len = var->aliasname_length;
+		desc->alias = (char *)malloc(desc->alias_len + 1);
+		memcpy(desc->alias, var->aliasname, desc->alias_len + 1);
+		desc->alias_dsplen = FQdspstrlen(desc->alias, FQclientEncodingId(conn));
+	}
+
+	/* store table name, if set */
+	if (var->relname_length)
+	{
+		desc->relname_len = var->relname_length;
+		desc->relname = (char *)malloc(desc->relname_len + 1);
+		memset(desc->relname, '\0', desc->relname_len + 1);
+		strncpy(desc->relname, var->relname, desc->relname_len);
+	}
+	else
+	{
+		desc->relname_len = 0;
+		desc->relname = NULL;
+	}
+
+	desc->att_max_len = 0;
+	desc->att_max_line_len = 0;
+
+	/* Firebird returns RDB$DB_KEY as "DB_KEY" - set the pseudo-datatype */
+	if (strncmp(desc->desc, "DB_KEY", 6) == 0 && strlen(desc->desc) == 6)
+		desc->type = SQL_DB_KEY;
+	else
+		desc->type = var->sqltype & ~1;
+
+	desc->has_null = false;
+}
+
+
+static void __compute_result_header_from_sqlda_out(FBresult *result, FBconn *conn) {
+	int i;
+
+	result->header = malloc(sizeof(FQresTupleAttDesc *) * result->ncols);
+
+	for (i = 0; i < result->ncols; i++)
+	{
+		FQresTupleAttDesc *desc = (FQresTupleAttDesc *)malloc(sizeof(FQresTupleAttDesc));
+		XSQLVAR *var1 = &result->sqlda_out->sqlvar[i];
+
+		___fill_in_FQresTupleAttDesc_from_sqlvar(conn, desc, var1);
+
+		result->header[i] = desc;
+	}
+}
+
+
 static void
-_FQstoreResult(FBresult *result, FBconn *conn, int num_rows)
+_FQstoreResult(FBresult *result, FBconn *conn)
 {
 	FQresTuple *tuple_next = (FQresTuple *)malloc(sizeof(FQresTuple));
 	int i;
 
-	tuple_next->position = num_rows;
+	tuple_next->position = result->ntups;
 	tuple_next->max_lines = 1;
 	tuple_next->next = NULL;
 	tuple_next->values = malloc(sizeof(FQresTupleAtt *) * result->ncols);
 
 	/* store header information */
-	if (num_rows == 0)
+	if (result->ntups == 0)
 	{
-		for (i = 0; i < result->ncols; i++)
-		{
-			FQresTupleAttDesc *desc = (FQresTupleAttDesc *)malloc(sizeof(FQresTupleAttDesc));
-			XSQLVAR *var1 = &result->sqlda_out->sqlvar[i];
-
-			desc->desc_len = var1->sqlname_length;
-			desc->desc = (char *)malloc(desc->desc_len + 1);
-			memcpy(desc->desc, var1->sqlname, desc->desc_len + 1);
-			desc->desc_dsplen = FQdspstrlen(desc->desc, FQclientEncodingId(conn));
-
-			if (var1->aliasname_length == var1->sqlname_length
-				&& strncmp(var1->aliasname, var1->sqlname, var1->aliasname_length ) == 0)
-			{
-				desc->alias_len = 0;
-				desc->alias = NULL;
-			}
-			else
-			{
-				desc->alias_len = var1->aliasname_length;
-				desc->alias = (char *)malloc(desc->alias_len + 1);
-				memcpy(desc->alias, var1->aliasname, desc->alias_len + 1);
-				desc->alias_dsplen = FQdspstrlen(desc->alias, FQclientEncodingId(conn));
-			}
-
-			/* store table name, if set */
-			if (var1->relname_length)
-			{
-				desc->relname_len = var1->relname_length;
-				desc->relname = (char *)malloc(desc->relname_len + 1);
-				memset(desc->relname, '\0', desc->relname_len + 1);
-				strncpy(desc->relname, var1->relname, desc->relname_len);
-			}
-			else
-			{
-				desc->relname_len = 0;
-				desc->relname = NULL;
-			}
-
-			desc->att_max_len = 0;
-			desc->att_max_line_len = 0;
-
-			/* Firebird returns RDB$DB_KEY as "DB_KEY" - set the pseudo-datatype */
-			if (strncmp(desc->desc, "DB_KEY", 6) == 0 && strlen(desc->desc) == 6)
-				desc->type = SQL_DB_KEY;
-			else
-				desc->type = var1->sqltype & ~1;
-
-			desc->has_null = false;
-			result->header[i] = desc;
-		}
+		__compute_result_header_from_sqlda_out(result, conn);
 	}
 
 	/* Store tuple data */
@@ -2604,6 +2566,8 @@ _FQstoreResult(FBresult *result, FBconn *conn, int num_rows)
 		result->tuple_last->next = tuple_next;
 		result->tuple_last = tuple_next;
 	}
+
+	result->ntups++;
 }
 
 
@@ -3415,7 +3379,7 @@ _FQsaveMessageField(FBresult **res, FQdiagType code, const char *value, ...)
 	 */
 	if (*res == NULL)
 	{
-		*res = _FQinitResult(false);
+		*res = _FQinitResult();
 	}
 
 	/*
@@ -4434,9 +4398,6 @@ FQclear(FBresult *result)
 
 				FQresTuple *tuple_next = tuple_ptr->next;
 
-				if (!tuple_next)
-					break;
-
 				for (j = 0; j < result->ncols; j++)
 				{
 
@@ -4450,6 +4411,9 @@ FQclear(FBresult *result)
 
 				free(tuple_ptr->values);
 				free(tuple_ptr);
+
+				if (!tuple_next)
+					break;
 
 				tuple_ptr = tuple_next;
 			}
@@ -4475,21 +4439,8 @@ FQclear(FBresult *result)
 		}
 	}
 
-	/*
-	 * NOTE: these should be cleared by _FQexecClearResult() anyway
-	 * XXX we should call _FQexecClearSQLDA here too
-	 */
-	if (result->sqlda_in != NULL)
-	{
-		free(result->sqlda_in);
-		result->sqlda_in = NULL;
-	}
+	_FQexecClearResult(result);
 
-	if (result->sqlda_out != NULL)
-	{
-		free(result->sqlda_out);
-		result->sqlda_out  = NULL;
-	}
 	free(result);
 }
 
@@ -4525,7 +4476,7 @@ _FQexplainStatement(FBconn *conn, const char *stmt, char plan_type)
 	char *plan_out = NULL;
 	short plan_length;
 
-	result = _FQinitResult(false);
+	result = _FQinitResult();
 
 	if (!conn)
 	{
@@ -4535,22 +4486,18 @@ _FQexplainStatement(FBconn *conn, const char *stmt, char plan_type)
 		return NULL;
 	}
 
+	ISC_STATUS error;
 
-	if (isc_dsql_allocate_statement(conn->status, &conn->db, &result->stmt_handle) != 0)
+	error = __allocate_statement(conn, result, false);
+	if (error)
 	{
-		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_allocate_statement");
-		_FQsetResultError(conn, result);
-
 		FQclear(result);
 		return NULL;
 	}
 
-	/* Prepare the statement. */
-	if (isc_dsql_prepare(conn->status, &conn->trans, &result->stmt_handle, 0, stmt, SQL_DIALECT_V6, result->sqlda_out))
+	error = __prepare_statement(conn, result, &conn->trans, stmt, result->sqlda_out);
+	if (error)
 	{
-		_FQsaveMessageField(&result, FB_DIAG_DEBUG, "error - isc_dsql_prepare");
-		_FQsetResultError(conn, result);
-
 		FQclear(result);
 		return NULL;
 	}
@@ -4802,7 +4749,7 @@ format_int128(__int128 val, char *dst)
 }
 
 static __int128
-convert_int128(const char *s)
+__parse_int128(const char *s)
 {
     const char *p = s;
     int neg = 0;
