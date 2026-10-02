@@ -141,9 +141,7 @@ static char *_FQformatOctet(char *data, int len);
 
 static char *_FQexplainStatement(FBconn *conn, const char *stmt, char plan_type);
 
-inline int32_t MAX(int32_t a, int32_t b) { return((a) > (b) ? a : b); }
-inline int32_t MIN(int32_t a, int32_t b) { return((a) < (b) ? a : b); }
-
+static inline int32_t MIN(int32_t a, int32_t b) { return((a) < (b) ? a : b); }
 
 /* keep this in same order as FQexecStatusType in libfq.h */
 char *const fbresStatus[] = {
